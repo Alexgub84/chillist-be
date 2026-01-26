@@ -256,14 +256,14 @@ See README template below with:
 
 **GitHub Actions:**
 
-1. [ ] Create `.github/workflows/ci.yml`
-2. [ ] Create `.github/workflows/deploy.yml`
+1. [x] Create `.github/workflows/ci.yml`
+2. [x] Create `.github/workflows/deploy.yml`
 
 **GitHub Branches:**
 
-3. [ ] Create `staging` branch from `main`
-4. [ ] Configure branch protection for `main`
-5. [ ] Configure branch protection for `staging`
+3. [x] Create `staging` branch from `main`
+4. [x] Configure branch protection for `main`
+5. [x] Configure branch protection for `staging`
 
 **GitHub Environments:**
 
@@ -280,8 +280,8 @@ See README template below with:
 
 **Documentation:**
 
-13. [ ] Create `README.md` with local setup instructions
-14. [ ] Add deployment rules section to README
+13. [x] Create `README.md` with local setup instructions
+14. [x] Add deployment rules section to README
 
 **Test:**
 
