@@ -1,124 +1,313 @@
-# Chillist Backend Implementation Plan
+# Railway CI/CD Deployment Plan
 
-> Build a Node.js + Fastify backend for the Chillist trip planning app, starting with in-memory storage and later integrating PostgreSQL. The API will support CRUD operations for Plans, Participants, and Items.
+Deploy Chillist backend to Railway with GitHub Actions CI/CD pipeline, branch protection, and staging/production environments.
 
-## Progress
-
-- [x] Initialize project: package.json, tsconfig.json, .env.example, folder structure
-- [x] Set up ESLint, Prettier, Husky, Vitest
-- [x] Create Fastify app with CORS, logger, health check
-- [ ] Create TypeScript types and Zod schemas from frontend spec
-- [ ] Implement in-memory repository with CRUD operations
-- [ ] Create service layer with business logic (UUID generation, timestamps, validation)
-- [ ] Implement all 15 Fastify route handlers
-- [ ] Test all endpoints against frontend expectations
-
-## Architecture Overview
+## Architecture
 
 ```mermaid
-flowchart TB
-    subgraph client [Frontend]
-        React[React App]
+flowchart LR
+    subgraph github [GitHub]
+        Feature[feature/*]
+        Staging[staging]
+        Main[main]
+        CI[GitHub Actions]
     end
     
-    subgraph backend [Backend - Fastify]
-        Router[Route Handlers]
-        Validation[Zod Schemas]
-        Service[Business Logic]
-        Repository[Repository Layer]
+    subgraph railway [Railway]
+        StagingEnv[Staging Service]
+        ProdEnv[Production Service]
     end
     
-    subgraph storage [Storage]
-        InMemory[In-Memory Store]
-        Postgres[(PostgreSQL)]
-    end
+    Feature -->|PR + tests pass| Staging
+    Staging -->|PR + tests pass| Main
+    Staging -->|auto-deploy| StagingEnv
+    Main -->|auto-deploy| ProdEnv
+```
+
+---
+
+## Git Workflow
+
+### Branch Strategy
+
+| Branch | Purpose | Protection |
+|--------|---------|------------|
+| `feature/*` | Development work | None |
+| `staging` | Pre-production testing | PR required, CI must pass |
+| `main` | Production | PR required, CI must pass |
+
+### Rules
+
+1. No direct push to `main` or `staging`
+2. All changes via Pull Request
+3. PRs require passing CI checks (lint, typecheck, tests, build)
+4. `staging` → `main` merges only after verification in staging environment
+
+---
+
+## Phase 1: GitHub Actions
+
+### 1.1 CI Workflow
+
+Create `.github/workflows/ci.yml`:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
     
-    React -->|HTTP REST| Router
-    Router --> Validation
-    Validation --> Service
-    Service --> Repository
-    Repository -->|Phase 1| InMemory
-    Repository -.->|Phase 2| Postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
 ```
 
-## Project Structure
+### 1.2 Deploy Workflow
+
+Create `.github/workflows/deploy.yml`:
+
+```yaml
+name: Deploy
+
+on:
+  push:
+    branches: [main, staging]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:run
+      - run: npm run build
+
+  deploy-staging:
+    needs: test
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Railway Staging
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: chillist-be-staging
+
+  deploy-production:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Railway Production
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: chillist-be-production
+```
+
+---
+
+## Phase 2: Branch Protection
+
+Configure in GitHub repo → Settings → Branches → Add rule
+
+### For `main` branch
+
+- Branch name pattern: `main`
+- [x] Require a pull request before merging
+- [x] Require status checks to pass before merging
+  - Status check: `test`
+- [x] Require branches to be up to date before merging
+- [x] Do not allow bypassing the above settings
+
+### For `staging` branch
+
+- Branch name pattern: `staging`
+- [x] Require a pull request before merging
+- [x] Require status checks to pass before merging
+  - Status check: `test`
+- [x] Require branches to be up to date before merging
+
+---
+
+## Phase 3: GitHub Environments
+
+Create in GitHub repo → Settings → Environments
+
+### staging
+
+- No protection rules (auto-deploy on merge to staging)
+
+### production
+
+- Optional: Add required reviewers for extra safety
+
+### Add Secret
+
+Both environments need:
+
+- `RAILWAY_TOKEN` — Get from Railway Dashboard → Account Settings → Tokens
+
+---
+
+## Phase 4: Railway Setup
+
+### 4.1 Create Railway Project
+
+1. Go to [railway.app](https://railway.app)
+2. New Project → Deploy from GitHub repo
+3. Select `chillist-be` repository
+
+### 4.2 Create Two Services
+
+**Staging Service (`chillist-be-staging`):**
+
+Environment variables:
 
 ```
-chillist-be/
-├── src/
-│   ├── index.ts              # Entry point
-│   ├── app.ts                # Fastify app setup
-│   ├── config.ts             # Environment config
-│   ├── types/
-│   │   └── index.ts          # All TypeScript types/interfaces
-│   ├── schemas/
-│   │   ├── plan.schema.ts
-│   │   ├── participant.schema.ts
-│   │   └── item.schema.ts
-│   ├── routes/
-│   │   ├── health.route.ts
-│   │   ├── plans.route.ts
-│   │   ├── participants.route.ts
-│   │   └── items.route.ts
-│   ├── services/
-│   │   ├── plan.service.ts
-│   │   ├── participant.service.ts
-│   │   └── item.service.ts
-│   └── repositories/
-│       ├── repository.interface.ts
-│       ├── in-memory.repository.ts
-│       └── postgres.repository.ts  # Phase 2
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-├── docs/
-│   └── PLAN.md
-├── package.json
-├── tsconfig.json
-├── .env.example
-└── README.md
+PORT=3333
+HOST=0.0.0.0
+NODE_ENV=staging
+LOG_LEVEL=debug
 ```
 
-## API Endpoints (15 total)
+**Production Service (`chillist-be-production`):**
 
-### Health
-- `GET /health` → `{ ok: true }`
+Environment variables:
 
-### Plans (5)
-- `GET /plans` - List all plans
-- `POST /plans` - Create a new plan
-- `GET /plan/:planId` - Get a single plan
-- `PATCH /plan/:planId` - Update a plan
-- `DELETE /plan/:planId` - Delete a plan (cascade items)
+```
+PORT=3333
+HOST=0.0.0.0
+NODE_ENV=production
+LOG_LEVEL=info
+```
 
-### Participants (5)
-- `GET /plan/:planId/participants` - List participants for a plan
-- `POST /plan/:planId/participants` - Add participant to a plan
-- `GET /participants/:participantId` - Get a single participant
-- `PATCH /participants/:participantId` - Update a participant
-- `DELETE /participants/:participantId` - Remove a participant
+### 4.3 Get Railway Token
 
-### Items (5)
-- `GET /plan/:planId/items` - List items for a plan
-- `POST /plan/:planId/items` - Add item to a plan
-- `GET /items/:itemId` - Get a single item
-- `PATCH /items/:itemId` - Update an item
-- `DELETE /items/:itemId` - Remove an item
+1. Railway Dashboard → Account Settings → Tokens
+2. Create new token
+3. Add to GitHub: Settings → Secrets and variables → Actions → New repository secret
+   - Name: `RAILWAY_TOKEN`
+   - Value: `<your-token>`
 
-## Data Models
+---
 
-All interfaces are defined in the frontend spec ([front-end-README.md](../front-end-README.md)):
-- `Plan`, `PlanCreate`, `PlanPatch`
-- `Participant`, `ParticipantCreate`, `ParticipantPatch`
-- `Item` (discriminated union: EquipmentItem | FoodItem), `ItemCreate`, `ItemPatch`
-- Enums: `PlanStatus`, `ParticipantRole`, `ItemCategory`, `ItemStatus`, `Unit`
+## Phase 5: Documentation
 
-## Phase 1 vs Phase 2
+### Create `README.md`
 
-| Aspect | Phase 1 (Current) | Phase 2 (Future) |
-|--------|-------------------|------------------|
-| Storage | In-memory Map/Object | PostgreSQL |
-| Persistence | Lost on restart | Persistent |
-| Setup | Zero config | Requires DB setup |
-| Use case | Dev/testing | Production |
+See README template below with:
+- Local development setup instructions
+- Available npm scripts
+- Deployment rules and branch strategy
+- Environment URLs
+
+---
+
+## Files to Create
+
+| File | Description |
+|------|-------------|
+| `.github/workflows/ci.yml` | CI pipeline (lint, typecheck, test, build) |
+| `.github/workflows/deploy.yml` | Deploy pipeline to Railway |
+| `README.md` | Local setup and deployment documentation |
+
+---
+
+## Deployment Checklist
+
+**GitHub Actions:**
+
+1. [ ] Create `.github/workflows/ci.yml`
+2. [ ] Create `.github/workflows/deploy.yml`
+
+**GitHub Branches:**
+
+3. [ ] Create `staging` branch from `main`
+4. [ ] Configure branch protection for `main`
+5. [ ] Configure branch protection for `staging`
+
+**GitHub Environments:**
+
+6. [ ] Create `staging` environment
+7. [ ] Create `production` environment
+8. [ ] Add `RAILWAY_TOKEN` secret
+
+**Railway:**
+
+9. [ ] Create Railway account/project
+10. [ ] Create staging service with env vars
+11. [ ] Create production service with env vars
+12. [ ] Connect GitHub repo
+
+**Documentation:**
+
+13. [ ] Create `README.md` with local setup instructions
+14. [ ] Add deployment rules section to README
+
+**Test:**
+
+15. [ ] Create feature branch
+16. [ ] Open PR to staging → verify CI runs
+17. [ ] Merge to staging → verify deploy to staging
+18. [ ] Open PR from staging to main → verify CI runs
+19. [ ] Merge to main → verify deploy to production
+
+---
+
+## Cost Estimate
+
+| Service | Free Tier |
+|---------|-----------|
+| **GitHub Actions** | 2,000 minutes/month |
+| **Railway** | $5/month credits |
+| **Total MVP** | $0-5/month |
+
+---
+
+## Future: Supabase Integration (Deferred)
+
+When ready to add user management and persistent database:
+
+- Add Supabase project
+- Add auth middleware
+- Migrate from in-memory to PostgreSQL
+- Add `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` to Railway env vars
