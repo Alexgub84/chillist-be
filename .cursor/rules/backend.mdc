@@ -1,0 +1,151 @@
+---
+description: Backend conventions for Chillist API (Fastify + TypeScript)
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Chillist Backend Conventions
+
+## Stack
+- Runtime: Node.js 20+ with ESM
+- Framework: Fastify 5.x
+- Validation: Zod
+- Logger: Pino (Fastify built-in)
+- Testing: Vitest
+- Linting: ESLint + Prettier
+- Language: TypeScript (strict mode)
+
+## Code Quality
+
+### TypeScript
+- Strict mode enabled (`"strict": true`)
+- No implicit any (`"noImplicitAny": true`)
+- ESM modules (`"module": "NodeNext"`)
+
+### ESLint
+- TypeScript-ESLint recommended rules
+- No unused variables (error)
+- No explicit any (warn)
+- Consistent return types
+
+### Prettier
+- Single quotes
+- No semicolons (or with - match frontend)
+- 2-space indent
+- Trailing commas
+
+### Husky Pre-commit
+Runs on every commit:
+1. `npm run typecheck` - Fail on TS errors
+2. `npm run lint` - ESLint + Prettier via lint-staged
+3. `npm run test:run` - Unit tests in CI mode
+
+### Commands
+- `npm run lint` - Check lint errors
+- `npm run lint:fix` - Auto-fix lint errors
+- `npm run typecheck` - TypeScript check
+- `npm run format` - Prettier format
+
+## Project Structure
+```
+src/
+├── index.ts          # Entry point
+├── app.ts            # Fastify setup
+├── config.ts         # Environment config
+├── types/            # TypeScript interfaces
+├── schemas/          # Zod validation schemas
+├── routes/           # Route handlers
+├── services/         # Business logic
+└── repositories/     # Data access layer
+```
+
+## Patterns
+- Repository pattern for data access (swap in-memory ↔ PostgreSQL)
+- Service layer contains business logic (UUID generation, timestamps)
+- Routes handle HTTP concerns only (parsing, status codes)
+- Zod schemas validate all request bodies
+
+## API Response Codes
+- 200: GET, PATCH success
+- 201: POST success
+- 204: DELETE success
+- 400: Validation error
+- 404: Resource not found
+
+## Error Format
+```typescript
+{ message: "Human-readable error description" }
+```
+
+## Logging
+Use Fastify's built-in Pino logger (`request.log` or `fastify.log`):
+
+- **error**: Exceptions, failed operations, validation errors
+- **warn**: Deprecated usage, retry attempts, edge cases
+- **info**: Data mutations (create, update, delete)
+
+```typescript
+// Data update logging
+log.info({ planId, action: 'created' }, 'Plan created')
+log.info({ itemId, changes: ['status'] }, 'Item updated')
+log.warn({ participantId }, 'Deleting owner participant')
+log.error({ err, planId }, 'Failed to delete plan')
+```
+
+## Testing
+
+### Structure
+```
+tests/
+├── unit/              # Pure function tests (services, utils)
+│   └── *.test.ts
+├── integration/       # Component interaction (routes + services + repo)
+│   └── *.test.ts
+└── e2e/               # Full HTTP request/response cycles
+    └── *.test.ts
+```
+
+### Unit Tests
+- Test services and utilities in isolation
+- Mock repository layer
+- Fast, no I/O
+
+```typescript
+describe('PlanService', () => {
+  it('generates UUID and timestamps on create', () => {})
+  it('throws if title is empty', () => {})
+})
+```
+
+### Integration Tests
+- Test routes with real in-memory repository
+- Use `fastify.inject()` for HTTP simulation
+- Verify business logic flows
+
+```typescript
+describe('POST /plans', () => {
+  it('creates plan and returns 201', async () => {
+    const res = await app.inject({ method: 'POST', url: '/plans', payload: {...} })
+    expect(res.statusCode).toBe(201)
+  })
+})
+```
+
+### E2E Tests
+- Full server startup with real HTTP calls
+- Test complete user flows (create plan → add items → update status)
+- Phase 1: Run against in-memory repository
+- Phase 2: Run against local PostgreSQL test database
+
+```typescript
+describe('Plan workflow', () => {
+  it('owner can create plan, add participants, and items', async () => {})
+})
+```
+
+### Commands
+- `npm test` - Run all tests
+- `npm run test:unit` - Unit only
+- `npm run test:integration` - Integration only
+- `npm run test:e2e` - E2E only
+- `npm run test:coverage` - With coverage report

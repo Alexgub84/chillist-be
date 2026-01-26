@@ -1,0 +1,42 @@
+---
+description: Global workflow rules for planning, implementation, and code quality
+alwaysApply: true
+---
+
+# Workflow Rules
+
+## Planning Mode
+- Output a concise plan before writing code
+- Identify modules/components affected and design patterns to use
+- Flag potential security risks (OWASP)
+- If less than 90% sure about intent, ask clarifying questions
+
+## Implementation Flow
+1. Structure First: Break tasks into small functions, show signatures only
+2. Wait for Approval: Do not implement until reviewed
+3. One by One: Implement each function individually, not large blocks
+
+## Code Standards
+- No comments in code (exception: complex "why" logic)
+- No lazy coding: never use `// ... rest of code` placeholders
+- Read target file's imports, types, and style before generating code
+- Pin dependency versions exactly (no `^` or `~` ranges)
+
+## Security (OWASP)
+- Never output API keys, passwords, or tokens
+- Assume all input is malicious - use Zod for validation
+- Use parameterized queries for SQL
+
+## File Permissions
+- Allowed to update `.env` file when adding/modifying environment variables
+- Always update `.env.example` when adding new env vars (without actual values)
+
+## Debugging
+- Stop on test/build failures - do not proceed
+- Analyze root cause before fixing, don't randomly patch
+
+## Finalization
+1. Run validation (build, lint, test)
+2. Fix any failures automatically
+3. Ask for user confirmation
+4. Generate git commit command when approved
