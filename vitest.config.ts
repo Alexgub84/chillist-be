@@ -5,6 +5,15 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
+    env: {
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/chillist',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
