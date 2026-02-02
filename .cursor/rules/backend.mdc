@@ -60,6 +60,35 @@ src/
 ```
 
 ## Patterns
+
+### Dependency Injection (Required)
+All services must be injected into the app - never imported directly by routes.
+
+```typescript
+// src/app.ts - accept dependencies
+export async function buildApp(deps: { db: Database }) {
+  const fastify = Fastify()
+  fastify.decorate('db', deps.db)
+  return fastify
+}
+
+// src/index.ts - production entry creates and injects real services
+const db = createDb(config.databaseUrl)
+const app = await buildApp({ db })
+
+// tests - inject test services
+const db = await setupTestDatabase()
+const app = await buildApp({ db })
+```
+
+**Rules:**
+- Routes access services via Fastify context (`fastify.db`, `fastify.cache`)
+- Never import db/services directly in routes
+- Entry point (`src/index.ts`) creates real services
+- Tests create their own services (testcontainers, mocks)
+- No test-specific code in production files
+
+### Other Patterns
 - Repository pattern for data access (swap in-memory ↔ PostgreSQL)
 - Service layer contains business logic (UUID generation, timestamps)
 - Routes handle HTTP concerns only (parsing, status codes)

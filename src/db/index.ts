@@ -1,20 +1,19 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { config } from '../config.js'
 import * as schema from './schema.js'
 
-const connectionString = config.databaseUrl
+export type Database = ReturnType<typeof drizzle<typeof schema>>
 
-if (!connectionString) {
-  throw new Error('DATABASE_URL environment variable is required')
-}
+export function createDb(connectionString: string) {
+  const client = postgres(connectionString)
+  const db = drizzle(client, { schema })
 
-const client = postgres(connectionString)
-
-export const db = drizzle(client, { schema })
-
-export async function closeDb() {
-  await client.end()
+  return {
+    db,
+    async close() {
+      await client.end()
+    },
+  }
 }
 
 export { schema }

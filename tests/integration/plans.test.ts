@@ -12,8 +12,8 @@ describe('Plans Route', () => {
   let app: FastifyInstance
 
   beforeAll(async () => {
-    await setupTestDatabase()
-    app = await buildApp()
+    const db = await setupTestDatabase()
+    app = await buildApp({ db })
   })
 
   afterAll(async () => {

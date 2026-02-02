@@ -11,9 +11,7 @@ export default defineConfig({
         singleFork: true,
       },
     },
-    env: {
-      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/chillist',
-    },
+    testTimeout: 60000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

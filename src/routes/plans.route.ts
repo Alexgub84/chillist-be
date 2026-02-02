@@ -1,11 +1,13 @@
 import { FastifyInstance } from 'fastify'
-import { db } from '../db/index.js'
 import { plans } from '../db/schema.js'
 
 export async function plansRoutes(fastify: FastifyInstance) {
   fastify.get('/plans', async (request, reply) => {
     try {
-      const allPlans = await db.select().from(plans).orderBy(plans.createdAt)
+      const allPlans = await fastify.db
+        .select()
+        .from(plans)
+        .orderBy(plans.createdAt)
 
       request.log.info({ count: allPlans.length }, 'Plans retrieved')
       return allPlans

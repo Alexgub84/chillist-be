@@ -1,24 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Fastify from 'fastify'
-
-vi.mock('../../src/db/index.js', () => ({
-  db: {
-    select: vi.fn(),
-  },
-  schema: {
-    plans: {},
-  },
-}))
-
 import { plansRoutes } from '../../src/routes/plans.route.js'
-import { db } from '../../src/db/index.js'
+
+function createMockDb() {
+  return {
+    select: vi.fn(),
+  }
+}
 
 describe('Plans Route - Error Scenarios', () => {
   let app: ReturnType<typeof Fastify>
+  let mockDb: ReturnType<typeof createMockDb>
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    mockDb = createMockDb()
+
     app = Fastify({ logger: false })
+    app.decorate('db', mockDb)
     await app.register(plansRoutes)
   })
 
@@ -28,12 +27,11 @@ describe('Plans Route - Error Scenarios', () => {
 
   describe('GET /plans - Database Errors', () => {
     it('returns 503 when database connection fails', async () => {
-      const mockSelect = vi.mocked(db.select)
-      mockSelect.mockReturnValue({
+      mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
           orderBy: vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED')),
         }),
-      } as never)
+      })
 
       const response = await app.inject({
         method: 'GET',
@@ -47,14 +45,13 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 500 when database query fails with unknown error', async () => {
-      const mockSelect = vi.mocked(db.select)
-      mockSelect.mockReturnValue({
+      mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
           orderBy: vi
             .fn()
             .mockRejectedValue(new Error('Unknown database error')),
         }),
-      } as never)
+      })
 
       const response = await app.inject({
         method: 'GET',
@@ -68,12 +65,11 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 500 when non-Error is thrown', async () => {
-      const mockSelect = vi.mocked(db.select)
-      mockSelect.mockReturnValue({
+      mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
           orderBy: vi.fn().mockRejectedValue('string error'),
         }),
-      } as never)
+      })
 
       const response = await app.inject({
         method: 'GET',
@@ -87,12 +83,11 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 503 when connection timeout occurs', async () => {
-      const mockSelect = vi.mocked(db.select)
-      mockSelect.mockReturnValue({
+      mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
           orderBy: vi.fn().mockRejectedValue(new Error('connection timeout')),
         }),
-      } as never)
+      })
 
       const response = await app.inject({
         method: 'GET',

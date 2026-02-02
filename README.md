@@ -32,6 +32,16 @@ npm run dev
 
 The server starts at `http://localhost:3333`
 
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `PORT` | Server port (default: 3333) | No |
+| `NODE_ENV` | Environment (development/production) | No |
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `FRONTEND_URL` | Frontend URL for CORS (production) | Yes (prod) |
+| `API_KEY` | Secret key for API authentication | Yes (prod) |
+
 ## Scripts
 
 | Command | Description |
@@ -71,13 +81,29 @@ The server starts at `http://localhost:3333`
 
 ## API Endpoints
 
+### Authentication
+
+All endpoints (except `/health`) require the `x-api-key` header in production:
+
+```bash
+curl -H "x-api-key: your-secret-key" https://api.example.com/plans
+```
+
 ### Health Check
 
 ```
 GET /health
 ```
 
-Returns server health status.
+Returns server health status (no authentication required).
+
+### Plans
+
+```
+GET /plans
+```
+
+Returns all plans.
 
 ## License
 

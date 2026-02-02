@@ -25,7 +25,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:migrate:prod": "DATABASE_URL=$(railway run printenv DATABASE_PUBLIC_URL) npm run db:migrate"
   },
   "dependencies": {
     "@fastify/cors": "11.0.0",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "9.18.0",
+    "@testcontainers/postgresql": "11.11.0",
     "@types/node": "22.10.7",
     "drizzle-kit": "0.31.8",
     "eslint": "9.18.0",
@@ -45,6 +47,7 @@
     "lint-staged": "15.4.0",
     "pino-pretty": "13.0.0",
     "prettier": "3.4.2",
+    "testcontainers": "11.11.0",
     "tsx": "4.19.2",
     "typescript": "5.7.3",
     "typescript-eslint": "8.21.0",

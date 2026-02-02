@@ -1,19 +1,26 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from '@testcontainers/postgresql'
 import * as schema from '../../src/db/schema.js'
+import { Database } from '../../src/db/index.js'
 
-const TEST_DATABASE_URL =
-  process.env.DATABASE_URL ||
-  'postgresql://postgres:postgres@localhost:5432/chillist'
-
+let container: StartedPostgreSqlContainer | null = null
 let client: ReturnType<typeof postgres> | null = null
-let db: ReturnType<typeof drizzle<typeof schema>> | null = null
+let db: Database | null = null
 
-export async function setupTestDatabase() {
+export async function setupTestDatabase(): Promise<Database> {
   if (db) return db
 
-  client = postgres(TEST_DATABASE_URL, { max: 1 })
+  container = await new PostgreSqlContainer('postgres:16-alpine')
+    .withDatabase('chillist_test')
+    .start()
+
+  const connectionString = container.getConnectionUri()
+  client = postgres(connectionString, { max: 1 })
   db = drizzle(client, { schema })
 
   await migrate(db, { migrationsFolder: './drizzle' })
@@ -21,7 +28,7 @@ export async function setupTestDatabase() {
   return db
 }
 
-export async function getTestDb() {
+export async function getTestDb(): Promise<Database> {
   if (!db) {
     await setupTestDatabase()
   }
@@ -42,6 +49,11 @@ export async function closeTestDatabase() {
     await client.end()
     client = null
     db = null
+  }
+
+  if (container) {
+    await container.stop()
+    container = null
   }
 }
 
