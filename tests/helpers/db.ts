@@ -1,0 +1,75 @@
+import { drizzle } from 'drizzle-orm/postgres-js'
+import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import postgres from 'postgres'
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from '@testcontainers/postgresql'
+import * as schema from '../../src/db/schema.js'
+import { Database } from '../../src/db/index.js'
+
+let container: StartedPostgreSqlContainer | null = null
+let client: ReturnType<typeof postgres> | null = null
+let db: Database | null = null
+
+export async function setupTestDatabase(): Promise<Database> {
+  if (db) return db
+
+  container = await new PostgreSqlContainer('postgres:16-alpine')
+    .withDatabase('chillist_test')
+    .start()
+
+  const connectionString = container.getConnectionUri()
+  client = postgres(connectionString, { max: 1 })
+  db = drizzle(client, { schema })
+
+  await migrate(db, { migrationsFolder: './drizzle' })
+
+  return db
+}
+
+export async function getTestDb(): Promise<Database> {
+  if (!db) {
+    await setupTestDatabase()
+  }
+  return db!
+}
+
+export async function cleanupTestDatabase() {
+  const testDb = await getTestDb()
+
+  await testDb.delete(schema.itemAssignments)
+  await testDb.delete(schema.items)
+  await testDb.delete(schema.participants)
+  await testDb.delete(schema.plans)
+}
+
+export async function closeTestDatabase() {
+  if (client) {
+    await client.end()
+    client = null
+    db = null
+  }
+
+  if (container) {
+    await container.stop()
+    container = null
+  }
+}
+
+export async function seedTestPlans(count: number = 3) {
+  const testDb = await getTestDb()
+
+  const testPlans = Array.from({ length: count }, (_, i) => ({
+    title: `Test Plan ${i + 1}`,
+    description: `Description for test plan ${i + 1}`,
+    status: 'active' as const,
+    visibility: 'public' as const,
+  }))
+
+  const inserted = await testDb
+    .insert(schema.plans)
+    .values(testPlans)
+    .returning()
+  return inserted
+}
