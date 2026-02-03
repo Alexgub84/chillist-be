@@ -2,8 +2,14 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { config } from './config.js'
 import { healthRoutes } from './routes/health.route.js'
+import { plansRoutes } from './routes/plans.route.js'
+import { Database } from './db/index.js'
 
-export async function buildApp() {
+export interface AppDependencies {
+  db: Database
+}
+
+export async function buildApp(deps: AppDependencies) {
   const fastify = Fastify({
     logger: {
       level: config.logLevel,
@@ -19,11 +25,25 @@ export async function buildApp() {
     },
   })
 
+  fastify.decorate('db', deps.db)
+
   await fastify.register(cors, {
-    origin: true,
+    origin: config.isDev ? true : config.frontendUrl,
+    credentials: true,
+  })
+
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.url.startsWith('/health')) {
+      return
+    }
+
+    if (config.apiKey && request.headers['x-api-key'] !== config.apiKey) {
+      return reply.status(401).send({ message: 'Unauthorized' })
+    }
   })
 
   await fastify.register(healthRoutes)
+  await fastify.register(plansRoutes)
 
   return fastify
 }

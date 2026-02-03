@@ -303,6 +303,60 @@ See README template below with:
 
 ---
 
+## Current Security: CORS + API Key (Basic Protection)
+
+**Status:** Implemented as temporary protection for MVP.
+
+### What's in place:
+
+- **CORS restriction**: Only allows requests from `FRONTEND_URL` in production
+- **API key middleware**: Requires `x-api-key` header on all routes (except `/health`)
+- **Environment variables**: `FRONTEND_URL` and `API_KEY` must be set in Railway
+
+### Limitations:
+
+- API key is visible in browser DevTools (frontend sends it with requests)
+- Protects against bots and casual access, NOT against determined attackers
+- No user-level permissions (anyone with the key has full access)
+
+### Railway env vars to add:
+
+```
+FRONTEND_URL=https://your-frontend.vercel.app
+API_KEY=<generate with: openssl rand -base64 32>
+```
+
+### Frontend integration:
+
+```typescript
+fetch(`${import.meta.env.VITE_API_URL}/plans`, {
+  headers: { 'x-api-key': import.meta.env.VITE_API_KEY }
+})
+```
+
+---
+
+## Future: Proper Authentication (Required for Production)
+
+When the app has real users and sensitive data, upgrade to proper auth:
+
+### Option A: Supabase Auth (Recommended)
+- Supabase handles user signup/login
+- Backend verifies Supabase JWT tokens
+- Row-level security in database
+
+### Option B: Custom JWT Auth
+- Implement signup/login endpoints
+- Issue and verify JWT tokens
+- Add user ownership to plans
+
+### When to upgrade:
+- Before storing personal user data
+- Before handling payments
+- Before public launch with real users
+
+---
+
 ## Future: Supabase Integration (Deferred)
 
 When ready to add user management and persistent database:

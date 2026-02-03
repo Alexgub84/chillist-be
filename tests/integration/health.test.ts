@@ -1,16 +1,19 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { buildApp } from '../../src/app.js'
 import { FastifyInstance } from 'fastify'
+import { setupTestDatabase, closeTestDatabase } from '../helpers/db.js'
 
 describe('Health Route', () => {
   let app: FastifyInstance
 
   beforeAll(async () => {
-    app = await buildApp()
+    const db = await setupTestDatabase()
+    app = await buildApp({ db })
   })
 
   afterAll(async () => {
     await app.close()
+    await closeTestDatabase()
   })
 
   it('GET /health returns { ok: true }', async () => {
