@@ -11,8 +11,8 @@
     "start": "node dist/index.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src tests",
-    "lint:fix": "eslint src tests --fix",
+    "lint": "eslint src tests scripts",
+    "lint:fix": "eslint src tests scripts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "test": "npm run typecheck && npm run lint && vitest",
@@ -26,12 +26,19 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:migrate:prod": "DATABASE_URL=$(railway run printenv DATABASE_PUBLIC_URL) npm run db:migrate"
+    "db:migrate:prod": "DATABASE_URL=$(railway run printenv DATABASE_PUBLIC_URL) npm run db:migrate",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed:prod": "DATABASE_URL=$(railway run printenv DATABASE_PUBLIC_URL) npm run db:seed",
+    "openapi:generate": "tsx scripts/generate-openapi.ts",
+    "openapi:validate": "tsx scripts/generate-openapi.ts --validate"
   },
   "dependencies": {
     "@fastify/cors": "11.0.0",
+    "@fastify/swagger": "9.4.2",
+    "@fastify/swagger-ui": "5.2.1",
     "drizzle-orm": "0.45.1",
     "fastify": "5.2.1",
+    "fastify-type-provider-zod": "4.0.2",
     "postgres": "3.4.8",
     "zod": "3.24.1"
   },
