@@ -80,13 +80,13 @@ describe('Docker Production E2E Tests', () => {
   })
 
   describe('Health Endpoint', () => {
-    it('should return ok:true from health endpoint', async () => {
+    it('should return healthy status from health endpoint', async () => {
       const response = await fetch(`${API_URL}/health`)
 
       expect(response.status).toBe(200)
 
       const body = await response.json()
-      expect(body).toEqual({ ok: true })
+      expect(body).toEqual({ status: 'healthy', database: 'connected' })
     })
 
     it('should have correct content-type header', async () => {

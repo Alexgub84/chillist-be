@@ -157,6 +157,49 @@ See [Tailwind CSS v4 documentation](https://tailwindcss.com/docs) for more custo
 - ESLint + Prettier
 - Husky (pre-commit hooks)
 
+## API Type Generation (OpenAPI)
+
+The backend exposes an OpenAPI specification that can be used to automatically generate TypeScript types.
+
+### Generate Types from Backend
+
+```bash
+# Install openapi-typescript (one-time)
+npm install -D openapi-typescript
+
+# Generate types from live backend (dev mode)
+npx openapi-typescript http://localhost:3333/docs/json -o src/types/api.ts
+
+# Or from the static spec file
+npx openapi-typescript ../chillist-be/docs/openapi.json -o src/types/api.ts
+```
+
+### Add npm Script (Recommended)
+
+Add to `package.json`:
+
+```json
+{
+  "scripts": {
+    "types:api": "openapi-typescript http://localhost:3333/docs/json -o src/types/api.ts"
+  }
+}
+```
+
+Then run:
+
+```bash
+npm run types:api
+```
+
+### When to Regenerate
+
+Regenerate types whenever the backend API changes:
+
+1. Backend updates routes or schemas
+2. Run `npm run types:api` in frontend
+3. TypeScript will show any breaking changes at compile time
+
 ---
 
 # Backend API Specification

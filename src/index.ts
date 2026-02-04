@@ -3,11 +3,6 @@ import { config } from './config.js'
 import { createDb } from './db/index.js'
 
 async function start() {
-  if (!config.databaseUrl) {
-    console.error('DATABASE_URL environment variable is required')
-    process.exit(1)
-  }
-
   const { db, close: closeDb } = createDb(config.databaseUrl)
   const app = await buildApp({ db })
 
