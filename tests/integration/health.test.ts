@@ -16,13 +16,16 @@ describe('Health Route', () => {
     await closeTestDatabase()
   })
 
-  it('GET /health returns { ok: true }', async () => {
+  it('GET /health returns healthy status with database connected', async () => {
     const response = await app.inject({
       method: 'GET',
       url: '/health',
     })
 
     expect(response.statusCode).toBe(200)
-    expect(response.json()).toEqual({ ok: true })
+    expect(response.json()).toEqual({
+      status: 'healthy',
+      database: 'connected',
+    })
   })
 })

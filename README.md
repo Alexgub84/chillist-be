@@ -32,6 +32,20 @@ npm run dev
 
 The server starts at `http://localhost:3333`
 
+### API Documentation (Swagger)
+
+In development mode, Swagger UI is available at:
+
+```
+http://localhost:3333/docs
+```
+
+The OpenAPI JSON spec is available at:
+
+```
+http://localhost:3333/docs/json
+```
+
 ### Environment Variables
 
 | Variable | Description | Required |
@@ -56,6 +70,54 @@ The server starts at `http://localhost:3333`
 | `npm test` | Run tests in watch mode |
 | `npm run test:run` | Run tests once (CI mode) |
 | `npm run test:coverage` | Run tests with coverage |
+| `npm run openapi:generate` | Generate OpenAPI spec to docs/openapi.json |
+| `npm run openapi:validate` | Validate OpenAPI spec matches code |
+
+## OpenAPI / Frontend Integration
+
+The backend generates an OpenAPI specification that the frontend can use to generate TypeScript types.
+
+### Generate OpenAPI Spec
+
+```bash
+npm run openapi:generate
+```
+
+This creates `docs/openapi.json` which contains the full API specification.
+
+### Frontend Type Generation
+
+In the frontend repository, run:
+
+```bash
+# From live server (dev mode)
+npx openapi-typescript http://localhost:3333/docs/json -o src/types/api.ts
+
+# From static file
+npx openapi-typescript ../chillist-be/docs/openapi.json -o src/types/api.ts
+```
+
+This generates TypeScript types that exactly match the backend API responses.
+
+### Validate Spec is Up-to-Date
+
+```bash
+npm run openapi:validate
+```
+
+This checks that `docs/openapi.json` matches the current code. CI runs this automatically.
+
+### API Change Workflow
+
+When your PR changes the API (modifies `docs/openapi.json`):
+
+1. CI will fail with: `Add the 'fe-notified' label`
+2. Review the API changes
+3. Notify the frontend team to update their types
+4. Add the `fe-notified` label to the PR
+5. CI will pass and PR can be merged
+
+This ensures frontend is always aware of API changes before deployment.
 
 ## Branch Strategy
 
