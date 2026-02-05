@@ -6,6 +6,11 @@ import { registerSchemas } from '../../src/schemas/index.js'
 function createMockDb() {
   return {
     select: vi.fn(),
+    query: {
+      plans: {
+        findFirst: vi.fn(),
+      },
+    },
   }
 }
 
@@ -105,11 +110,9 @@ describe('Plans Route - Error Scenarios', () => {
 
   describe('GET /plans/:planId - Database Errors', () => {
     it('returns 503 when database connection fails', async () => {
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED')),
-        }),
-      })
+      mockDb.query.plans.findFirst.mockRejectedValue(
+        new Error('connect ECONNREFUSED')
+      )
 
       const response = await app.inject({
         method: 'GET',
@@ -123,11 +126,9 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 500 when database query fails with unknown error', async () => {
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue(new Error('Unknown database error')),
-        }),
-      })
+      mockDb.query.plans.findFirst.mockRejectedValue(
+        new Error('Unknown database error')
+      )
 
       const response = await app.inject({
         method: 'GET',
@@ -141,11 +142,7 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 500 when non-Error is thrown', async () => {
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue('string error'),
-        }),
-      })
+      mockDb.query.plans.findFirst.mockRejectedValue('string error')
 
       const response = await app.inject({
         method: 'GET',
@@ -159,11 +156,9 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 503 when connection timeout occurs', async () => {
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue(new Error('connection timeout')),
-        }),
-      })
+      mockDb.query.plans.findFirst.mockRejectedValue(
+        new Error('connection timeout')
+      )
 
       const response = await app.inject({
         method: 'GET',
