@@ -91,3 +91,34 @@ export const planIdParamSchema = {
   },
   required: ['planId'],
 } as const
+
+export const planWithItemsSchema = {
+  $id: 'PlanWithItems',
+  type: 'object',
+  properties: {
+    planId: { type: 'string', format: 'uuid' },
+    title: { type: 'string' },
+    description: { type: 'string', nullable: true },
+    status: { type: 'string', enum: ['draft', 'active', 'archived'] },
+    visibility: { type: 'string', enum: ['public', 'unlisted', 'private'] },
+    ownerParticipantId: { type: 'string', format: 'uuid', nullable: true },
+    location: {
+      oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
+    },
+    startDate: { type: 'string', format: 'date-time', nullable: true },
+    endDate: { type: 'string', format: 'date-time', nullable: true },
+    tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    createdAt: { type: 'string', format: 'date-time' },
+    updatedAt: { type: 'string', format: 'date-time' },
+    items: { $ref: 'ItemList#' },
+  },
+  required: [
+    'planId',
+    'title',
+    'status',
+    'visibility',
+    'createdAt',
+    'updatedAt',
+    'items',
+  ],
+} as const
