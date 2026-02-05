@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Fastify from 'fastify'
 import { plansRoutes } from '../../src/routes/plans.route.js'
+import { registerSchemas } from '../../src/schemas/index.js'
 
 function createMockDb() {
   return {
@@ -18,6 +19,7 @@ describe('Plans Route - Error Scenarios', () => {
 
     app = Fastify({ logger: false })
     app.decorate('db', mockDb)
+    registerSchemas(app)
     await app.register(plansRoutes)
   })
 

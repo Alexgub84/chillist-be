@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
 import { config } from './config.js'
+import { registerSchemas } from './schemas/index.js'
 import { healthRoutes } from './routes/health.route.js'
 import { plansRoutes } from './routes/plans.route.js'
 import { Database } from './db/index.js'
@@ -38,6 +39,8 @@ export async function buildApp(
 
   fastify.decorate('db', deps.db)
 
+  registerSchemas(fastify)
+
   if (enableDocs) {
     await fastify.register(swagger, {
       openapi: {
@@ -47,12 +50,6 @@ export async function buildApp(
           description: 'Trip planning with shared checklists',
           version: '1.0.0',
         },
-        servers: [
-          {
-            url: `http://localhost:${config.port}`,
-            description: 'Development server',
-          },
-        ],
         tags: [
           { name: 'health', description: 'Health check endpoints' },
           { name: 'plans', description: 'Plan management' },

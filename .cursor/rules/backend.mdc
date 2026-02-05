@@ -53,7 +53,10 @@ src/
 ├── app.ts            # Fastify setup
 ├── config.ts         # Environment config
 ├── types/            # TypeScript interfaces
-├── schemas/          # Zod validation schemas
+├── schemas/          # OpenAPI JSON schemas (registered via $ref)
+│   ├── index.ts      # registerSchemas() function
+│   ├── common.ts     # ErrorResponse, Pagination
+│   └── *.schema.ts   # Entity-specific schemas
 ├── routes/           # Route handlers
 ├── services/         # Business logic
 └── repositories/     # Data access layer
@@ -93,6 +96,70 @@ const app = await buildApp({ db })
 - Service layer contains business logic (UUID generation, timestamps)
 - Routes handle HTTP concerns only (parsing, status codes)
 - Zod schemas validate all request bodies
+
+## OpenAPI Schema Management (Required)
+
+All API schemas must be centralized in `src/schemas/` and use Fastify's `$ref` system.
+
+### Schema File Convention
+
+```typescript
+// src/schemas/entity.schema.ts
+export const entitySchema = {
+  $id: 'Entity',           // Required: unique ID for $ref
+  type: 'object',
+  properties: { ... },
+  required: ['id', 'name'],
+} as const
+
+export const entityListSchema = {
+  $id: 'EntityList',
+  type: 'array',
+  items: { $ref: 'Entity#' },
+} as const
+```
+
+### Registering Schemas
+
+Add new schemas to `src/schemas/index.ts`:
+
+```typescript
+import { entitySchema, entityListSchema } from './entity.schema.js'
+const schemas = [..., entitySchema, entityListSchema]
+```
+
+### Using Schemas in Routes
+
+Always use `$ref` - never inline schemas in routes:
+
+```typescript
+fastify.get('/entities', {
+  schema: {
+    tags: ['entities'],
+    summary: 'List entities',
+    response: {
+      200: { $ref: 'EntityList#' },
+      500: { $ref: 'ErrorResponse#' },
+    },
+  },
+}, handler)
+```
+
+### Schema Types Reference
+
+| Field Type | Schema |
+|------------|--------|
+| UUID | `{ type: 'string', format: 'uuid' }` |
+| Timestamp | `{ type: 'string', format: 'date-time' }` |
+| Nullable | `{ type: 'string', nullable: true }` |
+| Enum | `{ type: 'string', enum: ['a', 'b'] }` |
+| Ref | `{ $ref: 'SchemaName#' }` |
+| Nullable ref | `{ oneOf: [{ $ref: 'Schema#' }, { type: 'null' }] }` |
+
+### After API Changes
+
+1. Run `npm run openapi:generate`
+2. Commit updated `docs/openapi.json`
 
 ## API Response Codes
 - 200: GET, PATCH success
