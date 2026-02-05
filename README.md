@@ -77,6 +77,99 @@ http://localhost:3333/docs/json
 
 The backend generates an OpenAPI specification that the frontend can use to generate TypeScript types.
 
+### Schema Architecture (Best Practice)
+
+Schemas are centralized in `src/schemas/` and registered globally using Fastify's `$ref` system. This enables:
+
+- **Single source of truth** - each entity schema defined once
+- **Reusability** - schemas referenced across multiple routes
+- **Smaller OpenAPI spec** - uses `$ref` instead of duplicating schemas
+- **Easier maintenance** - update schema in one place
+
+**Folder structure:**
+
+```
+src/schemas/
+├── index.ts           # registerSchemas() - registers all schemas
+├── common.ts          # ErrorResponse, Pagination
+├── plan.schema.ts     # Plan, PlanList, CreatePlanBody
+├── participant.schema.ts
+└── item.schema.ts
+```
+
+### Creating a New Schema
+
+1. **Create schema file** in `src/schemas/`:
+
+```typescript
+// src/schemas/example.schema.ts
+export const exampleSchema = {
+  $id: 'Example',           // Required: unique identifier for $ref
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    name: { type: 'string' },
+    status: { type: 'string', enum: ['active', 'inactive'] },
+    createdAt: { type: 'string', format: 'date-time' },
+  },
+  required: ['id', 'name', 'status', 'createdAt'],
+} as const
+
+export const exampleListSchema = {
+  $id: 'ExampleList',
+  type: 'array',
+  items: { $ref: 'Example#' },   // Reference other schemas
+} as const
+```
+
+2. **Register in index.ts**:
+
+```typescript
+// src/schemas/index.ts
+import { exampleSchema, exampleListSchema } from './example.schema.js'
+
+const schemas = [
+  // ... existing schemas
+  exampleSchema,
+  exampleListSchema,
+]
+```
+
+3. **Use in routes via $ref**:
+
+```typescript
+fastify.get(
+  '/examples',
+  {
+    schema: {
+      tags: ['examples'],
+      summary: 'List all examples',
+      response: {
+        200: { $ref: 'ExampleList#' },
+        500: { $ref: 'ErrorResponse#' },
+      },
+    },
+  },
+  handler
+)
+```
+
+### Schema Rules
+
+| Type | Schema Format |
+|------|---------------|
+| UUID | `{ type: 'string', format: 'uuid' }` |
+| Timestamp | `{ type: 'string', format: 'date-time' }` |
+| Nullable | `{ type: 'string', nullable: true }` |
+| Enum | `{ type: 'string', enum: ['a', 'b'] }` |
+| Reference | `{ $ref: 'SchemaName#' }` |
+| Nullable ref | `{ oneOf: [{ $ref: 'Schema#' }, { type: 'null' }] }` |
+
+**Every route must include:**
+- `tags` - for grouping in Swagger UI
+- `summary` - short description
+- `response` - schemas for each status code (200, 400, 404, 500, etc.)
+
 ### Generate OpenAPI Spec
 
 ```bash
@@ -84,6 +177,8 @@ npm run openapi:generate
 ```
 
 This creates `docs/openapi.json` which contains the full API specification.
+
+**Run this command after any route changes and commit the updated spec.**
 
 ### Frontend Type Generation
 
