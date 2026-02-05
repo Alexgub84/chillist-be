@@ -102,4 +102,78 @@ describe('Plans Route - Error Scenarios', () => {
       })
     })
   })
+
+  describe('GET /plans/:planId - Database Errors', () => {
+    it('returns 503 when database connection fails', async () => {
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED')),
+        }),
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/00000000-0000-0000-0000-000000000000',
+      })
+
+      expect(response.statusCode).toBe(503)
+      expect(response.json()).toEqual({
+        message: 'Database connection error',
+      })
+    })
+
+    it('returns 500 when database query fails with unknown error', async () => {
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error('Unknown database error')),
+        }),
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/00000000-0000-0000-0000-000000000000',
+      })
+
+      expect(response.statusCode).toBe(500)
+      expect(response.json()).toEqual({
+        message: 'Failed to retrieve plan',
+      })
+    })
+
+    it('returns 500 when non-Error is thrown', async () => {
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue('string error'),
+        }),
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/00000000-0000-0000-0000-000000000000',
+      })
+
+      expect(response.statusCode).toBe(500)
+      expect(response.json()).toEqual({
+        message: 'Failed to retrieve plan',
+      })
+    })
+
+    it('returns 503 when connection timeout occurs', async () => {
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error('connection timeout')),
+        }),
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/00000000-0000-0000-0000-000000000000',
+      })
+
+      expect(response.statusCode).toBe(503)
+      expect(response.json()).toEqual({
+        message: 'Database connection error',
+      })
+    })
+  })
 })
