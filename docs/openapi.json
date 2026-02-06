@@ -343,6 +343,171 @@
           "planId"
         ],
         "title": "PlanIdParam"
+      },
+      "def-10": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "equipment",
+              "food"
+            ]
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "pcs",
+              "kg",
+              "g",
+              "lb",
+              "oz",
+              "l",
+              "ml",
+              "pack",
+              "set"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "purchased",
+              "packed",
+              "canceled"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "itemId",
+          "planId",
+          "name",
+          "category",
+          "quantity",
+          "unit",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "Item"
+      },
+      "def-11": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-10"
+        },
+        "title": "ItemList"
+      },
+      "def-12": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "archived"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "unlisted",
+              "private"
+            ]
+          },
+          "ownerParticipantId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "location": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-4"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "$ref": "#/components/schemas/def-11"
+          }
+        },
+        "required": [
+          "planId",
+          "title",
+          "status",
+          "visibility",
+          "createdAt",
+          "updatedAt",
+          "items"
+        ],
+        "title": "PlanWithItems"
       }
     }
   },
@@ -382,6 +547,78 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/def-6"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}": {
+      "get": {
+        "summary": "Get plan by ID",
+        "tags": [
+          "plans"
+        ],
+        "description": "Retrieve a single plan by its ID with associated items",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-12"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }

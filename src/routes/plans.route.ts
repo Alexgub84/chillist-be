@@ -1,5 +1,7 @@
 import { FastifyInstance } from 'fastify'
+import { eq } from 'drizzle-orm'
 import { plans } from '../db/schema.js'
+import * as schema from '../db/schema.js'
 
 export async function plansRoutes(fastify: FastifyInstance) {
   fastify.get(
@@ -41,6 +43,63 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         return reply.status(500).send({
           message: 'Failed to retrieve plans',
+        })
+      }
+    }
+  )
+
+  fastify.get<{ Params: { planId: string } }>(
+    '/plans/:planId',
+    {
+      schema: {
+        tags: ['plans'],
+        summary: 'Get plan by ID',
+        description: 'Retrieve a single plan by its ID with associated items',
+        params: { $ref: 'PlanIdParam#' },
+        response: {
+          200: { $ref: 'PlanWithItems#' },
+          400: { $ref: 'ErrorResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId } = request.params
+
+      try {
+        const plan = await fastify.db.query.plans.findFirst({
+          where: eq(schema.plans.planId, planId),
+          with: {
+            items: true,
+          },
+        })
+
+        if (!plan) {
+          return reply.status(404).send({
+            message: 'Plan not found',
+          })
+        }
+
+        request.log.info({ planId }, 'Plan retrieved')
+        return plan
+      } catch (error) {
+        request.log.error({ err: error, planId }, 'Failed to retrieve plan')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to retrieve plan',
         })
       }
     }
