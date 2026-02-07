@@ -35,8 +35,20 @@ alwaysApply: true
 - Stop on test/build failures - do not proceed
 - Analyze root cause before fixing, don't randomly patch
 
+## Git Workflow
+- Always pull latest from main before creating a new branch: `git checkout main && git pull origin main`
+- Create feature branches from an up-to-date main branch
+
+## GitHub Workflow
+1. When user requests a fix or feature, fetch the relevant GitHub issue
+2. Confirm with user which issue we're working on
+3. Update issue status (assign/in progress)
+4. Implement the feature/fix
+5. On user approval: create PR with `Closes #XX` to auto-close issue on merge
+
 ## Finalization
 1. Run validation (build, lint, test)
 2. Fix any failures automatically
-3. Ask for user confirmation
-4. Generate git commit command when approved
+3. If API routes or schemas changed, run `npm run openapi:generate` and commit updated `docs/openapi.json`
+4. Ask for user confirmation
+5. Create commit and PR linked to the issue

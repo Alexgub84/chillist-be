@@ -16,11 +16,4 @@ jobs:
           echo "Source branch: $SOURCE"
           echo "Target branch: $TARGET"
           
-          if [ "$TARGET" = "main" ] && [ "$SOURCE" != "staging" ]; then
-            echo "❌ ERROR: Direct merges to 'main' are not allowed."
-            echo "Only the 'staging' branch can be merged into 'main'."
-            echo "Please merge your changes to 'staging' first."
-            exit 1
-          fi
-          
           echo "✅ Branch merge rules validated."

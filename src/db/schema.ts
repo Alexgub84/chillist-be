@@ -9,6 +9,7 @@ import {
   jsonb,
   pgEnum,
 } from 'drizzle-orm/pg-core'
+import { relations } from 'drizzle-orm'
 
 export const planStatusEnum = pgEnum('plan_status', [
   'draft',
@@ -134,6 +135,43 @@ export const itemAssignments = pgTable('item_assignments', {
     .defaultNow()
     .notNull(),
 })
+
+export const plansRelations = relations(plans, ({ many }) => ({
+  items: many(items),
+  participants: many(participants),
+}))
+
+export const itemsRelations = relations(items, ({ one }) => ({
+  plan: one(plans, {
+    fields: [items.planId],
+    references: [plans.planId],
+  }),
+}))
+
+export const participantsRelations = relations(participants, ({ one }) => ({
+  plan: one(plans, {
+    fields: [participants.planId],
+    references: [plans.planId],
+  }),
+}))
+
+export const itemAssignmentsRelations = relations(
+  itemAssignments,
+  ({ one }) => ({
+    plan: one(plans, {
+      fields: [itemAssignments.planId],
+      references: [plans.planId],
+    }),
+    item: one(items, {
+      fields: [itemAssignments.itemId],
+      references: [items.itemId],
+    }),
+    participant: one(participants, {
+      fields: [itemAssignments.participantId],
+      references: [participants.participantId],
+    }),
+  })
+)
 
 export type Plan = typeof plans.$inferSelect
 export type NewPlan = typeof plans.$inferInsert
