@@ -49,24 +49,34 @@ alwaysApply: true
 - Analyze root cause before fixing, don't randomly patch
 
 ## Bug Workflow
-1. File a GitHub issue with the `bug` label before fixing
-2. Include: steps to reproduce, expected vs actual behavior
-3. Assign and begin work per the Starting Work flow above
+1. If a bug fix has no existing GitHub issue, create one before committing:
+   - Use `gh issue create --label bug --title "<short description>" --body "<details>"`
+   - Include: what went wrong, root cause, and what was fixed
+2. If an existing issue covers the bug, use that issue number
+3. The PR must include `Closes #XX` to auto-close the bug issue on merge
 
 ## Git Workflow
-- Always pull latest from main before creating a new branch: `git checkout main && git pull origin main`
-- Create feature branches from an up-to-date main branch
+When user asks to commit, follow this exact sequence:
+1. Stash current changes
+2. Switch to main and pull latest: `git checkout main && git pull origin main`
+3. Create a new feature branch with an appropriate name from main
+4. Pop the stash to apply changes on the new branch
+5. Stage and commit with a clear message
+6. If a related GitHub issue exists, include `Closes #XX` in the commit message
+7. Push the branch: `git push -u origin <branch-name>`
+8. Always create a PR immediately after push using `gh pr create`
+   - Include `Closes #XX` in the PR body if there is a related issue
 
 ## GitHub Workflow
 1. When user requests a fix or feature, fetch the relevant GitHub issue
 2. Confirm with user which issue we're working on
 3. Update issue status (assign/in progress)
 4. Implement the feature/fix
-5. On user approval: create PR with `Closes #XX` to auto-close issue on merge
+5. On user approval: commit, push, and create PR with `Closes #XX` to auto-close issue on merge
 
 ## Finalization
 1. Run validation (build, lint, test)
 2. Fix any failures automatically
 3. If API routes or schemas changed, run `npm run openapi:generate` and commit updated `docs/openapi.json`
 4. Ask for user confirmation
-5. Create PR with `Closes #XX` to auto-close issue on merge
+5. Follow the Git Workflow sequence above (commit, push, PR)
