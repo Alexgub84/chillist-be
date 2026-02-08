@@ -1,9 +1,62 @@
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
-import { plans } from '../db/schema.js'
+import { plans, NewPlan } from '../db/schema.js'
 import * as schema from '../db/schema.js'
 
 export async function plansRoutes(fastify: FastifyInstance) {
+  fastify.post<{ Body: NewPlan }>(
+    '/plans',
+    {
+      schema: {
+        tags: ['plans'],
+        summary: 'Create a new plan',
+        description: 'Create a new plan with the provided details',
+        body: { $ref: 'CreatePlanBody#' },
+        response: {
+          201: { $ref: 'Plan#' },
+          400: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { startDate, endDate, ...rest } = request.body
+        const values = {
+          ...rest,
+          ...(startDate && { startDate: new Date(String(startDate)) }),
+          ...(endDate && { endDate: new Date(String(endDate)) }),
+        }
+
+        const [createdPlan] = await fastify.db
+          .insert(plans)
+          .values(values)
+          .returning()
+
+        request.log.info({ planId: createdPlan.planId }, 'Plan created')
+        return reply.status(201).send(createdPlan)
+      } catch (error) {
+        request.log.error({ err: error }, 'Failed to create plan')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to create plan',
+        })
+      }
+    }
+  )
+
   fastify.get(
     '/plans',
     {
