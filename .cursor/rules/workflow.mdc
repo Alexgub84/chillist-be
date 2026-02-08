@@ -5,6 +5,19 @@ alwaysApply: true
 
 # Workflow Rules
 
+## Issue-Driven Development (Source of Truth)
+- GitHub Issues are the single source of truth for all planned work
+- Every feature, enhancement, or task must have a corresponding GitHub issue before work begins
+- Every bug must be filed as a GitHub issue before fixing
+- Do NOT start coding without an issue to reference
+
+## Starting Work
+1. Fetch the GitHub issue assigned to this task: `gh issue view <number>`
+2. Confirm with user which issue we're working on
+3. Assign yourself and add "in progress" label
+4. Create a feature branch from up-to-date main: `git checkout main && git pull origin main && git checkout -b <branch>`
+5. Implement the feature/fix per the issue description
+
 ## Planning Mode
 - Output a concise plan before writing code
 - Identify modules/components affected and design patterns to use
@@ -35,13 +48,14 @@ alwaysApply: true
 - Stop on test/build failures - do not proceed
 - Analyze root cause before fixing, don't randomly patch
 
-## Git Workflow
-- Always pull latest from main before creating a new branch: `git checkout main && git pull origin main`
-- Create feature branches from an up-to-date main branch
+## Bug Workflow
+1. File a GitHub issue with the `bug` label before fixing
+2. Include: steps to reproduce, expected vs actual behavior
+3. Assign and begin work per the Starting Work flow above
 
 ## Finalization
 1. Run validation (build, lint, test)
 2. Fix any failures automatically
 3. If API routes or schemas changed, run `npm run openapi:generate` and commit updated `docs/openapi.json`
 4. Ask for user confirmation
-5. Generate git commit command when approved
+5. Create PR with `Closes #XX` to auto-close issue on merge
