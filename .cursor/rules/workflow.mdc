@@ -53,6 +53,17 @@ alwaysApply: true
 2. Include: steps to reproduce, expected vs actual behavior
 3. Assign and begin work per the Starting Work flow above
 
+## Git Workflow
+- Always pull latest from main before creating a new branch: `git checkout main && git pull origin main`
+- Create feature branches from an up-to-date main branch
+
+## GitHub Workflow
+1. When user requests a fix or feature, fetch the relevant GitHub issue
+2. Confirm with user which issue we're working on
+3. Update issue status (assign/in progress)
+4. Implement the feature/fix
+5. On user approval: create PR with `Closes #XX` to auto-close issue on merge
+
 ## Finalization
 1. Run validation (build, lint, test)
 2. Fix any failures automatically

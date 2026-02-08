@@ -105,6 +105,112 @@ describe('Plans Route', () => {
     })
   })
 
+  describe('POST /plans', () => {
+    it('creates plan with title only and returns 201', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        payload: { title: 'Weekend Camping' },
+      })
+
+      expect(response.statusCode).toBe(201)
+
+      const plan = response.json()
+      expect(plan.title).toBe('Weekend Camping')
+      expect(plan.planId).toBeDefined()
+      expect(plan.status).toBe('draft')
+      expect(plan.visibility).toBe('public')
+      expect(plan.description).toBeNull()
+      expect(plan.location).toBeNull()
+      expect(plan.startDate).toBeNull()
+      expect(plan.endDate).toBeNull()
+      expect(plan.tags).toBeNull()
+      expect(plan.createdAt).toBeDefined()
+      expect(plan.updatedAt).toBeDefined()
+    })
+
+    it('creates plan with all optional fields', async () => {
+      const payload = {
+        title: 'Beach Trip',
+        description: 'A fun beach trip',
+        visibility: 'private',
+        location: {
+          locationId: 'loc-1',
+          name: 'Malibu Beach',
+          country: 'US',
+          city: 'Malibu',
+        },
+        startDate: '2026-03-01T10:00:00.000Z',
+        endDate: '2026-03-05T18:00:00.000Z',
+        tags: ['beach', 'vacation'],
+      }
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        payload,
+      })
+
+      expect(response.statusCode).toBe(201)
+
+      const plan = response.json()
+      expect(plan.title).toBe('Beach Trip')
+      expect(plan.description).toBe('A fun beach trip')
+      expect(plan.visibility).toBe('private')
+      expect(plan.location).toMatchObject({
+        locationId: 'loc-1',
+        name: 'Malibu Beach',
+        country: 'US',
+        city: 'Malibu',
+      })
+      expect(plan.startDate).toBe('2026-03-01T10:00:00.000Z')
+      expect(plan.endDate).toBe('2026-03-05T18:00:00.000Z')
+      expect(plan.tags).toEqual(['beach', 'vacation'])
+    })
+
+    it('returns 400 when title is missing', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        payload: { description: 'No title provided' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 400 when title is empty string', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        payload: { title: '' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('created plan is retrievable via GET', async () => {
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        payload: { title: 'Retrievable Plan' },
+      })
+
+      const createdPlan = createResponse.json()
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${createdPlan.planId}`,
+      })
+
+      expect(getResponse.statusCode).toBe(200)
+
+      const fetchedPlan = getResponse.json()
+      expect(fetchedPlan.planId).toBe(createdPlan.planId)
+      expect(fetchedPlan.title).toBe('Retrievable Plan')
+      expect(fetchedPlan.items).toEqual([])
+    })
+  })
+
   describe('GET /plans/:planId', () => {
     it('returns plan when it exists', async () => {
       const [seededPlan] = await seedTestPlans(1)
