@@ -4,6 +4,7 @@ import { FastifyInstance } from 'fastify'
 import {
   cleanupTestDatabase,
   closeTestDatabase,
+  seedTestItems,
   seedTestPlans,
   setupTestDatabase,
 } from '../helpers/db.js'
@@ -322,6 +323,88 @@ describe('Items Route', () => {
       expect(fetchedPlan.items[0].itemId).toBe(createdItem.itemId)
       expect(fetchedPlan.items[0].name).toBe('Backpack')
       expect(fetchedPlan.items[0].unit).toBe('pcs')
+    })
+  })
+
+  describe('GET /plans/:planId/items', () => {
+    it('returns 200 with empty array when plan has no items', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/items`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual([])
+    })
+
+    it('returns 200 with all items for a plan', async () => {
+      const [plan] = await seedTestPlans(1)
+      const seededItems = await seedTestItems(plan.planId, 3)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/items`,
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const items = response.json()
+      expect(items).toHaveLength(3)
+
+      const firstItem = items[0]
+      expect(firstItem.itemId).toBe(seededItems[0].itemId)
+      expect(firstItem.planId).toBe(plan.planId)
+      expect(firstItem.name).toBe('Test Item 1')
+      expect(firstItem.category).toBe('equipment')
+      expect(firstItem.quantity).toBe(1)
+      expect(firstItem.unit).toBe('pcs')
+      expect(firstItem.status).toBe('pending')
+      expect(firstItem.createdAt).toBeDefined()
+      expect(firstItem.updatedAt).toBeDefined()
+    })
+
+    it('returns only items belonging to the requested plan', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+      await seedTestItems(plan1.planId, 2)
+      await seedTestItems(plan2.planId, 3)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan1.planId}/items`,
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const items = response.json()
+      expect(items).toHaveLength(2)
+      items.forEach((item: { planId: string }) => {
+        expect(item.planId).toBe(plan1.planId)
+      })
+    })
+
+    it('returns 404 when plan does not exist', async () => {
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${nonExistentId}/items`,
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({
+        message: 'Plan not found',
+      })
+    })
+
+    it('returns 400 for invalid planId format', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/invalid-uuid/items',
+      })
+
+      expect(response.statusCode).toBe(400)
     })
   })
 })
