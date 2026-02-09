@@ -29,3 +29,15 @@ A log of bugs, mistakes, and fixes encountered during development. Each entry do
 **Problem:** Created separate HealthyResponse and UnhealthyResponse schemas for health endpoint, but 503 response body is never parsed by clients
 **Solution:** Single HealthResponse schema for 200 only. Unhealthy = any non-200 status, body doesn't matter
 **Prevention:** Only type responses that clients actually parse. Error responses often just need status code check
+
+### [Config] AJV strict mode rejects OpenAPI-only keywords
+**Date:** 2026-02-09
+**Problem:** Used `discriminator` keyword in JSON Schema `oneOf` for the CreateItemBody schema. Fastify's AJV runs in strict mode and rejected it with "unknown keyword: discriminator"
+**Solution:** Removed `discriminator` — AJV doesn't need it. Single-value enums in each sub-schema (`['equipment']` vs `['food']`) already act as natural discriminators for validation
+**Prevention:** Avoid OpenAPI-only keywords (`discriminator`, `xml`, `externalDocs`) in schemas that AJV validates. Use simple flat schemas when possible — `oneOf` with `$ref` in Fastify can cause subtle validation issues
+
+### [Logic] Keep schemas simple — handle conditional logic in handlers
+**Date:** 2026-02-09
+**Problem:** Tried to express "equipment items don't need unit, food items require unit" via `oneOf` with two sub-schemas and a discriminator. This caused AJV validation failures and added unnecessary complexity
+**Solution:** One flat `CreateItemBody` schema with `unit` optional. Handler checks: if food and no unit, return 400. If equipment, auto-set unit to `pcs`
+**Prevention:** Don't encode conditional business rules in JSON Schema. Use a simple flat schema for validation, enforce business rules in the handler

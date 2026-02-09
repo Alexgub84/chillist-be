@@ -6,6 +6,7 @@ import { config } from './config.js'
 import { registerSchemas } from './schemas/index.js'
 import { healthRoutes } from './routes/health.route.js'
 import { plansRoutes } from './routes/plans.route.js'
+import { itemsRoutes } from './routes/items.route.js'
 import { Database } from './db/index.js'
 
 export interface AppDependencies {
@@ -94,6 +95,7 @@ export async function buildApp(
 
   await fastify.register(healthRoutes)
   await fastify.register(plansRoutes)
+  await fastify.register(itemsRoutes)
 
   return fastify
 }
