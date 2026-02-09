@@ -14,7 +14,11 @@ import {
   planIdParamSchema,
   planWithItemsSchema,
 } from './plan.schema.js'
-import { itemSchema, itemListSchema } from './item.schema.js'
+import {
+  itemSchema,
+  itemListSchema,
+  createItemBodySchema,
+} from './item.schema.js'
 
 const schemas = [
   errorResponseSchema,
@@ -29,6 +33,7 @@ const schemas = [
   planIdParamSchema,
   itemSchema,
   itemListSchema,
+  createItemBodySchema,
   planWithItemsSchema,
 ]
 
