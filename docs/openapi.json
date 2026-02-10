@@ -347,6 +347,18 @@
       "def-10": {
         "type": "object",
         "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "DeletePlanResponse"
+      },
+      "def-11": {
+        "type": "object",
+        "properties": {
           "itemId": {
             "type": "string",
             "format": "uuid"
@@ -417,14 +429,14 @@
         ],
         "title": "Item"
       },
-      "def-11": {
+      "def-12": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-10"
+          "$ref": "#/components/schemas/def-11"
         },
         "title": "ItemList"
       },
-      "def-12": {
+      "def-13": {
         "type": "object",
         "properties": {
           "name": {
@@ -479,7 +491,7 @@
         ],
         "title": "CreateItemBody"
       },
-      "def-13": {
+      "def-14": {
         "type": "object",
         "properties": {
           "planId": {
@@ -550,7 +562,7 @@
             "format": "date-time"
           },
           "items": {
-            "$ref": "#/components/schemas/def-11"
+            "$ref": "#/components/schemas/def-12"
           }
         },
         "required": [
@@ -711,7 +723,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-13"
+                  "$ref": "#/components/schemas/def-14"
                 }
               }
             }
@@ -722,6 +734,66 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a plan",
+        "tags": [
+          "plans"
+        ],
+        "description": "Delete a plan by its ID. Cascade delete handles related items, participants, and assignments.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-10"
                 }
               }
             }
@@ -770,7 +842,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-12"
+                "$ref": "#/components/schemas/def-13"
               }
             }
           }
@@ -792,7 +864,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-10"
+                  "$ref": "#/components/schemas/def-11"
                 }
               }
             }
@@ -862,7 +934,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-11"
+                  "$ref": "#/components/schemas/def-12"
                 }
               }
             }

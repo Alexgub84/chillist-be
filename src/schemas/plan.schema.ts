@@ -92,6 +92,15 @@ export const planIdParamSchema = {
   required: ['planId'],
 } as const
 
+export const deletePlanResponseSchema = {
+  $id: 'DeletePlanResponse',
+  type: 'object',
+  properties: {
+    ok: { type: 'boolean' },
+  },
+  required: ['ok'],
+} as const
+
 export const planWithItemsSchema = {
   $id: 'PlanWithItems',
   type: 'object',

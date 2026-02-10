@@ -365,4 +365,116 @@ describe('Plans Route', () => {
       }
     })
   })
+
+  describe('DELETE /plans/:planId', () => {
+    it('deletes plan and returns 200 with ok true', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan.planId}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual({ ok: true })
+    })
+
+    it('deleted plan is no longer retrievable via GET', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan.planId}`,
+      })
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}`,
+      })
+
+      expect(getResponse.statusCode).toBe(404)
+    })
+
+    it('deleted plan is removed from list', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+
+      await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan1.planId}`,
+      })
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/plans',
+      })
+
+      const plans = listResponse.json()
+      expect(plans).toHaveLength(1)
+      expect(plans[0].planId).toBe(plan2.planId)
+    })
+
+    it('cascade deletes related items', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestItems(plan.planId, 3)
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan.planId}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}`,
+      })
+
+      expect(getResponse.statusCode).toBe(404)
+    })
+
+    it('returns 404 when plan does not exist', async () => {
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/plans/${nonExistentId}`,
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({
+        message: 'Plan not found',
+      })
+    })
+
+    it('returns 400 for invalid UUID format', async () => {
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/plans/invalid-uuid',
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('does not affect other plans', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+      await seedTestItems(plan1.planId, 2)
+      await seedTestItems(plan2.planId, 3)
+
+      await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan1.planId}`,
+      })
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan2.planId}`,
+      })
+
+      expect(getResponse.statusCode).toBe(200)
+
+      const plan = getResponse.json()
+      expect(plan.planId).toBe(plan2.planId)
+      expect(plan.items).toHaveLength(3)
+    })
+  })
 })
