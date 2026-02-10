@@ -407,4 +407,184 @@ describe('Items Route', () => {
       expect(response.statusCode).toBe(400)
     })
   })
+
+  describe('PATCH /items/:itemId', () => {
+    it('updates item name and returns 200', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { name: 'Updated Tent' },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const updated = response.json()
+      expect(updated.itemId).toBe(item.itemId)
+      expect(updated.name).toBe('Updated Tent')
+      expect(updated.category).toBe(item.category)
+      expect(updated.quantity).toBe(item.quantity)
+      expect(updated.unit).toBe(item.unit)
+      expect(updated.status).toBe(item.status)
+      expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(
+        new Date(item.updatedAt).getTime()
+      )
+    })
+
+    it('updates multiple fields at once', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: {
+          name: 'Granola Bars',
+          category: 'food',
+          quantity: 5,
+          unit: 'pack',
+          status: 'purchased',
+          notes: 'Chocolate flavor',
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const updated = response.json()
+      expect(updated.name).toBe('Granola Bars')
+      expect(updated.category).toBe('food')
+      expect(updated.quantity).toBe(5)
+      expect(updated.unit).toBe('pack')
+      expect(updated.status).toBe('purchased')
+      expect(updated.notes).toBe('Chocolate flavor')
+    })
+
+    it('updates status only', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { status: 'packed' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().status).toBe('packed')
+    })
+
+    it('sets notes to null', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { notes: 'Some note' },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { notes: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().notes).toBeNull()
+    })
+
+    it('returns 404 when item does not exist', async () => {
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${nonExistentId}`,
+        payload: { name: 'Ghost Item' },
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({
+        message: 'Item not found',
+      })
+    })
+
+    it('returns 400 for invalid itemId format', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/items/invalid-uuid',
+        payload: { name: 'Test' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it.each([
+      ['category', { category: 'clothing' }],
+      ['unit', { unit: 'cups' }],
+      ['status', { status: 'lost' }],
+    ])('returns 400 for invalid %s value', async (_field, payload) => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload,
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it.each([0, -1])('returns 400 when quantity is %i', async (quantity) => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { quantity },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 400 when name is empty string', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { name: '' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('persists update when fetched via GET', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { name: 'Persisted Name', status: 'purchased' },
+      })
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/items`,
+      })
+
+      expect(getResponse.statusCode).toBe(200)
+      const items = getResponse.json()
+      const found = items.find(
+        (i: { itemId: string }) => i.itemId === item.itemId
+      )
+      expect(found.name).toBe('Persisted Name')
+      expect(found.status).toBe('purchased')
+    })
+  })
 })

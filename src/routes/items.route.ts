@@ -11,6 +11,15 @@ interface CreateItemBody {
   notes?: string | null
 }
 
+interface UpdateItemBody {
+  name?: string
+  category?: 'equipment' | 'food'
+  quantity?: number
+  unit?: 'pcs' | 'kg' | 'g' | 'lb' | 'oz' | 'l' | 'ml' | 'pack' | 'set'
+  status?: 'pending' | 'purchased' | 'packed' | 'canceled'
+  notes?: string | null
+}
+
 export async function itemsRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { planId: string }; Body: CreateItemBody }>(
     '/plans/:planId/items',
@@ -149,6 +158,78 @@ export async function itemsRoutes(fastify: FastifyInstance) {
 
         return reply.status(500).send({
           message: 'Failed to retrieve plan items',
+        })
+      }
+    }
+  )
+
+  fastify.patch<{ Params: { itemId: string }; Body: UpdateItemBody }>(
+    '/items/:itemId',
+    {
+      schema: {
+        tags: ['items'],
+        summary: 'Update an item',
+        description: 'Update an existing item by its ID',
+        params: { $ref: 'ItemIdParam#' },
+        body: { $ref: 'UpdateItemBody#' },
+        response: {
+          200: { $ref: 'Item#' },
+          400: { $ref: 'ErrorResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { itemId } = request.params
+      const updates = request.body
+
+      if (Object.keys(updates).length === 0) {
+        return reply.status(400).send({
+          message: 'No fields to update',
+        })
+      }
+
+      try {
+        const [existingItem] = await fastify.db
+          .select({ itemId: items.itemId })
+          .from(items)
+          .where(eq(items.itemId, itemId))
+
+        if (!existingItem) {
+          return reply.status(404).send({
+            message: 'Item not found',
+          })
+        }
+
+        const [updatedItem] = await fastify.db
+          .update(items)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(items.itemId, itemId))
+          .returning()
+
+        request.log.info(
+          { itemId, changes: Object.keys(updates) },
+          'Item updated'
+        )
+        return updatedItem
+      } catch (error) {
+        request.log.error({ err: error, itemId }, 'Failed to update item')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to update item',
         })
       }
     }

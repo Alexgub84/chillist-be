@@ -494,6 +494,68 @@
       "def-14": {
         "type": "object",
         "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "equipment",
+              "food"
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "pcs",
+              "kg",
+              "g",
+              "lb",
+              "oz",
+              "l",
+              "ml",
+              "pack",
+              "set"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "purchased",
+              "packed",
+              "canceled"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "title": "UpdateItemBody"
+      },
+      "def-15": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "itemId"
+        ],
+        "title": "ItemIdParam"
+      },
+      "def-16": {
+        "type": "object",
+        "properties": {
           "planId": {
             "type": "string",
             "format": "uuid"
@@ -723,7 +785,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-14"
+                  "$ref": "#/components/schemas/def-16"
                 }
               }
             }
@@ -935,6 +997,87 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/def-12"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/{itemId}": {
+      "patch": {
+        "summary": "Update an item",
+        "tags": [
+          "items"
+        ],
+        "description": "Update an existing item by its ID",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-14"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "itemId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-11"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
