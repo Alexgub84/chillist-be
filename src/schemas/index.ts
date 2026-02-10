@@ -19,6 +19,8 @@ import {
   itemSchema,
   itemListSchema,
   createItemBodySchema,
+  updateItemBodySchema,
+  itemIdParamSchema,
 } from './item.schema.js'
 
 const schemas = [
@@ -36,6 +38,8 @@ const schemas = [
   itemSchema,
   itemListSchema,
   createItemBodySchema,
+  updateItemBodySchema,
+  itemIdParamSchema,
   planWithItemsSchema,
 ]
 

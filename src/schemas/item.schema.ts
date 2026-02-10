@@ -57,3 +57,31 @@ export const createItemBodySchema = {
   },
   required: ['name', 'category', 'quantity', 'status'],
 } as const
+
+export const updateItemBodySchema = {
+  $id: 'UpdateItemBody',
+  type: 'object',
+  properties: {
+    name: { type: 'string', minLength: 1, maxLength: 255 },
+    category: { type: 'string', enum: ['equipment', 'food'] },
+    quantity: { type: 'integer', minimum: 1 },
+    unit: {
+      type: 'string',
+      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'pack', 'set'],
+    },
+    status: {
+      type: 'string',
+      enum: ['pending', 'purchased', 'packed', 'canceled'],
+    },
+    notes: { type: 'string', nullable: true },
+  },
+} as const
+
+export const itemIdParamSchema = {
+  $id: 'ItemIdParam',
+  type: 'object',
+  properties: {
+    itemId: { type: 'string', format: 'uuid' },
+  },
+  required: ['itemId'],
+} as const
