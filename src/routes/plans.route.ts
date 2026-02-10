@@ -157,4 +157,61 @@ export async function plansRoutes(fastify: FastifyInstance) {
       }
     }
   )
+
+  fastify.delete<{ Params: { planId: string } }>(
+    '/plans/:planId',
+    {
+      schema: {
+        tags: ['plans'],
+        summary: 'Delete a plan',
+        description:
+          'Delete a plan by its ID. Cascade delete handles related items, participants, and assignments.',
+        params: { $ref: 'PlanIdParam#' },
+        response: {
+          200: { $ref: 'DeletePlanResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId } = request.params
+
+      try {
+        const [existingPlan] = await fastify.db
+          .select({ planId: plans.planId })
+          .from(plans)
+          .where(eq(plans.planId, planId))
+
+        if (!existingPlan) {
+          return reply.status(404).send({
+            message: 'Plan not found',
+          })
+        }
+
+        await fastify.db.delete(plans).where(eq(plans.planId, planId))
+
+        request.log.info({ planId }, 'Plan deleted')
+        return reply.status(200).send({ ok: true })
+      } catch (error) {
+        request.log.error({ err: error, planId }, 'Failed to delete plan')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to delete plan',
+        })
+      }
+    }
+  )
 }

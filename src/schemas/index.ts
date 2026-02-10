@@ -12,6 +12,7 @@ import {
   createPlanBodySchema,
   updatePlanBodySchema,
   planIdParamSchema,
+  deletePlanResponseSchema,
   planWithItemsSchema,
 } from './plan.schema.js'
 import {
@@ -31,6 +32,7 @@ const schemas = [
   createPlanBodySchema,
   updatePlanBodySchema,
   planIdParamSchema,
+  deletePlanResponseSchema,
   itemSchema,
   itemListSchema,
   createItemBodySchema,
