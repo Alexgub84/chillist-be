@@ -36,6 +36,12 @@ A log of bugs, mistakes, and fixes encountered during development. Each entry do
 **Solution:** Removed `discriminator` — AJV doesn't need it. Single-value enums in each sub-schema (`['equipment']` vs `['food']`) already act as natural discriminators for validation
 **Prevention:** Avoid OpenAPI-only keywords (`discriminator`, `xml`, `externalDocs`) in schemas that AJV validates. Use simple flat schemas when possible — `oneOf` with `$ref` in Fastify can cause subtle validation issues
 
+### [Config] CORS must explicitly allow all HTTP methods used by the API
+**Date:** 2026-02-11
+**Problem:** `@fastify/cors` defaults to `GET, HEAD, POST` only. Adding PATCH/DELETE routes without updating CORS caused preflight rejections in production
+**Solution:** Added explicit `methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS']` to the CORS config
+**Prevention:** Whenever adding a route with a non-simple HTTP method (PATCH, DELETE, PUT), verify the CORS config allows it
+
 ### [Logic] Keep schemas simple — handle conditional logic in handlers
 **Date:** 2026-02-09
 **Problem:** Tried to express "equipment items don't need unit, food items require unit" via `oneOf` with two sub-schemas and a discriminator. This caused AJV validation failures and added unnecessary complexity
