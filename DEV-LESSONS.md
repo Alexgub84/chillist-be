@@ -42,8 +42,15 @@ A log of bugs, mistakes, and fixes encountered during development. Each entry do
 **Solution:** Added explicit `methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS']` to the CORS config
 **Prevention:** Whenever adding a route with a non-simple HTTP method (PATCH, DELETE, PUT), verify the CORS config allows it
 
+### [Logic] API key onRequest hook must skip OPTIONS preflight
+**Date:** 2026-02-11
+**Problem:** The `onRequest` API key check ran on OPTIONS preflight requests. Browsers cannot send custom headers on preflight, so OPTIONS always got 401 — causing `@fastify/cors` and the hook to both call `reply.send()`, which Fastify 5 rejects as `FST_ERR_REP_ALREADY_SENT`
+**Solution:** Added `request.method === 'OPTIONS'` guard to skip preflight in the API key hook. Added CORS integration tests to prevent regression
+**Prevention:** Any `onRequest` middleware that checks headers (auth, API key) must explicitly skip OPTIONS. Add CORS preflight tests when touching auth hooks
+
 ### [Logic] Keep schemas simple — handle conditional logic in handlers
 **Date:** 2026-02-09
 **Problem:** Tried to express "equipment items don't need unit, food items require unit" via `oneOf` with two sub-schemas and a discriminator. This caused AJV validation failures and added unnecessary complexity
 **Solution:** One flat `CreateItemBody` schema with `unit` optional. Handler checks: if food and no unit, return 400. If equipment, auto-set unit to `pcs`
 **Prevention:** Don't encode conditional business rules in JSON Schema. Use a simple flat schema for validation, enforce business rules in the handler
+
