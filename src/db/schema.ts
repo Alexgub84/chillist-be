@@ -106,6 +106,10 @@ export const items = pgTable('items', {
   unit: unitEnum('unit').default('pcs').notNull(),
   status: itemStatusEnum('status').default('pending').notNull(),
   notes: text('notes'),
+  assignedParticipantId: uuid('assigned_participant_id').references(
+    () => participants.participantId,
+    { onDelete: 'set null' }
+  ),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -145,6 +149,10 @@ export const itemsRelations = relations(items, ({ one }) => ({
   plan: one(plans, {
     fields: [items.planId],
     references: [plans.planId],
+  }),
+  assignedParticipant: one(participants, {
+    fields: [items.assignedParticipantId],
+    references: [participants.participantId],
   }),
 }))
 

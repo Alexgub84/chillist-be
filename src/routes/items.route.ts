@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
-import { items, plans } from '../db/schema.js'
+import { items, plans, participants } from '../db/schema.js'
 
 interface CreateItemBody {
   name: string
@@ -9,6 +9,7 @@ interface CreateItemBody {
   status: 'pending' | 'purchased' | 'packed' | 'canceled'
   unit?: 'pcs' | 'kg' | 'g' | 'lb' | 'oz' | 'l' | 'ml' | 'pack' | 'set'
   notes?: string | null
+  assignedParticipantId?: string | null
 }
 
 interface UpdateItemBody {
@@ -18,6 +19,7 @@ interface UpdateItemBody {
   unit?: 'pcs' | 'kg' | 'g' | 'lb' | 'oz' | 'l' | 'ml' | 'pack' | 'set'
   status?: 'pending' | 'purchased' | 'packed' | 'canceled'
   notes?: string | null
+  assignedParticipantId?: string | null
 }
 
 export async function itemsRoutes(fastify: FastifyInstance) {
@@ -42,7 +44,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { planId } = request.params
-      const { category, unit, ...rest } = request.body
+      const { category, unit, assignedParticipantId, ...rest } = request.body
 
       if (category === 'food' && !unit) {
         return reply.status(400).send({
@@ -64,17 +66,43 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           })
         }
 
+        if (assignedParticipantId) {
+          const [participant] = await fastify.db
+            .select({
+              participantId: participants.participantId,
+              planId: participants.planId,
+            })
+            .from(participants)
+            .where(eq(participants.participantId, assignedParticipantId))
+
+          if (!participant) {
+            return reply.status(400).send({
+              message: 'Participant not found',
+            })
+          }
+
+          if (participant.planId !== planId) {
+            return reply.status(400).send({
+              message: 'Participant does not belong to this plan',
+            })
+          }
+        }
+
         const [createdItem] = await fastify.db
           .insert(items)
           .values({
             planId,
             category,
             unit: resolvedUnit,
+            assignedParticipantId: assignedParticipantId ?? null,
             ...rest,
           })
           .returning()
 
-        request.log.info({ itemId: createdItem.itemId, planId }, 'Item created')
+        request.log.info(
+          { itemId: createdItem.itemId, planId, assignedParticipantId },
+          'Item created'
+        )
         return reply.status(201).send(createdItem)
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to create item')
@@ -193,7 +221,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
 
       try {
         const [existingItem] = await fastify.db
-          .select({ itemId: items.itemId })
+          .select({ itemId: items.itemId, planId: items.planId })
           .from(items)
           .where(eq(items.itemId, itemId))
 
@@ -201,6 +229,33 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({
             message: 'Item not found',
           })
+        }
+
+        if (
+          updates.assignedParticipantId !== undefined &&
+          updates.assignedParticipantId !== null
+        ) {
+          const [participant] = await fastify.db
+            .select({
+              participantId: participants.participantId,
+              planId: participants.planId,
+            })
+            .from(participants)
+            .where(
+              eq(participants.participantId, updates.assignedParticipantId)
+            )
+
+          if (!participant) {
+            return reply.status(400).send({
+              message: 'Participant not found',
+            })
+          }
+
+          if (participant.planId !== existingItem.planId) {
+            return reply.status(400).send({
+              message: 'Participant does not belong to this plan',
+            })
+          }
         }
 
         const [updatedItem] = await fastify.db
