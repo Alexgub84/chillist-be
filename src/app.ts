@@ -7,6 +7,7 @@ import { registerSchemas } from './schemas/index.js'
 import { healthRoutes } from './routes/health.route.js'
 import { plansRoutes } from './routes/plans.route.js'
 import { itemsRoutes } from './routes/items.route.js'
+import { participantsRoutes } from './routes/participants.route.js'
 import { Database } from './db/index.js'
 
 export interface AppDependencies {
@@ -80,6 +81,7 @@ export async function buildApp(
 
   await fastify.register(cors, {
     origin: config.isDev ? true : config.frontendUrl,
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   })
 
@@ -95,6 +97,7 @@ export async function buildApp(
 
   await fastify.register(healthRoutes)
   await fastify.register(plansRoutes)
+  await fastify.register(participantsRoutes)
   await fastify.register(itemsRoutes)
 
   return fastify

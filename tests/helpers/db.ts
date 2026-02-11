@@ -96,3 +96,25 @@ export async function seedTestItems(
     .returning()
   return inserted
 }
+
+export async function seedTestParticipants(
+  planId: string,
+  count: number = 3
+): Promise<schema.Participant[]> {
+  const testDb = await getTestDb()
+
+  const testParticipants = Array.from({ length: count }, (_, i) => ({
+    planId,
+    displayName: `Participant ${i + 1}`,
+    role: (i === 0 ? 'owner' : 'participant') as
+      | 'owner'
+      | 'participant'
+      | 'viewer',
+  }))
+
+  const inserted = await testDb
+    .insert(schema.participants)
+    .values(testParticipants)
+    .returning()
+  return inserted
+}

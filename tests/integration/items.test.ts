@@ -5,6 +5,7 @@ import {
   cleanupTestDatabase,
   closeTestDatabase,
   seedTestItems,
+  seedTestParticipants,
   seedTestPlans,
   setupTestDatabase,
 } from '../helpers/db.js'
@@ -52,6 +53,7 @@ describe('Items Route', () => {
       expect(item.unit).toBe('pcs')
       expect(item.status).toBe('pending')
       expect(item.notes).toBeNull()
+      expect(item.assignedParticipantId).toBeNull()
       expect(item.createdAt).toBeDefined()
       expect(item.updatedAt).toBeDefined()
     })
@@ -585,6 +587,150 @@ describe('Items Route', () => {
       )
       expect(found.name).toBe('Persisted Name')
       expect(found.status).toBe('purchased')
+    })
+  })
+
+  describe('Item assignment (assignedParticipantId)', () => {
+    it('creates item with assignedParticipantId', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [participant] = await seedTestParticipants(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+          status: 'pending',
+          assignedParticipantId: participant.participantId,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().assignedParticipantId).toBe(
+        participant.participantId
+      )
+    })
+
+    it('assigns participant to item via PATCH', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [participant] = await seedTestParticipants(plan.planId, 1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { assignedParticipantId: participant.participantId },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().assignedParticipantId).toBe(
+        participant.participantId
+      )
+    })
+
+    it('unassigns participant from item via PATCH with null', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [participant] = await seedTestParticipants(plan.planId, 1)
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+          status: 'pending',
+          assignedParticipantId: participant.participantId,
+        },
+      })
+      const item = createResponse.json()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { assignedParticipantId: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().assignedParticipantId).toBeNull()
+    })
+
+    it('returns 400 when assignedParticipantId does not exist on POST', async () => {
+      const [plan] = await seedTestPlans(1)
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+          status: 'pending',
+          assignedParticipantId: nonExistentId,
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toEqual({ message: 'Participant not found' })
+    })
+
+    it('returns 400 when assignedParticipantId does not exist on PATCH', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { assignedParticipantId: nonExistentId },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toEqual({ message: 'Participant not found' })
+    })
+
+    it('returns 400 when participant belongs to a different plan', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+      const [participantFromPlan2] = await seedTestParticipants(plan2.planId, 1)
+      const [item] = await seedTestItems(plan1.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: {
+          assignedParticipantId: participantFromPlan2.participantId,
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toEqual({
+        message: 'Participant does not belong to this plan',
+      })
+    })
+
+    it('returns 400 when participant belongs to a different plan on POST', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+      const [participantFromPlan2] = await seedTestParticipants(plan2.planId, 1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan1.planId}/items`,
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+          status: 'pending',
+          assignedParticipantId: participantFromPlan2.participantId,
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toEqual({
+        message: 'Participant does not belong to this plan',
+      })
     })
   })
 })

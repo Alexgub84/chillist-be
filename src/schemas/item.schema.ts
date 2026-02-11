@@ -16,6 +16,7 @@ export const itemSchema = {
       enum: ['pending', 'purchased', 'packed', 'canceled'],
     },
     notes: { type: 'string', nullable: true },
+    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
   },
@@ -54,6 +55,7 @@ export const createItemBodySchema = {
       enum: ['pending', 'purchased', 'packed', 'canceled'],
     },
     notes: { type: 'string', nullable: true },
+    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
   },
   required: ['name', 'category', 'quantity', 'status'],
 } as const
@@ -74,6 +76,7 @@ export const updateItemBodySchema = {
       enum: ['pending', 'purchased', 'packed', 'canceled'],
     },
     notes: { type: 'string', nullable: true },
+    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
   },
 } as const
 
