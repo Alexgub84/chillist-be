@@ -55,6 +55,12 @@ alwaysApply: true
 2. If an existing issue covers the bug, use that issue number
 3. The PR must include `Closes #XX` to auto-close the bug issue on merge
 
+## Version Bumping
+Bump the version in `package.json` on every issue/PR:
+- **Patch** (1.0.x): Bug fixes, small changes, no API impact
+- **Minor** (1.x.0): New features, new routes, schema changes, DB migrations
+- **Major** (x.0.0): Breaking changes that require FE coordination
+
 ## Git Workflow
 When user asks to commit, follow this exact sequence:
 1. Stash current changes
@@ -74,9 +80,29 @@ When user asks to commit, follow this exact sequence:
 4. Implement the feature/fix
 5. On user approval: commit, push, and create PR with `Closes #XX` to auto-close issue on merge
 
+## API Breaking Change Check
+Before committing any change that touches routes, request/response schemas, or DB schema, run through this checklist:
+
+1. **Detect breaking changes** — Compare old vs new behavior:
+   - Removed or renamed endpoints
+   - New required fields in request body (was optional or didn't exist)
+   - Removed fields from response
+   - Changed response shape (e.g., flat object → nested, array → object)
+   - Changed field types or enum values
+2. **If breaking** — Keep the old route working alongside the new one:
+   - The old request format must still be accepted (detect format and handle both code paths)
+   - The old response shape should remain functional for existing FE code
+   - Add `@deprecated` note in the route's OpenAPI summary (e.g., `summary: '[DEPRECATED] Create plan without owner'`)
+   - Create a GitHub issue to remove the deprecated route: `gh issue create --label "cleanup" --title "Remove deprecated <route> after FE update" --body "<details>"`
+   - Add `fe-update-required` label to the PR
+   - Once FE is updated and deployed, close the cleanup issue and remove the old code path
+3. **If non-breaking** (additive fields, new optional params, new endpoints) — No action needed, proceed normally.
+4. **Always** run `npm run openapi:generate` after API changes and commit updated `docs/openapi.json` so the FE can regenerate types.
+
 ## Finalization
 1. Run validation (build, lint, test)
 2. Fix any failures automatically
 3. If API routes or schemas changed, run `npm run openapi:generate` and commit updated `docs/openapi.json`
-4. Ask for user confirmation
-5. Follow the Git Workflow sequence above (commit, push, PR)
+4. Run the API Breaking Change Check above
+5. Ask for user confirmation
+6. Follow the Git Workflow sequence above (commit, push, PR)

@@ -64,17 +64,17 @@ Expose the JSON dataset over Fastify while you prototype the frontend against RE
 The server watches the same `api/` sources and reloads on change. By default it listens on `http://localhost:3333`; use the routes below to interact:
 
 - `GET /plans`
-- `POST /plans`
-- `PATCH /plan/:planId`
-- `DELETE /plan/:planId`
-- `GET /plan/:planId`
-- `GET /plan/:planId/participants`
-- `POST /plan/:planId/participants`
+- `POST /plans` (accepts `owner` object, returns plan with participants)
+- `GET /plans/:planId` (returns plan with participants + items)
+- `PATCH /plans/:planId`
+- `DELETE /plans/:planId`
+- `GET /plans/:planId/participants`
+- `POST /plans/:planId/participants`
 - `GET /participants/:participantId`
 - `PATCH /participants/:participantId`
 - `DELETE /participants/:participantId`
-- `GET /plan/:planId/items`
-- `POST /plan/:planId/items`
+- `GET /plans/:planId/items`
+- `POST /plans/:planId/items`
 - `GET /items/:itemId`
 - `PATCH /items/:itemId`
 - `DELETE /items/:itemId`
@@ -249,7 +249,7 @@ interface Location {
 }
 ```
 
-### Plan
+### Plan (Response)
 
 ```typescript
 interface Plan {
@@ -257,13 +257,14 @@ interface Plan {
   title: string;                     // Required, min 1 char
   description?: string;
   status: PlanStatus;                // Defaults to "draft"
-  visibility?: PlanVisibility;       // Defaults to "private"
-  ownerParticipantId: string;        // Required, references a Participant
+  visibility?: PlanVisibility;       // Defaults to "public"
+  ownerParticipantId?: string;       // UUID of the owner participant
   location?: Location;
   startDate?: string;                // ISO date string
   endDate?: string;                  // ISO date string
   tags?: string[];
-  participantIds?: string[];         // Array of Participant IDs (includes owner)
+  participants: Participant[];       // Full participant objects (always includes owner)
+  items: Item[];                     // Full item objects
   createdAt: string;                 // ISO timestamp, auto-generated
   updatedAt: string;                 // ISO timestamp, auto-updated
 }
@@ -274,57 +275,63 @@ interface Plan {
 ```typescript
 interface PlanCreate {
   title: string;                     // Required
+  owner: {                           // Required, BE creates as participant with role "owner"
+    name: string;                    // Required
+    lastName: string;                // Required
+    contactPhone: string;            // Required
+    displayName?: string;
+    contactEmail?: string;
+    avatarUrl?: string;
+  };
   description?: string;
   status?: PlanStatus;               // Defaults to "draft"
-  visibility?: PlanVisibility;       // Defaults to "private"
-  ownerParticipantId: string;        // Required
+  visibility?: PlanVisibility;       // Defaults to "public"
   location?: Location;
   startDate?: string;
   endDate?: string;
   tags?: string[];
-  participantIds?: string[];
 }
 ```
 
-### PlanPatch (PATCH /plan/:planId body)
+### PlanPatch (PATCH /plans/:planId body)
 
-All fields from `PlanCreate` are optional (partial update).
+All plan fields are optional (partial update). Does not include `owner` -- use participant endpoints to update participants.
 
 ### Participant
 
 ```typescript
 interface Participant {
   participantId: string;             // UUID, auto-generated on create
-  name: string;                      // First name
-  lastName: string;                  // Last name
-  displayName: string;               // Required, min 1 char
-  role: ParticipantRole;             // Required
-  isOwner?: boolean;                 // Derived from role === "owner"
+  planId: string;                    // References the parent Plan
+  name: string;                      // Required, first name
+  lastName: string;                  // Required, last name
+  contactPhone: string;              // Required, phone number
+  displayName?: string;              // Optional nickname/short label
+  role: ParticipantRole;             // "owner" | "participant" | "viewer"
   avatarUrl?: string;                // Valid URL
   contactEmail?: string;             // Valid email
-  contactPhone?: string;
   createdAt: string;                 // ISO timestamp
   updatedAt: string;                 // ISO timestamp
 }
 ```
 
-### ParticipantCreate (POST /plan/:planId/participants body)
+### ParticipantCreate (POST /plans/:planId/participants body)
 
 ```typescript
 interface ParticipantCreate {
-  displayName: string;               // Required, min 1 char
-  role: ParticipantRole;             // Required
-  name?: string;                     // Defaults to displayName
-  lastName?: string;                 // Defaults to displayName
+  name: string;                      // Required, first name
+  lastName: string;                  // Required, last name
+  contactPhone: string;              // Required, phone number
+  displayName?: string;              // Optional nickname
+  role?: ParticipantRole;            // Defaults to "participant"
   avatarUrl?: string;                // Valid URL
   contactEmail?: string;             // Valid email
-  contactPhone?: string;
 }
 ```
 
 ### ParticipantPatch (PATCH /participants/:participantId body)
 
-All fields from `ParticipantCreate` are optional (partial update).
+All fields from `ParticipantCreate` are optional (partial update). `displayName` can be set to `null` to clear it. `name`, `lastName`, `contactPhone` cannot be set to `null`.
 
 ### Item (Discriminated Union)
 
@@ -339,6 +346,7 @@ interface BaseItem {
   unit: Unit;                        // Defaults to "pcs"
   notes?: string;
   status: ItemStatus;                // Defaults to "pending"
+  assignedParticipantId?: string;    // UUID, references a participant (simple 1:1 assignment)
   createdAt: string;                 // ISO timestamp
   updatedAt: string;                 // ISO timestamp
 }
@@ -354,7 +362,7 @@ interface FoodItem extends BaseItem {
 type Item = EquipmentItem | FoodItem;
 ```
 
-### ItemCreate (POST /plan/:planId/items body)
+### ItemCreate (POST /plans/:planId/items body)
 
 ```typescript
 interface ItemCreate {
@@ -364,12 +372,13 @@ interface ItemCreate {
   unit?: Unit;                       // Defaults to "pcs"
   status?: ItemStatus;               // Defaults to "pending"
   notes?: string;
+  assignedParticipantId?: string;    // Assign to a participant on creation
 }
 ```
 
 ### ItemPatch (PATCH /items/:itemId body)
 
-All fields from `ItemCreate` are optional (partial update).
+All fields from `ItemCreate` are optional (partial update). Set `assignedParticipantId` to `null` to unassign.
 
 ## API Endpoints
 
@@ -391,10 +400,10 @@ Base URL: `/` (versioning can be added later as `/v1`)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/plans` | List all plans |
-| POST | `/plans` | Create a new plan |
-| GET | `/plan/:planId` | Get a single plan |
-| PATCH | `/plan/:planId` | Update a plan |
-| DELETE | `/plan/:planId` | Delete a plan |
+| POST | `/plans` | Create a new plan (with owner) |
+| GET | `/plans/:planId` | Get a single plan (includes participants + items) |
+| PATCH | `/plans/:planId` | Update a plan |
+| DELETE | `/plans/:planId` | Delete a plan |
 
 #### GET /plans
 
@@ -402,24 +411,24 @@ Base URL: `/` (versioning can be added later as `/v1`)
 
 #### POST /plans
 
-**Request Body:** `PlanCreate`
+**Request Body:** `PlanCreate` (includes required `owner` object)
 
-**Response:** `201 Created` → `Plan`
+**Response:** `201 Created` → `Plan` (includes `participants: [owner]`, `items: []`)
 
 **Business Logic:**
 - Generate `planId` as UUID
+- Create owner as a participant with `role: "owner"` (BE generates `participantId`)
+- Set `ownerParticipantId` on the plan to the new participant's UUID
 - Set `createdAt` and `updatedAt` to current timestamp
-- If `location` is provided without `locationId`, generate one
-- Ensure `ownerParticipantId` is included in `participantIds`
-- Deduplicate `participantIds`
+- Return plan with participants and empty items array
 
-#### GET /plan/:planId
+#### GET /plans/:planId
 
-**Response:** `200 OK` → `Plan`
+**Response:** `200 OK` → `Plan` (includes `participants[]` and `items[]`)
 
 **Error:** `404 Not Found` if plan doesn't exist
 
-#### PATCH /plan/:planId
+#### PATCH /plans/:planId
 
 **Request Body:** `PlanPatch` (partial)
 
@@ -427,17 +436,15 @@ Base URL: `/` (versioning can be added later as `/v1`)
 
 **Business Logic:**
 - Update `updatedAt` to current timestamp
-- If `location` is updated without `locationId`, preserve existing or generate new
-- If `ownerParticipantId` changes, ensure it's added to `participantIds`
 
 **Error:** `404 Not Found` if plan doesn't exist
 
-#### DELETE /plan/:planId
+#### DELETE /plans/:planId
 
-**Response:** `204 No Content`
+**Response:** `200 OK` → `{ ok: true }`
 
 **Business Logic:**
-- Also delete all items associated with this plan
+- Cascade deletes all participants and items associated with this plan
 
 **Error:** `404 Not Found` if plan doesn't exist
 
@@ -445,21 +452,21 @@ Base URL: `/` (versioning can be added later as `/v1`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/plan/:planId/participants` | List participants for a plan |
-| POST | `/plan/:planId/participants` | Add participant to a plan |
+| GET | `/plans/:planId/participants` | List participants for a plan |
+| POST | `/plans/:planId/participants` | Add participant to a plan |
 | GET | `/participants/:participantId` | Get a single participant |
 | PATCH | `/participants/:participantId` | Update a participant |
 | DELETE | `/participants/:participantId` | Remove a participant |
 
-#### GET /plan/:planId/participants
+#### GET /plans/:planId/participants
 
 **Response:** `200 OK` → `Participant[]`
 
-Returns only participants whose IDs are in the plan's `participantIds` array.
+Returns all participants belonging to the plan, ordered by creation date.
 
 **Error:** `404 Not Found` if plan doesn't exist
 
-#### POST /plan/:planId/participants
+#### POST /plans/:planId/participants
 
 **Request Body:** `ParticipantCreate`
 
@@ -467,10 +474,8 @@ Returns only participants whose IDs are in the plan's `participantIds` array.
 
 **Business Logic:**
 - Generate `participantId` as UUID
-- Set `name` and `lastName` to `displayName` if not provided
-- Set `isOwner` to `true` if `role === "owner"`
-- Add `participantId` to the plan's `participantIds`
-- If `role === "owner"`, update `plan.ownerParticipantId`
+- Defaults `role` to `"participant"` if not provided
+- Links participant to the plan via `planId`
 
 **Error:** `404 Not Found` if plan doesn't exist
 
@@ -488,18 +493,16 @@ Returns only participants whose IDs are in the plan's `participantIds` array.
 
 **Business Logic:**
 - Update `updatedAt` to current timestamp
-- Update `isOwner` based on new role
-- If role changes to `"owner"`, update `ownerParticipantId` on all plans containing this participant
 
 **Error:** `404 Not Found` if participant doesn't exist
 
 #### DELETE /participants/:participantId
 
-**Response:** `204 No Content`
+**Response:** `200 OK` → `{ ok: true }`
 
 **Business Logic:**
-- Remove from all plans' `participantIds`
-- If this was an owner, clear `ownerParticipantId` on affected plans
+- Cannot delete participant with `role: "owner"` (returns `400`)
+- Items assigned to this participant will have `assignedParticipantId` set to `null`
 
 **Error:** `404 Not Found` if participant doesn't exist
 
@@ -507,13 +510,13 @@ Returns only participants whose IDs are in the plan's `participantIds` array.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/plan/:planId/items` | List items for a plan |
-| POST | `/plan/:planId/items` | Add item to a plan |
+| GET | `/plans/:planId/items` | List items for a plan |
+| POST | `/plans/:planId/items` | Add item to a plan |
 | GET | `/items/:itemId` | Get a single item |
 | PATCH | `/items/:itemId` | Update an item |
 | DELETE | `/items/:itemId` | Remove an item |
 
-#### GET /plan/:planId/items
+#### GET /plans/:planId/items
 
 **Response:** `200 OK` → `Item[]`
 
@@ -521,7 +524,7 @@ Returns all items where `item.planId === planId`.
 
 **Error:** `404 Not Found` if plan doesn't exist
 
-#### POST /plan/:planId/items
+#### POST /plans/:planId/items
 
 **Request Body:** `ItemCreate`
 
@@ -583,15 +586,21 @@ Returns all items where `item.planId === planId`.
 ```typescript
 const planCreateSchema = z.object({
   title: z.string().min(1),
+  owner: z.object({
+    name: z.string().min(1),
+    lastName: z.string().min(1),
+    contactPhone: z.string().min(1),
+    displayName: z.string().min(1).optional(),
+    contactEmail: z.string().email().optional(),
+    avatarUrl: z.string().url().optional(),
+  }),
   description: z.string().optional(),
   status: z.enum(["draft", "active", "archived"]).default("draft"),
   visibility: z.enum(["public", "unlisted", "private"]).optional(),
-  ownerParticipantId: z.string().min(1),
   location: locationSchema.optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  participantIds: z.array(z.string()).optional(),
 });
 ```
 
@@ -599,13 +608,13 @@ const planCreateSchema = z.object({
 
 ```typescript
 const participantCreateSchema = z.object({
-  displayName: z.string().min(1),
-  role: z.enum(["owner", "participant", "viewer"]),
-  name: z.string().min(1).optional(),
-  lastName: z.string().min(1).optional(),
+  name: z.string().min(1),
+  lastName: z.string().min(1),
+  contactPhone: z.string().min(1),
+  displayName: z.string().min(1).optional(),
+  role: z.enum(["owner", "participant", "viewer"]).default("participant"),
   avatarUrl: z.string().url().optional(),
   contactEmail: z.string().email().optional(),
-  contactPhone: z.string().optional(),
 });
 ```
 
@@ -653,43 +662,49 @@ See `api/mock-data.json` for example data structures:
 
 ```json
 {
-  "plans": [
-    {
-      "planId": "plan-1",
-      "title": "Weekend Camping Trip",
-      "description": "Two-night stay at Pine Ridge Campground.",
-      "status": "active",
-      "visibility": "public",
-      "ownerParticipantId": "participant-1",
-      "location": {
-        "locationId": "location-1",
-        "name": "Pine Ridge Campground",
-        "timezone": "America/Los_Angeles",
-        "latitude": 37.8651,
-        "longitude": -119.5383,
-        "country": "USA",
-        "region": "CA",
-        "city": "Yosemite"
-      },
-      "startDate": "2025-07-18",
-      "endDate": "2025-07-20",
-      "tags": ["outdoors", "family", "camping"],
-      "participantIds": ["participant-1", "participant-2", "participant-3"],
-      "createdAt": "2025-05-01T12:00:00.000Z",
-      "updatedAt": "2025-05-10T08:30:00.000Z"
-    }
-  ],
+  "planId": "plan-1",
+  "title": "Weekend Camping Trip",
+  "description": "Two-night stay at Pine Ridge Campground.",
+  "status": "active",
+  "visibility": "public",
+  "ownerParticipantId": "participant-1",
+  "location": {
+    "name": "Pine Ridge Campground",
+    "timezone": "America/Los_Angeles",
+    "latitude": 37.8651,
+    "longitude": -119.5383,
+    "country": "USA",
+    "region": "CA",
+    "city": "Yosemite"
+  },
+  "startDate": "2025-07-18T00:00:00.000Z",
+  "endDate": "2025-07-20T00:00:00.000Z",
+  "tags": ["outdoors", "family", "camping"],
+  "createdAt": "2025-05-01T12:00:00.000Z",
+  "updatedAt": "2025-05-10T08:30:00.000Z",
   "participants": [
     {
       "participantId": "participant-1",
+      "planId": "plan-1",
       "name": "Alex",
       "lastName": "Guberman",
+      "contactPhone": "+1-555-123-4567",
       "displayName": "Alex G.",
       "role": "owner",
-      "isOwner": true,
       "contactEmail": "alex@example.com",
+      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=alex",
       "createdAt": "2025-05-01T12:00:00.000Z",
       "updatedAt": "2025-05-10T08:00:00.000Z"
+    },
+    {
+      "participantId": "participant-2",
+      "planId": "plan-1",
+      "name": "Sasha",
+      "lastName": "Smith",
+      "contactPhone": "+1-555-987-6543",
+      "role": "participant",
+      "createdAt": "2025-05-02T09:00:00.000Z",
+      "updatedAt": "2025-05-02T09:00:00.000Z"
     }
   ],
   "items": [
@@ -702,6 +717,7 @@ See `api/mock-data.json` for example data structures:
       "notes": "Check stakes before departure",
       "status": "packed",
       "category": "equipment",
+      "assignedParticipantId": "participant-1",
       "createdAt": "2025-05-02T10:00:00.000Z",
       "updatedAt": "2025-05-10T08:15:00.000Z"
     }
@@ -711,28 +727,9 @@ See `api/mock-data.json` for example data structures:
 
 ## Future Endpoints (Post-MVP)
 
-### Assignments (Optional)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/plan/:planId/assignments` | List item assignments |
-| POST | `/plan/:planId/assignments` | Create assignment |
-| PATCH | `/assignments/:assignmentId` | Update assignment |
-| DELETE | `/assignments/:assignmentId` | Delete assignment |
-
-```typescript
-interface ItemAssignment {
-  assignmentId: string;
-  planId: string;
-  itemId: string;
-  participantId: string;
-  quantityAssigned?: number;
-  notes?: string;
-  isConfirmed?: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-```
+- Partial quantity assignments (split items between multiple participants)
+- Weather integration
+- Authentication and user accounts
 
 ## Environment Variables (Backend)
 

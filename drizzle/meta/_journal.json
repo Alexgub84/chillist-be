@@ -15,6 +15,13 @@
       "when": 1770804883298,
       "tag": "0001_dashing_shiver_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770895169937,
+      "tag": "0002_mute_naoko",
+      "breakpoints": true
     }
   ]
 }
