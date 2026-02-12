@@ -56,7 +56,9 @@ describe('Participants Route', () => {
       const first = result[0]
       expect(first.participantId).toBe(seeded[0].participantId)
       expect(first.planId).toBe(plan.planId)
-      expect(first.displayName).toBe('Participant 1')
+      expect(first.name).toBe('First1')
+      expect(first.lastName).toBe('Last1')
+      expect(first.contactPhone).toBe('+1-555-000-0001')
       expect(first.role).toBe('owner')
       expect(first.createdAt).toBeDefined()
       expect(first.updatedAt).toBeDefined()
@@ -111,7 +113,9 @@ describe('Participants Route', () => {
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
         payload: {
-          displayName: 'Alex',
+          name: 'Alex',
+          lastName: 'Guberman',
+          contactPhone: '+1-555-123-4567',
         },
       })
 
@@ -120,13 +124,13 @@ describe('Participants Route', () => {
       const participant = response.json()
       expect(participant.participantId).toBeDefined()
       expect(participant.planId).toBe(plan.planId)
-      expect(participant.displayName).toBe('Alex')
+      expect(participant.name).toBe('Alex')
+      expect(participant.lastName).toBe('Guberman')
+      expect(participant.contactPhone).toBe('+1-555-123-4567')
+      expect(participant.displayName).toBeNull()
       expect(participant.role).toBe('participant')
-      expect(participant.name).toBeNull()
-      expect(participant.lastName).toBeNull()
       expect(participant.avatarUrl).toBeNull()
       expect(participant.contactEmail).toBeNull()
-      expect(participant.contactPhone).toBeNull()
       expect(participant.createdAt).toBeDefined()
       expect(participant.updatedAt).toBeDefined()
     })
@@ -138,26 +142,26 @@ describe('Participants Route', () => {
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
         payload: {
-          displayName: 'Sasha',
-          role: 'owner',
           name: 'Alexander',
           lastName: 'Smith',
+          contactPhone: '+1234567890',
+          displayName: 'Sasha',
+          role: 'owner',
           avatarUrl: 'https://example.com/avatar.jpg',
           contactEmail: 'sasha@example.com',
-          contactPhone: '+1234567890',
         },
       })
 
       expect(response.statusCode).toBe(201)
 
       const participant = response.json()
-      expect(participant.displayName).toBe('Sasha')
-      expect(participant.role).toBe('owner')
       expect(participant.name).toBe('Alexander')
       expect(participant.lastName).toBe('Smith')
+      expect(participant.contactPhone).toBe('+1234567890')
+      expect(participant.displayName).toBe('Sasha')
+      expect(participant.role).toBe('owner')
       expect(participant.avatarUrl).toBe('https://example.com/avatar.jpg')
       expect(participant.contactEmail).toBe('sasha@example.com')
-      expect(participant.contactPhone).toBe('+1234567890')
     })
 
     it('returns 404 when plan does not exist', async () => {
@@ -166,32 +170,52 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${nonExistentId}/participants`,
-        payload: { displayName: 'Alex' },
+        payload: {
+          name: 'Alex',
+          lastName: 'Guberman',
+          contactPhone: '+1-555-123-4567',
+        },
       })
 
       expect(response.statusCode).toBe(404)
       expect(response.json()).toEqual({ message: 'Plan not found' })
     })
 
-    it('returns 400 when displayName is missing', async () => {
+    it.each([
+      ['name', { lastName: 'Smith', contactPhone: '+1234567890' }],
+      ['lastName', { name: 'Alex', contactPhone: '+1234567890' }],
+      ['contactPhone', { name: 'Alex', lastName: 'Smith' }],
+    ])('returns 400 when %s is missing', async (_field, payload) => {
       const [plan] = await seedTestPlans(1)
 
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
-        payload: {},
+        payload,
       })
 
       expect(response.statusCode).toBe(400)
     })
 
-    it('returns 400 when displayName is empty string', async () => {
+    it('returns 400 when name is empty string', async () => {
       const [plan] = await seedTestPlans(1)
 
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
-        payload: { displayName: '' },
+        payload: { name: '', lastName: 'Smith', contactPhone: '+1234567890' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 400 when using old displayName-only format', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/participants`,
+        payload: { displayName: 'Alex' },
       })
 
       expect(response.statusCode).toBe(400)
@@ -203,7 +227,12 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
-        payload: { displayName: 'Alex', role: 'admin' },
+        payload: {
+          name: 'Alex',
+          lastName: 'Smith',
+          contactPhone: '+1234567890',
+          role: 'admin',
+        },
       })
 
       expect(response.statusCode).toBe(400)
@@ -215,7 +244,11 @@ describe('Participants Route', () => {
       const createResponse = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
-        payload: { displayName: 'Alex' },
+        payload: {
+          name: 'Alex',
+          lastName: 'Guberman',
+          contactPhone: '+1-555-123-4567',
+        },
       })
 
       const created = createResponse.json()
@@ -247,7 +280,9 @@ describe('Participants Route', () => {
       const result = response.json()
       expect(result.participantId).toBe(participant.participantId)
       expect(result.planId).toBe(plan.planId)
-      expect(result.displayName).toBe('Participant 1')
+      expect(result.name).toBe('First1')
+      expect(result.lastName).toBe('Last1')
+      expect(result.contactPhone).toBe('+1-555-000-0001')
     })
 
     it('returns 404 when participant does not exist', async () => {
@@ -273,21 +308,21 @@ describe('Participants Route', () => {
   })
 
   describe('PATCH /participants/:participantId', () => {
-    it('updates displayName and returns 200', async () => {
+    it('updates name and returns 200', async () => {
       const [plan] = await seedTestPlans(1)
       const [participant] = await seedTestParticipants(plan.planId, 1)
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${participant.participantId}`,
-        payload: { displayName: 'Updated Name' },
+        payload: { name: 'Updated' },
       })
 
       expect(response.statusCode).toBe(200)
 
       const updated = response.json()
       expect(updated.participantId).toBe(participant.participantId)
-      expect(updated.displayName).toBe('Updated Name')
+      expect(updated.name).toBe('Updated')
       expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(
         new Date(participant.updatedAt).getTime()
       )
@@ -301,10 +336,11 @@ describe('Participants Route', () => {
         method: 'PATCH',
         url: `/participants/${participant.participantId}`,
         payload: {
-          displayName: 'New Name',
+          name: 'NewFirst',
+          lastName: 'NewLast',
+          contactPhone: '+1-999-999-9999',
+          displayName: 'New Display',
           role: 'viewer',
-          name: 'FirstName',
-          lastName: 'LastName',
           contactEmail: 'new@example.com',
         },
       })
@@ -312,10 +348,11 @@ describe('Participants Route', () => {
       expect(response.statusCode).toBe(200)
 
       const updated = response.json()
-      expect(updated.displayName).toBe('New Name')
+      expect(updated.name).toBe('NewFirst')
+      expect(updated.lastName).toBe('NewLast')
+      expect(updated.contactPhone).toBe('+1-999-999-9999')
+      expect(updated.displayName).toBe('New Display')
       expect(updated.role).toBe('viewer')
-      expect(updated.name).toBe('FirstName')
-      expect(updated.lastName).toBe('LastName')
       expect(updated.contactEmail).toBe('new@example.com')
     })
 
@@ -326,8 +363,10 @@ describe('Participants Route', () => {
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
         payload: {
-          displayName: 'Alex',
           name: 'Alexander',
+          lastName: 'Smith',
+          contactPhone: '+1234567890',
+          displayName: 'Alex',
           contactEmail: 'alex@example.com',
         },
       })
@@ -336,11 +375,11 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${created.participantId}`,
-        payload: { name: null, contactEmail: null },
+        payload: { displayName: null, contactEmail: null },
       })
 
       expect(response.statusCode).toBe(200)
-      expect(response.json().name).toBeNull()
+      expect(response.json().displayName).toBeNull()
       expect(response.json().contactEmail).toBeNull()
     })
 
@@ -350,7 +389,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${nonExistentId}`,
-        payload: { displayName: 'Ghost' },
+        payload: { name: 'Ghost' },
       })
 
       expect(response.statusCode).toBe(404)
@@ -361,7 +400,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: '/participants/invalid-uuid',
-        payload: { displayName: 'Test' },
+        payload: { name: 'Test' },
       })
 
       expect(response.statusCode).toBe(400)
@@ -380,14 +419,14 @@ describe('Participants Route', () => {
       expect(response.statusCode).toBe(400)
     })
 
-    it('returns 400 when displayName is empty string', async () => {
+    it('returns 400 when name is empty string', async () => {
       const [plan] = await seedTestPlans(1)
       const [participant] = await seedTestParticipants(plan.planId, 1)
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${participant.participantId}`,
-        payload: { displayName: '' },
+        payload: { name: '' },
       })
 
       expect(response.statusCode).toBe(400)

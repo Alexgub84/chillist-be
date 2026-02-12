@@ -7,7 +7,7 @@
 ## 1. Product Overview
 - **One place** to create a plan (trip, dinner, picnic), invite participants, and track items to bring/buy.
 - **Two item groups:** Equipment & Food.
-- **Simple assignments:** Each item can be assigned to a participant (full or partial responsibility).
+- **Simple assignments:** Each item can be assigned to one participant via `assignedParticipantId`.
 - **Shareable** plan link for participants to view/update statuses (MVP: public; optional name-only session).
 
 **Non-goals (MVP):** Payments, complex permissions, offline sync, push notifications, calendar sync, advanced meals/portions engine.
@@ -16,18 +16,17 @@
 
 ## 2. Core Entities
 - **Participant**
-  - `participantId`, `displayName`, `role` ("owner" | "participant" | "viewer"), optional: avatar, email/phone
+  - Required: `participantId`, `name`, `lastName`, `contactPhone`, `role` ("owner" | "participant" | "viewer")
+  - Optional: `displayName`, `contactEmail`, `avatarUrl`
   - Timestamps: `createdAt`, `updatedAt`
 - **Plan**
   - `planId`, `title`, optional: `description`, `location` (name/country/lat/lon/timezone), `startDate`, `endDate`, `tags[]`
   - `ownerParticipantId`, `status` ("draft" | "active" | "archived"), optional `visibility` ("public" | "unlisted" | "private")
+  - Contains: `participants[]` (list of Participant objects), `items[]` (list of Item objects)
   - Timestamps: `createdAt`, `updatedAt`
 - **Items**
   - **EquipmentItem** | **FoodItem** (discriminated by `category`)
-  - Fields: `itemId`, `planId`, `name`, `category` ("equipment" | "food"), `quantity`, `unit` ("pcs" | "kg" | "g" | "lb" | "oz" | "l" | "ml" | "pack" | "set"), `status` ("pending" | "purchased" | "packed" | "canceled"), optional `notes`
-  - Timestamps: `createdAt`, `updatedAt`
-- **ItemAssignment**
-  - `assignmentId`, `planId`, `itemId`, `participantId`, optional: `quantityAssigned`, `notes`, `isConfirmed`
+  - Fields: `itemId`, `planId`, `name`, `category` ("equipment" | "food"), `quantity`, `unit` ("pcs" | "kg" | "g" | "lb" | "oz" | "l" | "ml" | "pack" | "set"), `status` ("pending" | "purchased" | "packed" | "canceled"), optional `notes`, optional `assignedParticipantId`
   - Timestamps: `createdAt`, `updatedAt`
 - **Weather (optional)**
   - `WeatherBundle` (current + daily forecast) fetched for plan.location; non-blocking.
@@ -60,7 +59,7 @@
 - Bulk: change status to "packed" or "purchased" for selected items (optional nice-to-have).
 
 ### 4.4 Assignments
-- Assign item to participant; optional partial quantity (e.g., water 10× → Alex 6, Sasha 4).
+- Simple 1:1 assignment: each item has an optional `assignedParticipantId` pointing to one participant.
 - Show responsibility per person.
 
 ### 4.5 Weather (optional, non-blocking)
@@ -88,41 +87,34 @@
 
 ### 6.2 Plans
 - `GET /plans` → `Plan[]`
-- `GET /plan/:planId` → `Plan`
-- `POST /plans` → create → `201 Plan`
-  - Body: `{ title: string, description?: string, startDate?: string, endDate?: string, location?: Location, status?: PlanStatus }`
-- `PATCH /plan/:planId` → update → `Plan`
-- `DELETE /plan/:planId` → `{ ok: true }`
+- `GET /plans/:planId` → `Plan` (includes `participants[]` and `items[]`)
+- `POST /plans` → create → `201 Plan` (includes owner in `participants[]`)
+  - Body: `{ title: string, owner: { name: string, lastName: string, contactPhone: string, displayName?: string, contactEmail?: string, avatarUrl?: string }, description?: string, startDate?: string, endDate?: string, location?: Location, status?: PlanStatus }`
+- `PATCH /plans/:planId` → update → `Plan`
+- `DELETE /plans/:planId` → `{ ok: true }`
 
 ### 6.3 Participants
-- `GET /plan/:planId/participants` → `Participant[]`
-- `POST /plan/:planId/participants` → `201 Participant`
-  - Body: `{ displayName: string, role?: "owner"|"participant"|"viewer" }`
+- `GET /plans/:planId/participants` → `Participant[]`
+- `POST /plans/:planId/participants` → `201 Participant`
+  - Body: `{ name: string, lastName: string, contactPhone: string, displayName?: string, role?: "participant"|"viewer", contactEmail?: string, avatarUrl?: string }`
 - `GET /participants/:participantId` → `Participant`
 - `PATCH /participants/:participantId` → `Participant`
-- `DELETE /participants/:participantId` → `{ ok: true }`
+- `DELETE /participants/:participantId` → `{ ok: true }` (blocked for owner role)
 
 ### 6.4 Items
-- `GET /plan/:planId/items` → `Item[]`
-- `POST /plan/:planId/items` → `201 Item`
-  - Body: `{ name: string, category: "equipment"|"food", quantity: number, unit: Unit, status?: ItemStatus, notes?: string }`
+- `GET /plans/:planId/items` → `Item[]`
+- `POST /plans/:planId/items` → `201 Item`
+  - Body: `{ name: string, category: "equipment"|"food", quantity: number, unit: Unit, status?: ItemStatus, notes?: string, assignedParticipantId?: string }`
 - `GET /items/:itemId` → `Item`
 - `PATCH /items/:itemId` → `Item`
 - `DELETE /items/:itemId` → `{ ok: true }`
-
-### 6.5 Assignments (Optional for MVP; include if quick)
-- `GET /plan/:planId/assignments` → `ItemAssignment[]`
-- `POST /plan/:planId/assignments` → `201 ItemAssignment`
-  - Body: `{ itemId: string, participantId: string, quantityAssigned?: number, notes?: string }`
-- `PATCH /assignments/:assignmentId` → `ItemAssignment`
-- `DELETE /assignments/:assignmentId` → `{ ok: true }`
 
 **Status codes:** `200` OK, `201` Created, `204` No Content (optional), `400` Invalid, `404` Not Found.
 
 ---
 
 ## 7. Data Model (TypeScript — pure types)
-- `Participant`, `Plan`, `EquipmentItem`, `FoodItem`, `ItemAssignment`, `Location`, `WeatherBundle`, `PlanDetails` (as defined in `/src/core/types`).
+- `Participant`, `Plan`, `EquipmentItem`, `FoodItem`, `Location`, `WeatherBundle`, `PlanDetails` (as defined in `/src/core/types`).
 
 ---
 
@@ -133,11 +125,10 @@
 ---
 
 ## 9. UX Flow (Happy Path)
-1. Create Plan → Add Title/Date.
-2. Add Participants (names only) → owner marked automatically.
-3. Add Items (equipment/food) → set quantities.
-4. Assign items to people (optional) → share link.
-5. Participants update statuses as they buy/pack.
+1. Create Plan → Add Title/Date + Owner details → BE creates plan with owner as first participant.
+2. Add more Participants (name, lastName, phone required) → added via separate endpoint.
+3. Add Items (equipment/food) → set quantities, optionally assign to a participant.
+4. Share link → Participants update statuses as they buy/pack.
 
 ---
 

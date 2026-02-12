@@ -1,12 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import {
-  plans,
-  participants,
-  items,
-  itemAssignments,
-  type Location,
-} from './schema.js'
+import { plans, participants, items, type Location } from './schema.js'
 
 const connectionString = process.env.DATABASE_URL
 
@@ -54,13 +48,13 @@ async function seed() {
       .insert(participants)
       .values({
         planId: plan.planId,
-        displayName: 'Alex',
         name: 'Alex',
         lastName: 'Guberman',
+        contactPhone: '+1-555-123-4567',
+        displayName: 'Alex G.',
         role: 'owner',
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex',
         contactEmail: 'alex@example.com',
-        contactPhone: '+1-555-123-4567',
       })
       .returning()
 
@@ -72,13 +66,13 @@ async function seed() {
       .insert(participants)
       .values({
         planId: plan.planId,
-        displayName: 'Sarah',
         name: 'Sarah',
         lastName: 'Johnson',
+        contactPhone: '+1-555-234-5678',
+        displayName: 'Sarah J.',
         role: 'participant',
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
         contactEmail: 'sarah@example.com',
-        contactPhone: '+1-555-234-5678',
       })
       .returning()
 
@@ -86,13 +80,13 @@ async function seed() {
       .insert(participants)
       .values({
         planId: plan.planId,
-        displayName: 'Mike',
         name: 'Michael',
         lastName: 'Chen',
+        contactPhone: '+1-555-345-6789',
+        displayName: 'Mike',
         role: 'participant',
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike',
         contactEmail: 'mike@example.com',
-        contactPhone: '+1-555-345-6789',
       })
       .returning()
 
@@ -102,9 +96,8 @@ async function seed() {
       participant2.participantId
     )
 
-    const [tent] = await db
-      .insert(items)
-      .values({
+    await db.insert(items).values([
+      {
         planId: plan.planId,
         name: '4-Person Tent',
         category: 'equipment',
@@ -112,12 +105,9 @@ async function seed() {
         unit: 'pcs',
         status: 'pending',
         notes: 'Waterproof tent with rainfly',
-      })
-      .returning()
-
-    const [sleepingBags] = await db
-      .insert(items)
-      .values({
+        assignedParticipantId: owner.participantId,
+      },
+      {
         planId: plan.planId,
         name: 'Sleeping Bags',
         category: 'equipment',
@@ -125,12 +115,8 @@ async function seed() {
         unit: 'pcs',
         status: 'purchased',
         notes: 'Rated for 30°F',
-      })
-      .returning()
-
-    const [cooler] = await db
-      .insert(items)
-      .values({
+      },
+      {
         planId: plan.planId,
         name: 'Cooler',
         category: 'equipment',
@@ -138,12 +124,9 @@ async function seed() {
         unit: 'pcs',
         status: 'packed',
         notes: '50 quart capacity',
-      })
-      .returning()
-
-    const [water] = await db
-      .insert(items)
-      .values({
+        assignedParticipantId: participant1.participantId,
+      },
+      {
         planId: plan.planId,
         name: 'Water Bottles',
         category: 'food',
@@ -151,12 +134,9 @@ async function seed() {
         unit: 'pcs',
         status: 'pending',
         notes: '16oz bottles',
-      })
-      .returning()
-
-    const [snacks] = await db
-      .insert(items)
-      .values({
+        assignedParticipantId: participant2.participantId,
+      },
+      {
         planId: plan.planId,
         name: 'Trail Mix',
         category: 'food',
@@ -164,12 +144,9 @@ async function seed() {
         unit: 'kg',
         status: 'pending',
         notes: 'Mixed nuts and dried fruit',
-      })
-      .returning()
-
-    const [hotdogs] = await db
-      .insert(items)
-      .values({
+        assignedParticipantId: participant1.participantId,
+      },
+      {
         planId: plan.planId,
         name: 'Hot Dogs',
         category: 'food',
@@ -177,95 +154,18 @@ async function seed() {
         unit: 'pcs',
         status: 'pending',
         notes: 'For campfire cooking',
-      })
-      .returning()
-
-    console.log(
-      'Created items:',
-      tent.itemId,
-      sleepingBags.itemId,
-      cooler.itemId,
-      water.itemId,
-      snacks.itemId,
-      hotdogs.itemId
-    )
-
-    await db.insert(itemAssignments).values([
-      {
-        planId: plan.planId,
-        itemId: tent.itemId,
-        participantId: owner.participantId,
-        quantityAssigned: 1,
-        notes: 'Alex will bring the tent from home',
-        isConfirmed: true,
-      },
-      {
-        planId: plan.planId,
-        itemId: sleepingBags.itemId,
-        participantId: owner.participantId,
-        quantityAssigned: 1,
-        notes: 'One sleeping bag',
-        isConfirmed: true,
-      },
-      {
-        planId: plan.planId,
-        itemId: sleepingBags.itemId,
-        participantId: participant1.participantId,
-        quantityAssigned: 1,
-        notes: 'One sleeping bag',
-        isConfirmed: true,
-      },
-      {
-        planId: plan.planId,
-        itemId: sleepingBags.itemId,
-        participantId: participant2.participantId,
-        quantityAssigned: 1,
-        notes: 'One sleeping bag',
-        isConfirmed: false,
-      },
-      {
-        planId: plan.planId,
-        itemId: cooler.itemId,
-        participantId: participant1.participantId,
-        quantityAssigned: 1,
-        notes: 'Sarah has a large cooler',
-        isConfirmed: true,
-      },
-      {
-        planId: plan.planId,
-        itemId: water.itemId,
-        participantId: participant2.participantId,
-        quantityAssigned: 12,
-        notes: 'Mike will pick up water at Costco',
-        isConfirmed: false,
-      },
-      {
-        planId: plan.planId,
-        itemId: snacks.itemId,
-        participantId: participant1.participantId,
-        quantityAssigned: 2,
-        notes: 'Trail mix for hiking',
-        isConfirmed: true,
-      },
-      {
-        planId: plan.planId,
-        itemId: hotdogs.itemId,
-        participantId: owner.participantId,
-        quantityAssigned: 12,
-        notes: 'Will buy day before trip',
-        isConfirmed: false,
+        assignedParticipantId: owner.participantId,
       },
     ])
 
-    console.log('Created item assignments')
+    console.log('Created 6 items with assignments')
 
     console.log('\n--- Sample Plan Created ---')
     console.log('Plan ID:', plan.planId)
     console.log('Title:', plan.title)
-    console.log('Owner:', owner.displayName)
+    console.log('Owner:', owner.name, owner.lastName)
     console.log('Participants: 3')
     console.log('Items: 6')
-    console.log('Assignments: 8')
     console.log('---------------------------\n')
 
     console.log('Seeding completed successfully')

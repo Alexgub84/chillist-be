@@ -5,7 +5,6 @@ import {
   text,
   timestamp,
   integer,
-  boolean,
   jsonb,
   pgEnum,
 } from 'drizzle-orm/pg-core'
@@ -80,13 +79,13 @@ export const participants = pgTable('participants', {
   planId: uuid('plan_id')
     .notNull()
     .references(() => plans.planId, { onDelete: 'cascade' }),
-  displayName: varchar('display_name', { length: 255 }).notNull(),
-  name: varchar('name', { length: 255 }),
-  lastName: varchar('last_name', { length: 255 }),
+  name: varchar('name', { length: 255 }).notNull(),
+  lastName: varchar('last_name', { length: 255 }).notNull(),
+  contactPhone: varchar('contact_phone', { length: 50 }).notNull(),
+  displayName: varchar('display_name', { length: 255 }),
   role: participantRoleEnum('role').default('participant').notNull(),
   avatarUrl: text('avatar_url'),
   contactEmail: varchar('contact_email', { length: 255 }),
-  contactPhone: varchar('contact_phone', { length: 50 }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -118,28 +117,6 @@ export const items = pgTable('items', {
     .notNull(),
 })
 
-export const itemAssignments = pgTable('item_assignments', {
-  assignmentId: uuid('assignment_id').primaryKey().defaultRandom(),
-  planId: uuid('plan_id')
-    .notNull()
-    .references(() => plans.planId, { onDelete: 'cascade' }),
-  itemId: uuid('item_id')
-    .notNull()
-    .references(() => items.itemId, { onDelete: 'cascade' }),
-  participantId: uuid('participant_id')
-    .notNull()
-    .references(() => participants.participantId, { onDelete: 'cascade' }),
-  quantityAssigned: integer('quantity_assigned'),
-  notes: text('notes'),
-  isConfirmed: boolean('is_confirmed').default(false).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-})
-
 export const plansRelations = relations(plans, ({ many }) => ({
   items: many(items),
   participants: many(participants),
@@ -163,29 +140,9 @@ export const participantsRelations = relations(participants, ({ one }) => ({
   }),
 }))
 
-export const itemAssignmentsRelations = relations(
-  itemAssignments,
-  ({ one }) => ({
-    plan: one(plans, {
-      fields: [itemAssignments.planId],
-      references: [plans.planId],
-    }),
-    item: one(items, {
-      fields: [itemAssignments.itemId],
-      references: [items.itemId],
-    }),
-    participant: one(participants, {
-      fields: [itemAssignments.participantId],
-      references: [participants.participantId],
-    }),
-  })
-)
-
 export type Plan = typeof plans.$inferSelect
 export type NewPlan = typeof plans.$inferInsert
 export type Participant = typeof participants.$inferSelect
 export type NewParticipant = typeof participants.$inferInsert
 export type Item = typeof items.$inferSelect
 export type NewItem = typeof items.$inferInsert
-export type ItemAssignment = typeof itemAssignments.$inferSelect
-export type NewItemAssignment = typeof itemAssignments.$inferInsert

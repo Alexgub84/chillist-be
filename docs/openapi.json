@@ -223,6 +223,44 @@
       "def-7": {
         "type": "object",
         "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contactPhone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string",
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "name",
+          "lastName",
+          "contactPhone"
+        ],
+        "title": "OwnerBody"
+      },
+      "def-8": {
+        "type": "object",
+        "properties": {
           "title": {
             "type": "string",
             "minLength": 1,
@@ -271,9 +309,66 @@
         "required": [
           "title"
         ],
+        "title": "CreatePlanBodyLegacy"
+      },
+      "def-9": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "unlisted",
+              "private"
+            ]
+          },
+          "location": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-4"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "owner": {
+            "$ref": "#/components/schemas/def-7"
+          }
+        },
+        "required": [
+          "title",
+          "owner"
+        ],
         "title": "CreatePlanBody"
       },
-      "def-8": {
+      "def-10": {
         "type": "object",
         "properties": {
           "title": {
@@ -331,7 +426,7 @@
         },
         "title": "UpdatePlanBody"
       },
-      "def-9": {
+      "def-11": {
         "type": "object",
         "properties": {
           "planId": {
@@ -344,7 +439,7 @@
         ],
         "title": "PlanIdParam"
       },
-      "def-10": {
+      "def-12": {
         "type": "object",
         "properties": {
           "ok": {
@@ -356,7 +451,7 @@
         ],
         "title": "DeletePlanResponse"
       },
-      "def-11": {
+      "def-13": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -434,14 +529,14 @@
         ],
         "title": "Item"
       },
-      "def-12": {
+      "def-14": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-11"
+          "$ref": "#/components/schemas/def-13"
         },
         "title": "ItemList"
       },
-      "def-13": {
+      "def-15": {
         "type": "object",
         "properties": {
           "name": {
@@ -501,7 +596,7 @@
         ],
         "title": "CreateItemBody"
       },
-      "def-14": {
+      "def-16": {
         "type": "object",
         "properties": {
           "name": {
@@ -555,7 +650,7 @@
         },
         "title": "UpdateItemBody"
       },
-      "def-15": {
+      "def-17": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -568,7 +663,7 @@
         ],
         "title": "ItemIdParam"
       },
-      "def-16": {
+      "def-18": {
         "type": "object",
         "properties": {
           "ok": {
@@ -580,7 +675,189 @@
         ],
         "title": "DeleteItemResponse"
       },
-      "def-17": {
+      "def-19": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "contactPhone": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "participant",
+              "viewer"
+            ]
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "contactEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "participantId",
+          "planId",
+          "name",
+          "lastName",
+          "contactPhone",
+          "role",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "Participant"
+      },
+      "def-20": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-19"
+        },
+        "title": "ParticipantList"
+      },
+      "def-21": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contactPhone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "participant",
+              "viewer"
+            ]
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string",
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "name",
+          "lastName",
+          "contactPhone"
+        ],
+        "title": "CreateParticipantBody"
+      },
+      "def-22": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contactPhone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "participant",
+              "viewer"
+            ]
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "contactEmail": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          }
+        },
+        "title": "UpdateParticipantBody"
+      },
+      "def-23": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "participantId"
+        ],
+        "title": "ParticipantIdParam"
+      },
+      "def-24": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "DeleteParticipantResponse"
+      },
+      "def-25": {
         "type": "object",
         "properties": {
           "planId": {
@@ -651,7 +928,10 @@
             "format": "date-time"
           },
           "items": {
-            "$ref": "#/components/schemas/def-12"
+            "$ref": "#/components/schemas/def-14"
+          },
+          "participants": {
+            "$ref": "#/components/schemas/def-20"
           }
         },
         "required": [
@@ -661,186 +941,10 @@
           "visibility",
           "createdAt",
           "updatedAt",
-          "items"
+          "items",
+          "participants"
         ],
-        "title": "PlanWithItems"
-      },
-      "def-18": {
-        "type": "object",
-        "properties": {
-          "participantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "planId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "displayName": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "lastName": {
-            "type": "string",
-            "nullable": true
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "owner",
-              "participant",
-              "viewer"
-            ]
-          },
-          "avatarUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "contactEmail": {
-            "type": "string",
-            "nullable": true
-          },
-          "contactPhone": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "participantId",
-          "planId",
-          "displayName",
-          "role",
-          "createdAt",
-          "updatedAt"
-        ],
-        "title": "Participant"
-      },
-      "def-19": {
-        "type": "array",
-        "items": {
-          "$ref": "#/components/schemas/def-18"
-        },
-        "title": "ParticipantList"
-      },
-      "def-20": {
-        "type": "object",
-        "properties": {
-          "displayName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "owner",
-              "participant",
-              "viewer"
-            ]
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 255
-          },
-          "lastName": {
-            "type": "string",
-            "maxLength": 255
-          },
-          "avatarUrl": {
-            "type": "string"
-          },
-          "contactEmail": {
-            "type": "string",
-            "maxLength": 255
-          },
-          "contactPhone": {
-            "type": "string",
-            "maxLength": 50
-          }
-        },
-        "required": [
-          "displayName"
-        ],
-        "title": "CreateParticipantBody"
-      },
-      "def-21": {
-        "type": "object",
-        "properties": {
-          "displayName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "owner",
-              "participant",
-              "viewer"
-            ]
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 255,
-            "nullable": true
-          },
-          "lastName": {
-            "type": "string",
-            "maxLength": 255,
-            "nullable": true
-          },
-          "avatarUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "contactEmail": {
-            "type": "string",
-            "maxLength": 255,
-            "nullable": true
-          },
-          "contactPhone": {
-            "type": "string",
-            "maxLength": 50,
-            "nullable": true
-          }
-        },
-        "title": "UpdateParticipantBody"
-      },
-      "def-22": {
-        "type": "object",
-        "properties": {
-          "participantId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        "required": [
-          "participantId"
-        ],
-        "title": "ParticipantIdParam"
-      },
-      "def-23": {
-        "type": "object",
-        "properties": {
-          "ok": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "ok"
-        ],
-        "title": "DeleteParticipantResponse"
+        "title": "PlanWithDetails"
       }
     }
   },
@@ -868,16 +972,16 @@
     },
     "/plans": {
       "post": {
-        "summary": "Create a new plan",
+        "summary": "[DEPRECATED] Create a plan without owner",
         "tags": [
           "plans"
         ],
-        "description": "Create a new plan with the provided details",
+        "description": "Deprecated: Use POST /plans/with-owner instead. Creates a plan without an owner participant.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-7"
+                "$ref": "#/components/schemas/def-8"
               }
             }
           }
@@ -965,13 +1069,73 @@
         }
       }
     },
-    "/plans/{planId}": {
-      "get": {
-        "summary": "Get plan by ID",
+    "/plans/with-owner": {
+      "post": {
+        "summary": "[NEW] Create a plan with owner participant",
         "tags": [
           "plans"
         ],
-        "description": "Retrieve a single plan by its ID with associated items",
+        "description": "Creates a plan and its owner participant in a single transaction. Returns the plan with participants[] and items[]. Replaces POST /plans for new FE integration.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-9"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-25"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}": {
+      "get": {
+        "summary": "Get plan by ID (now includes participants)",
+        "tags": [
+          "plans"
+        ],
+        "description": "Retrieve a single plan by its ID with associated items and participants. Response now includes participants[] array alongside items[].",
         "parameters": [
           {
             "schema": {
@@ -989,7 +1153,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-17"
+                  "$ref": "#/components/schemas/def-25"
                 }
               }
             }
@@ -1059,7 +1223,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-10"
+                  "$ref": "#/components/schemas/def-12"
                 }
               }
             }
@@ -1121,7 +1285,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-19"
+                  "$ref": "#/components/schemas/def-20"
                 }
               }
             }
@@ -1159,16 +1323,16 @@
         }
       },
       "post": {
-        "summary": "Add a participant to a plan",
+        "summary": "[UPDATED] Add a participant to a plan",
         "tags": [
           "participants"
         ],
-        "description": "Create a new participant in the specified plan",
+        "description": "Create a new participant in the specified plan. Required fields changed: now requires name, lastName, contactPhone instead of displayName.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-20"
+                "$ref": "#/components/schemas/def-21"
               }
             }
           }
@@ -1190,7 +1354,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-18"
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
@@ -1262,7 +1426,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-18"
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
@@ -1309,7 +1473,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-21"
+                "$ref": "#/components/schemas/def-22"
               }
             }
           }
@@ -1331,7 +1495,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-18"
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
@@ -1401,7 +1565,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-23"
+                  "$ref": "#/components/schemas/def-24"
                 }
               }
             }
@@ -1460,7 +1624,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-13"
+                "$ref": "#/components/schemas/def-15"
               }
             }
           }
@@ -1482,7 +1646,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-11"
+                  "$ref": "#/components/schemas/def-13"
                 }
               }
             }
@@ -1552,7 +1716,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-12"
+                  "$ref": "#/components/schemas/def-14"
                 }
               }
             }
@@ -1601,7 +1765,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-14"
+                "$ref": "#/components/schemas/def-16"
               }
             }
           }
@@ -1623,7 +1787,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-11"
+                  "$ref": "#/components/schemas/def-13"
                 }
               }
             }
@@ -1693,7 +1857,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-16"
+                  "$ref": "#/components/schemas/def-18"
                 }
               }
             }

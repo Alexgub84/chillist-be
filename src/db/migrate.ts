@@ -2,10 +2,13 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 
-const connectionString = process.env.DATABASE_URL
+const connectionString =
+  process.env.DATABASE_URL_PUBLIC || process.env.DATABASE_URL
 
 if (!connectionString) {
-  console.error('DATABASE_URL environment variable is required')
+  console.error(
+    'DATABASE_URL_PUBLIC or DATABASE_URL environment variable is required'
+  )
   process.exit(1)
 }
 
