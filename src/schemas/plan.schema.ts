@@ -49,8 +49,22 @@ export const planListSchema = {
   items: { $ref: 'Plan#' },
 } as const
 
-export const createPlanBodySchema = {
-  $id: 'CreatePlanBody',
+export const ownerBodySchema = {
+  $id: 'OwnerBody',
+  type: 'object',
+  properties: {
+    name: { type: 'string', minLength: 1, maxLength: 255 },
+    lastName: { type: 'string', minLength: 1, maxLength: 255 },
+    contactPhone: { type: 'string', minLength: 1, maxLength: 50 },
+    displayName: { type: 'string', minLength: 1, maxLength: 255 },
+    avatarUrl: { type: 'string' },
+    contactEmail: { type: 'string', maxLength: 255 },
+  },
+  required: ['name', 'lastName', 'contactPhone'],
+} as const
+
+export const createPlanBodyLegacySchema = {
+  $id: 'CreatePlanBodyLegacy',
   type: 'object',
   properties: {
     title: { type: 'string', minLength: 1, maxLength: 255 },
@@ -64,6 +78,24 @@ export const createPlanBodySchema = {
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
   },
   required: ['title'],
+} as const
+
+export const createPlanBodySchema = {
+  $id: 'CreatePlanBody',
+  type: 'object',
+  properties: {
+    title: { type: 'string', minLength: 1, maxLength: 255 },
+    description: { type: 'string', nullable: true },
+    visibility: { type: 'string', enum: ['public', 'unlisted', 'private'] },
+    location: {
+      oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
+    },
+    startDate: { type: 'string', format: 'date-time', nullable: true },
+    endDate: { type: 'string', format: 'date-time', nullable: true },
+    tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    owner: { $ref: 'OwnerBody#' },
+  },
+  required: ['title', 'owner'],
 } as const
 
 export const updatePlanBodySchema = {
@@ -101,8 +133,8 @@ export const deletePlanResponseSchema = {
   required: ['ok'],
 } as const
 
-export const planWithItemsSchema = {
-  $id: 'PlanWithItems',
+export const planWithDetailsSchema = {
+  $id: 'PlanWithDetails',
   type: 'object',
   properties: {
     planId: { type: 'string', format: 'uuid' },
@@ -120,6 +152,7 @@ export const planWithItemsSchema = {
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
     items: { $ref: 'ItemList#' },
+    participants: { $ref: 'ParticipantList#' },
   },
   required: [
     'planId',
@@ -129,5 +162,6 @@ export const planWithItemsSchema = {
     'createdAt',
     'updatedAt',
     'items',
+    'participants',
   ],
 } as const

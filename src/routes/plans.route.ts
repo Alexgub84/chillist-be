@@ -1,17 +1,33 @@
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
-import { plans, NewPlan } from '../db/schema.js'
+import { plans, participants, NewPlan } from '../db/schema.js'
 import * as schema from '../db/schema.js'
 
+interface OwnerBody {
+  name: string
+  lastName: string
+  contactPhone: string
+  displayName?: string
+  avatarUrl?: string
+  contactEmail?: string
+}
+
+interface CreatePlanWithOwnerBody
+  extends Omit<NewPlan, 'planId' | 'ownerParticipantId'> {
+  owner: OwnerBody
+}
+
 export async function plansRoutes(fastify: FastifyInstance) {
+  // [DEPRECATED] Old route — creates plan without owner. Remove after FE switches to POST /plans/with-owner.
   fastify.post<{ Body: NewPlan }>(
     '/plans',
     {
       schema: {
         tags: ['plans'],
-        summary: 'Create a new plan',
-        description: 'Create a new plan with the provided details',
-        body: { $ref: 'CreatePlanBody#' },
+        summary: '[DEPRECATED] Create a plan without owner',
+        description:
+          'Deprecated: Use POST /plans/with-owner instead. Creates a plan without an owner participant.',
+        body: { $ref: 'CreatePlanBodyLegacy#' },
         response: {
           201: { $ref: 'Plan#' },
           400: { $ref: 'ErrorResponse#' },
@@ -36,6 +52,89 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         request.log.info({ planId: createdPlan.planId }, 'Plan created')
         return reply.status(201).send(createdPlan)
+      } catch (error) {
+        request.log.error({ err: error }, 'Failed to create plan')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to create plan',
+        })
+      }
+    }
+  )
+
+  fastify.post<{ Body: CreatePlanWithOwnerBody }>(
+    '/plans/with-owner',
+    {
+      schema: {
+        tags: ['plans'],
+        summary: '[NEW] Create a plan with owner participant',
+        description:
+          'Creates a plan and its owner participant in a single transaction. Returns the plan with participants[] and items[]. Replaces POST /plans for new FE integration.',
+        body: { $ref: 'CreatePlanBody#' },
+        response: {
+          201: { $ref: 'PlanWithDetails#' },
+          400: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { owner, startDate, endDate, ...planFields } = request.body
+
+        const planValues = {
+          ...planFields,
+          ...(startDate && { startDate: new Date(String(startDate)) }),
+          ...(endDate && { endDate: new Date(String(endDate)) }),
+        }
+
+        const result = await fastify.db.transaction(async (tx) => {
+          const [createdPlan] = await tx
+            .insert(plans)
+            .values(planValues)
+            .returning()
+
+          const [ownerParticipant] = await tx
+            .insert(participants)
+            .values({
+              planId: createdPlan.planId,
+              name: owner.name,
+              lastName: owner.lastName,
+              contactPhone: owner.contactPhone,
+              displayName: owner.displayName,
+              role: 'owner',
+              avatarUrl: owner.avatarUrl,
+              contactEmail: owner.contactEmail,
+            })
+            .returning()
+
+          const [updatedPlan] = await tx
+            .update(plans)
+            .set({ ownerParticipantId: ownerParticipant.participantId })
+            .where(eq(plans.planId, createdPlan.planId))
+            .returning()
+
+          return {
+            ...updatedPlan,
+            participants: [ownerParticipant],
+            items: [],
+          }
+        })
+
+        request.log.info({ planId: result.planId }, 'Plan created with owner')
+        return reply.status(201).send(result)
       } catch (error) {
         request.log.error({ err: error }, 'Failed to create plan')
 
@@ -106,11 +205,12 @@ export async function plansRoutes(fastify: FastifyInstance) {
     {
       schema: {
         tags: ['plans'],
-        summary: 'Get plan by ID',
-        description: 'Retrieve a single plan by its ID with associated items',
+        summary: 'Get plan by ID (now includes participants)',
+        description:
+          'Retrieve a single plan by its ID with associated items and participants. Response now includes participants[] array alongside items[].',
         params: { $ref: 'PlanIdParam#' },
         response: {
-          200: { $ref: 'PlanWithItems#' },
+          200: { $ref: 'PlanWithDetails#' },
           400: { $ref: 'ErrorResponse#' },
           404: { $ref: 'ErrorResponse#' },
           500: { $ref: 'ErrorResponse#' },
@@ -126,6 +226,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
           where: eq(schema.plans.planId, planId),
           with: {
             items: true,
+            participants: true,
           },
         })
 

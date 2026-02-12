@@ -11,6 +11,7 @@ function createMockDb() {
         findFirst: vi.fn(),
       },
     },
+    transaction: vi.fn(),
   }
 }
 
@@ -168,6 +169,52 @@ describe('Plans Route - Error Scenarios', () => {
       expect(response.statusCode).toBe(503)
       expect(response.json()).toEqual({
         message: 'Database connection error',
+      })
+    })
+  })
+
+  describe('POST /plans/with-owner - Database Errors', () => {
+    it('returns 503 when database connection fails during plan creation', async () => {
+      mockDb.transaction.mockRejectedValue(new Error('connect ECONNREFUSED'))
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        payload: {
+          title: 'Test Plan',
+          owner: {
+            name: 'Alex',
+            lastName: 'Guberman',
+            contactPhone: '+1-555-123-4567',
+          },
+        },
+      })
+
+      expect(response.statusCode).toBe(503)
+      expect(response.json()).toEqual({
+        message: 'Database connection error',
+      })
+    })
+
+    it('returns 500 when transaction fails with unknown error', async () => {
+      mockDb.transaction.mockRejectedValue(new Error('Unknown error'))
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        payload: {
+          title: 'Test Plan',
+          owner: {
+            name: 'Alex',
+            lastName: 'Guberman',
+            contactPhone: '+1-555-123-4567',
+          },
+        },
+      })
+
+      expect(response.statusCode).toBe(500)
+      expect(response.json()).toEqual({
+        message: 'Failed to create plan',
       })
     })
   })

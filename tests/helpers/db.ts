@@ -38,7 +38,6 @@ export async function getTestDb(): Promise<Database> {
 export async function cleanupTestDatabase() {
   const testDb = await getTestDb()
 
-  await testDb.delete(schema.itemAssignments)
   await testDb.delete(schema.items)
   await testDb.delete(schema.participants)
   await testDb.delete(schema.plans)
@@ -105,6 +104,9 @@ export async function seedTestParticipants(
 
   const testParticipants = Array.from({ length: count }, (_, i) => ({
     planId,
+    name: `First${i + 1}`,
+    lastName: `Last${i + 1}`,
+    contactPhone: `+1-555-000-000${i + 1}`,
     displayName: `Participant ${i + 1}`,
     role: (i === 0 ? 'owner' : 'participant') as
       | 'owner'

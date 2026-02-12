@@ -3,23 +3,23 @@ import { eq } from 'drizzle-orm'
 import { participants, plans } from '../db/schema.js'
 
 interface CreateParticipantBody {
-  displayName: string
+  name: string
+  lastName: string
+  contactPhone: string
+  displayName?: string
   role?: 'owner' | 'participant' | 'viewer'
-  name?: string
-  lastName?: string
   avatarUrl?: string
   contactEmail?: string
-  contactPhone?: string
 }
 
 interface UpdateParticipantBody {
-  displayName?: string
+  name?: string
+  lastName?: string
+  contactPhone?: string
+  displayName?: string | null
   role?: 'owner' | 'participant' | 'viewer'
-  name?: string | null
-  lastName?: string | null
   avatarUrl?: string | null
   contactEmail?: string | null
-  contactPhone?: string | null
 }
 
 export async function participantsRoutes(fastify: FastifyInstance) {
@@ -94,8 +94,9 @@ export async function participantsRoutes(fastify: FastifyInstance) {
     {
       schema: {
         tags: ['participants'],
-        summary: 'Add a participant to a plan',
-        description: 'Create a new participant in the specified plan',
+        summary: '[UPDATED] Add a participant to a plan',
+        description:
+          'Create a new participant in the specified plan. Required fields changed: now requires name, lastName, contactPhone instead of displayName.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'CreateParticipantBody#' },
         response: {

@@ -9,11 +9,13 @@ import {
   locationSchema,
   planSchema,
   planListSchema,
+  ownerBodySchema,
+  createPlanBodyLegacySchema,
   createPlanBodySchema,
   updatePlanBodySchema,
   planIdParamSchema,
   deletePlanResponseSchema,
-  planWithItemsSchema,
+  planWithDetailsSchema,
 } from './plan.schema.js'
 import {
   itemSchema,
@@ -40,6 +42,8 @@ const schemas = [
   locationSchema,
   planSchema,
   planListSchema,
+  ownerBodySchema,
+  createPlanBodyLegacySchema,
   createPlanBodySchema,
   updatePlanBodySchema,
   planIdParamSchema,
@@ -50,13 +54,13 @@ const schemas = [
   updateItemBodySchema,
   itemIdParamSchema,
   deleteItemResponseSchema,
-  planWithItemsSchema,
   participantSchema,
   participantListSchema,
   createParticipantBodySchema,
   updateParticipantBodySchema,
   participantIdParamSchema,
   deleteParticipantResponseSchema,
+  planWithDetailsSchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
