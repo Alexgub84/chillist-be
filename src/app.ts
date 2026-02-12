@@ -85,14 +85,47 @@ export async function buildApp(
     credentials: true,
   })
 
-  fastify.addHook('onRequest', async (request, reply) => {
+  fastify.addHook('onRequest', async (request) => {
     if (request.url.startsWith('/health')) {
+      return
+    }
+
+    request.log.info(
+      {
+        method: request.method,
+        url: request.url,
+        origin: request.headers.origin ?? null,
+        hasApiKey: !!request.headers['x-api-key'],
+      },
+      'Incoming request'
+    )
+  })
+
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'OPTIONS' || request.url.startsWith('/health')) {
       return
     }
 
     if (config.apiKey && request.headers['x-api-key'] !== config.apiKey) {
       return reply.status(401).send({ message: 'Unauthorized' })
     }
+  })
+
+  fastify.addHook('onResponse', async (request, reply) => {
+    if (request.url.startsWith('/health')) {
+      return
+    }
+
+    request.log.info(
+      {
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+        corsOrigin: reply.getHeader('access-control-allow-origin') ?? null,
+        responseTimeMs: reply.elapsedTime,
+      },
+      'Request completed'
+    )
   })
 
   await fastify.register(healthRoutes)
