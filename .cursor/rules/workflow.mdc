@@ -1,108 +1,39 @@
 ---
-description: Global workflow rules for planning, implementation, and code quality
+description: Workspace rules - docs repo is source of truth for all rules and documentation
 alwaysApply: true
 ---
 
-# Workflow Rules
+# Workspace Scope
 
-## Issue-Driven Development (Source of Truth)
-- GitHub Issues are the single source of truth for all planned work
-- Every feature, enhancement, or task must have a corresponding GitHub issue before work begins
-- Every bug must be filed as a GitHub issue before fixing
-- Do NOT start coding without an issue to reference
+This is the BACKEND repo (chillist-be). Only modify files inside this repo.
+NEVER modify files in chillist-fe or any other sibling repo from this workspace.
+If a task requires frontend changes, stop and tell the user to switch to the frontend repo.
 
-## Starting Work
-1. Fetch the GitHub issue assigned to this task: `gh issue view <number>`
-2. Confirm with user which issue we're working on
-3. Assign yourself and add "in progress" label
-4. Create a feature branch from up-to-date main: `git checkout main && git pull origin main && git checkout -b <branch>`
-5. Implement the feature/fix per the issue description
+The ONE exception: you MAY read and write files in ../chillist-docs/ (the shared docs repo) to read rules/docs and update dev-lessons, guides, specs, or rules when needed.
 
-## Planning Mode
-- Output a concise plan before writing code
-- Identify modules/components affected and design patterns to use
-- Flag potential security risks (OWASP)
-- If less than 90% sure about intent, ask clarifying questions
+# How to Start Every Task
 
-## Implementation Flow
-1. Structure First: Break tasks into small functions, show signatures only
-2. Wait for Approval: Do not implement until reviewed
-3. One by One: Implement each function individually, not large blocks
+Before writing any code, FIRST use the Read tool on ALL of these files:
 
-## Code Standards
-- No comments in code (exception: complex "why" logic)
-- No lazy coding: never use `// ... rest of code` placeholders
-- Read target file's imports, types, and style before generating code
-- Pin dependency versions exactly (no `^` or `~` ranges)
+1. ../chillist-docs/rules/common.md (git workflow, planning, code standards, security)
+2. ../chillist-docs/rules/backend.md (schema design, DI, CORS, API key, OpenAPI)
+3. ../chillist-docs/guides/backend.md (setup, scripts, database, deployment, CI/CD)
+4. ../chillist-docs/specs/mvp-v1.md (product requirements, entities, API endpoints)
+5. ../chillist-docs/dev-lessons/backend.md (past bugs - check before debugging)
 
-## Security (OWASP)
-- Never output API keys, passwords, or tokens
-- Assume all input is malicious - use Zod for validation
-- Use parameterized queries for SQL
+Read the docs FIRST, then explore the specific files in this repo that are relevant to the task.
+Do NOT scan the entire codebase upfront - only look at files directly related to the work.
 
-## File Permissions
-- Allowed to update `.env` file when adding/modifying environment variables
-- Always update `.env.example` when adding new env vars (without actual values)
+This repo also has detailed code convention rules that Cursor auto-applies via globs:
+- .cursor/rules/backend.mdc (Fastify patterns, DI examples, schema conventions, logging)
+- .cursor/rules/error-logging.mdc (Pino structured logging rules)
+- .cursor/rules/testing.mdc (test conventions: it.each, avoid redundancy)
 
-## Debugging
-- Stop on test/build failures - do not proceed
-- Analyze root cause before fixing, don't randomly patch
+# Updating Documentation
 
-## Bug Workflow
-1. If a bug fix has no existing GitHub issue, create one before committing:
-   - Use `gh issue create --label bug --title "<short description>" --body "<details>"`
-   - Include: what went wrong, root cause, and what was fixed
-2. If an existing issue covers the bug, use that issue number
-3. The PR must include `Closes #XX` to auto-close the bug issue on merge
-
-## Version Bumping
-Bump the version in `package.json` on every issue/PR:
-- **Patch** (1.0.x): Bug fixes, small changes, no API impact
-- **Minor** (1.x.0): New features, new routes, schema changes, DB migrations
-- **Major** (x.0.0): Breaking changes that require FE coordination
-
-## Git Workflow
-When user asks to commit, follow this exact sequence:
-1. Stash current changes
-2. Switch to main and pull latest: `git checkout main && git pull origin main`
-3. Create a new feature branch with an appropriate name from main
-4. Pop the stash to apply changes on the new branch
-5. Stage and commit with a clear message
-6. If a related GitHub issue exists, include `Closes #XX` in the commit message
-7. Push the branch: `git push -u origin <branch-name>`
-8. Always create a PR immediately after push using `gh pr create`
-   - Include `Closes #XX` in the PR body if there is a related issue
-
-## GitHub Workflow
-1. When user requests a fix or feature, fetch the relevant GitHub issue
-2. Confirm with user which issue we're working on
-3. Update issue status (assign/in progress)
-4. Implement the feature/fix
-5. On user approval: commit, push, and create PR with `Closes #XX` to auto-close issue on merge
-
-## API Breaking Change Check
-Before committing any change that touches routes, request/response schemas, or DB schema, run through this checklist:
-
-1. **Detect breaking changes** — Compare old vs new behavior:
-   - Removed or renamed endpoints
-   - New required fields in request body (was optional or didn't exist)
-   - Removed fields from response
-   - Changed response shape (e.g., flat object → nested, array → object)
-   - Changed field types or enum values
-2. **If breaking** — Keep the old route working alongside the new one:
-   - The old request format must still be accepted (detect format and handle both code paths)
-   - The old response shape should remain functional for existing FE code
-   - Add `@deprecated` note in the route's OpenAPI summary (e.g., `summary: '[DEPRECATED] Create plan without owner'`)
-   - Create a GitHub issue to remove the deprecated route: `gh issue create --label "cleanup" --title "Remove deprecated <route> after FE update" --body "<details>"`
-   - Add `fe-update-required` label to the PR
-   - Once FE is updated and deployed, close the cleanup issue and remove the old code path
-3. **If non-breaking** (additive fields, new optional params, new endpoints) — No action needed, proceed normally.
-4. **Always** run `npm run openapi:generate` after API changes and commit updated `docs/openapi.json` so the FE can regenerate types.
-
-## Finalization
-1. Run validation (build, lint, test)
-2. Fix any failures automatically
-3. If API routes or schemas changed, run `npm run openapi:generate` and commit updated `docs/openapi.json`
-4. Run the API Breaking Change Check above
-5. Ask for user confirmation
-6. Follow the Git Workflow sequence above (commit, push, PR)
+When you fix a bug, learn something new, or change workflow:
+- Update ../chillist-docs/dev-lessons/backend.md with the lesson
+- If the fix implies a new rule, propose adding it to ../chillist-docs/rules/backend.md
+- If specs changed (features done, new endpoints), update ../chillist-docs/specs/mvp-v1.md
+- If setup/scripts changed, update ../chillist-docs/guides/backend.md
+- If API routes or schemas changed, run npm run openapi:generate and commit docs/openapi.json
