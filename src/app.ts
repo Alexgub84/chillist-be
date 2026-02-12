@@ -16,27 +16,31 @@ export interface AppDependencies {
 
 export interface BuildAppOptions {
   enableDocs?: boolean
+  logger?: false
 }
 
 export async function buildApp(
   deps: AppDependencies,
   options: BuildAppOptions = {}
 ) {
-  const { enableDocs = config.isDev } = options
+  const { enableDocs = config.isDev, logger } = options
 
   const fastify = Fastify({
-    logger: {
-      level: config.logLevel,
-      transport: config.isDev
-        ? {
-            target: 'pino-pretty',
-            options: {
-              translateTime: 'HH:MM:ss Z',
-              ignore: 'pid,hostname',
-            },
-          }
-        : undefined,
-    },
+    logger:
+      logger === false
+        ? false
+        : {
+            level: config.logLevel,
+            transport: config.isDev
+              ? {
+                  target: 'pino-pretty',
+                  options: {
+                    translateTime: 'HH:MM:ss Z',
+                    ignore: 'pid,hostname',
+                  },
+                }
+              : undefined,
+          },
   })
 
   fastify.decorate('db', deps.db)

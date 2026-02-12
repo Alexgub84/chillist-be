@@ -15,7 +15,7 @@ describe('Items Route', () => {
 
   beforeAll(async () => {
     const db = await setupTestDatabase()
-    app = await buildApp({ db })
+    app = await buildApp({ db }, { logger: false })
   })
 
   afterAll(async () => {
@@ -587,6 +587,72 @@ describe('Items Route', () => {
       )
       expect(found.name).toBe('Persisted Name')
       expect(found.status).toBe('purchased')
+    })
+  })
+
+  describe('DELETE /items/:itemId', () => {
+    it('deletes item and returns 200 with ok true', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/items/${item.itemId}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual({ ok: true })
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/items`,
+      })
+
+      expect(getResponse.statusCode).toBe(200)
+      expect(getResponse.json()).toEqual([])
+    })
+
+    it('returns 404 when item does not exist', async () => {
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/items/${nonExistentId}`,
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({
+        message: 'Item not found',
+      })
+    })
+
+    it('returns 400 for invalid itemId format', async () => {
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/items/invalid-uuid',
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('does not affect other items in the same plan', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item1, item2] = await seedTestItems(plan.planId, 2)
+
+      await app.inject({
+        method: 'DELETE',
+        url: `/items/${item1.itemId}`,
+      })
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/items`,
+      })
+
+      expect(getResponse.statusCode).toBe(200)
+      const remaining = getResponse.json()
+      expect(remaining).toHaveLength(1)
+      expect(remaining[0].itemId).toBe(item2.itemId)
     })
   })
 

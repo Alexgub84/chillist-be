@@ -289,4 +289,61 @@ export async function itemsRoutes(fastify: FastifyInstance) {
       }
     }
   )
+
+  fastify.delete<{ Params: { itemId: string } }>(
+    '/items/:itemId',
+    {
+      schema: {
+        tags: ['items'],
+        summary: 'Delete an item',
+        description:
+          'Delete an item by its ID. Cascade delete handles related assignments.',
+        params: { $ref: 'ItemIdParam#' },
+        response: {
+          200: { $ref: 'DeleteItemResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { itemId } = request.params
+
+      try {
+        const [existingItem] = await fastify.db
+          .select({ itemId: items.itemId })
+          .from(items)
+          .where(eq(items.itemId, itemId))
+
+        if (!existingItem) {
+          return reply.status(404).send({
+            message: 'Item not found',
+          })
+        }
+
+        await fastify.db.delete(items).where(eq(items.itemId, itemId))
+
+        request.log.info({ itemId }, 'Item deleted')
+        return reply.status(200).send({ ok: true })
+      } catch (error) {
+        request.log.error({ err: error, itemId }, 'Failed to delete item')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to delete item',
+        })
+      }
+    }
+  )
 }

@@ -21,6 +21,7 @@ import {
   createItemBodySchema,
   updateItemBodySchema,
   itemIdParamSchema,
+  deleteItemResponseSchema,
 } from './item.schema.js'
 import {
   participantSchema,
@@ -48,6 +49,7 @@ const schemas = [
   createItemBodySchema,
   updateItemBodySchema,
   itemIdParamSchema,
+  deleteItemResponseSchema,
   planWithItemsSchema,
   participantSchema,
   participantListSchema,

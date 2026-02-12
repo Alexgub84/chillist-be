@@ -24,7 +24,7 @@ describe('CORS Preflight', () => {
   beforeAll(async () => {
     const { buildApp } = await import('../../src/app.js')
     const db = await setupTestDatabase()
-    app = await buildApp({ db })
+    app = await buildApp({ db }, { logger: false })
   })
 
   afterAll(async () => {

@@ -14,7 +14,7 @@ describe('Plans Route', () => {
 
   beforeAll(async () => {
     const db = await setupTestDatabase()
-    app = await buildApp({ db })
+    app = await buildApp({ db }, { logger: false })
   })
 
   afterAll(async () => {
