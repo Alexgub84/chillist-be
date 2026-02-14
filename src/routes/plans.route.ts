@@ -12,9 +12,20 @@ interface OwnerBody {
   contactEmail?: string
 }
 
+interface ParticipantBody {
+  name: string
+  lastName: string
+  contactPhone: string
+  displayName?: string
+  role?: 'participant' | 'viewer'
+  avatarUrl?: string
+  contactEmail?: string
+}
+
 interface CreatePlanWithOwnerBody
   extends Omit<NewPlan, 'planId' | 'ownerParticipantId'> {
   owner: OwnerBody
+  participants?: ParticipantBody[]
 }
 
 export async function plansRoutes(fastify: FastifyInstance) {
@@ -92,7 +103,13 @@ export async function plansRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       try {
-        const { owner, startDate, endDate, ...planFields } = request.body
+        const {
+          owner,
+          participants: participantsList,
+          startDate,
+          endDate,
+          ...planFields
+        } = request.body
 
         const planValues = {
           ...planFields,
@@ -120,6 +137,26 @@ export async function plansRoutes(fastify: FastifyInstance) {
             })
             .returning()
 
+          let createdParticipants: (typeof ownerParticipant)[] = []
+
+          if (participantsList && participantsList.length > 0) {
+            createdParticipants = await tx
+              .insert(participants)
+              .values(
+                participantsList.map((p) => ({
+                  planId: createdPlan.planId,
+                  name: p.name,
+                  lastName: p.lastName,
+                  contactPhone: p.contactPhone,
+                  displayName: p.displayName,
+                  role: p.role ?? ('participant' as const),
+                  avatarUrl: p.avatarUrl,
+                  contactEmail: p.contactEmail,
+                }))
+              )
+              .returning()
+          }
+
           const [updatedPlan] = await tx
             .update(plans)
             .set({ ownerParticipantId: ownerParticipant.participantId })
@@ -128,7 +165,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
           return {
             ...updatedPlan,
-            participants: [ownerParticipant],
+            participants: [ownerParticipant, ...createdParticipants],
             items: [],
           }
         })

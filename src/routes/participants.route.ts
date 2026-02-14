@@ -7,7 +7,7 @@ interface CreateParticipantBody {
   lastName: string
   contactPhone: string
   displayName?: string
-  role?: 'owner' | 'participant' | 'viewer'
+  role?: 'participant' | 'viewer'
   avatarUrl?: string
   contactEmail?: string
 }
@@ -17,7 +17,7 @@ interface UpdateParticipantBody {
   lastName?: string
   contactPhone?: string
   displayName?: string | null
-  role?: 'owner' | 'participant' | 'viewer'
+  role?: 'participant' | 'viewer'
   avatarUrl?: string | null
   contactEmail?: string | null
 }
@@ -250,13 +250,22 @@ export async function participantsRoutes(fastify: FastifyInstance) {
 
       try {
         const [existingParticipant] = await fastify.db
-          .select({ participantId: participants.participantId })
+          .select({
+            participantId: participants.participantId,
+            role: participants.role,
+          })
           .from(participants)
           .where(eq(participants.participantId, participantId))
 
         if (!existingParticipant) {
           return reply.status(404).send({
             message: 'Participant not found',
+          })
+        }
+
+        if (existingParticipant.role === 'owner' && updates.role) {
+          return reply.status(400).send({
+            message: 'Cannot change role of owner participant',
           })
         }
 

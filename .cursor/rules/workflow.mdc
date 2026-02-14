@@ -16,18 +16,13 @@ The ONE exception: you MAY read and write files in ../chillist-docs/ (the shared
 Before writing any code, FIRST use the Read tool on ALL of these files:
 
 1. ../chillist-docs/rules/common.md (git workflow, planning, code standards, security)
-2. ../chillist-docs/rules/backend.md (schema design, DI, CORS, API key, OpenAPI)
+2. ../chillist-docs/rules/backend.md (schema design, DI, CORS, logging, testing, breaking changes)
 3. ../chillist-docs/guides/backend.md (setup, scripts, database, deployment, CI/CD)
 4. ../chillist-docs/specs/mvp-v1.md (product requirements, entities, API endpoints)
 5. ../chillist-docs/dev-lessons/backend.md (past bugs - check before debugging)
 
 Read the docs FIRST, then explore the specific files in this repo that are relevant to the task.
 Do NOT scan the entire codebase upfront - only look at files directly related to the work.
-
-This repo also has detailed code convention rules that Cursor auto-applies via globs:
-- .cursor/rules/backend.mdc (Fastify patterns, DI examples, schema conventions, logging)
-- .cursor/rules/error-logging.mdc (Pino structured logging rules)
-- .cursor/rules/testing.mdc (test conventions: it.each, avoid redundancy)
 
 # Updating Documentation
 

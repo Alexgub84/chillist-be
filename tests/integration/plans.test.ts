@@ -227,6 +227,127 @@ describe('Plans Route', () => {
       expect(ownerParticipant.contactEmail).toBe('alex@example.com')
     })
 
+    it('creates plan with owner and participants', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        payload: {
+          title: 'Group Trip',
+          owner: validOwner,
+          participants: [
+            {
+              name: 'John',
+              lastName: 'Doe',
+              contactPhone: '+1-555-111-1111',
+            },
+            {
+              name: 'Jane',
+              lastName: 'Smith',
+              contactPhone: '+1-555-222-2222',
+              role: 'viewer',
+            },
+          ],
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+
+      const plan = response.json()
+      expect(plan.participants).toHaveLength(3)
+
+      const owner = plan.participants.find(
+        (p: { role: string }) => p.role === 'owner'
+      )
+      expect(owner.name).toBe('Alex')
+      expect(owner.participantId).toBe(plan.ownerParticipantId)
+
+      const regularParticipants = plan.participants.filter(
+        (p: { role: string }) => p.role !== 'owner'
+      )
+      expect(regularParticipants).toHaveLength(2)
+
+      const john = regularParticipants.find(
+        (p: { name: string }) => p.name === 'John'
+      )
+      expect(john.role).toBe('participant')
+
+      const jane = regularParticipants.find(
+        (p: { name: string }) => p.name === 'Jane'
+      )
+      expect(jane.role).toBe('viewer')
+    })
+
+    it('creates plan with empty participants array', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        payload: {
+          title: 'Solo Plan',
+          owner: validOwner,
+          participants: [],
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+
+      const plan = response.json()
+      expect(plan.participants).toHaveLength(1)
+      expect(plan.participants[0].role).toBe('owner')
+    })
+
+    it('created participants are retrievable via GET', async () => {
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        payload: {
+          title: 'Retrievable Participants Plan',
+          owner: validOwner,
+          participants: [
+            {
+              name: 'Sarah',
+              lastName: 'Connor',
+              contactPhone: '+1-555-333-3333',
+            },
+          ],
+        },
+      })
+
+      const createdPlan = createResponse.json()
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${createdPlan.planId}`,
+      })
+
+      const plan = getResponse.json()
+      expect(plan.participants).toHaveLength(2)
+
+      const roles = plan.participants.map((p: { role: string }) => p.role)
+      expect(roles).toContain('owner')
+      expect(roles).toContain('participant')
+    })
+
+    it('returns 400 when participant in array has role owner', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        payload: {
+          title: 'Bad Role Plan',
+          owner: validOwner,
+          participants: [
+            {
+              name: 'Sneaky',
+              lastName: 'Person',
+              contactPhone: '+1-555-999-9999',
+              role: 'owner',
+            },
+          ],
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
     it('returns 400 when title is missing', async () => {
       const response = await app.inject({
         method: 'POST',
