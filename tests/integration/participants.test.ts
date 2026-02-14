@@ -146,7 +146,7 @@ describe('Participants Route', () => {
           lastName: 'Smith',
           contactPhone: '+1234567890',
           displayName: 'Sasha',
-          role: 'owner',
+          role: 'viewer',
           avatarUrl: 'https://example.com/avatar.jpg',
           contactEmail: 'sasha@example.com',
         },
@@ -159,7 +159,7 @@ describe('Participants Route', () => {
       expect(participant.lastName).toBe('Smith')
       expect(participant.contactPhone).toBe('+1234567890')
       expect(participant.displayName).toBe('Sasha')
-      expect(participant.role).toBe('owner')
+      expect(participant.role).toBe('viewer')
       expect(participant.avatarUrl).toBe('https://example.com/avatar.jpg')
       expect(participant.contactEmail).toBe('sasha@example.com')
     })
@@ -232,6 +232,23 @@ describe('Participants Route', () => {
           lastName: 'Smith',
           contactPhone: '+1234567890',
           role: 'admin',
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 400 when role is owner', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/participants`,
+        payload: {
+          name: 'Alex',
+          lastName: 'Smith',
+          contactPhone: '+1234567890',
+          role: 'owner',
         },
       })
 
@@ -330,7 +347,8 @@ describe('Participants Route', () => {
 
     it('updates multiple fields at once', async () => {
       const [plan] = await seedTestPlans(1)
-      const [participant] = await seedTestParticipants(plan.planId, 1)
+      const seeded = await seedTestParticipants(plan.planId, 2)
+      const participant = seeded.find((p) => p.role !== 'owner')!
 
       const response = await app.inject({
         method: 'PATCH',
@@ -417,6 +435,39 @@ describe('Participants Route', () => {
       })
 
       expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 400 when changing owner role', async () => {
+      const [plan] = await seedTestPlans(1)
+      const seeded = await seedTestParticipants(plan.planId, 1)
+      const owner = seeded[0]
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${owner.participantId}`,
+        payload: { role: 'viewer' },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toEqual({
+        message: 'Cannot change role of owner participant',
+      })
+    })
+
+    it('allows updating owner non-role fields', async () => {
+      const [plan] = await seedTestPlans(1)
+      const seeded = await seedTestParticipants(plan.planId, 1)
+      const owner = seeded[0]
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${owner.participantId}`,
+        payload: { name: 'UpdatedOwnerName' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().name).toBe('UpdatedOwnerName')
+      expect(response.json().role).toBe('owner')
     })
 
     it('returns 400 when name is empty string', async () => {

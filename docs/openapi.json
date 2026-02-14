@@ -360,6 +360,12 @@
           },
           "owner": {
             "$ref": "#/components/schemas/def-7"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-21"
+            }
           }
         },
         "required": [
@@ -769,7 +775,6 @@
           "role": {
             "type": "string",
             "enum": [
-              "owner",
               "participant",
               "viewer"
             ]
@@ -815,7 +820,6 @@
           "role": {
             "type": "string",
             "enum": [
-              "owner",
               "participant",
               "viewer"
             ]

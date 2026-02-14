@@ -94,6 +94,10 @@ export const createPlanBodySchema = {
     endDate: { type: 'string', format: 'date-time', nullable: true },
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
     owner: { $ref: 'OwnerBody#' },
+    participants: {
+      type: 'array',
+      items: { $ref: 'CreateParticipantBody#' },
+    },
   },
   required: ['title', 'owner'],
 } as const
