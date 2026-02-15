@@ -720,6 +720,201 @@ describe('Plans Route', () => {
     })
   })
 
+  describe('PATCH /plans/:planId', () => {
+    it('updates title and returns 200 with new updatedAt', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        payload: { title: 'Updated Title' },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const updated = response.json()
+      expect(updated.planId).toBe(plan.planId)
+      expect(updated.title).toBe('Updated Title')
+      expect(updated.description).toBe(plan.description)
+      expect(updated.status).toBe(plan.status)
+      expect(updated.visibility).toBe(plan.visibility)
+      expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(
+        new Date(plan.updatedAt).getTime()
+      )
+    })
+
+    it('updates multiple fields at once', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        payload: {
+          title: 'New Title',
+          description: 'New description',
+          status: 'archived',
+          visibility: 'private',
+          tags: ['camping', 'outdoors'],
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const updated = response.json()
+      expect(updated.title).toBe('New Title')
+      expect(updated.description).toBe('New description')
+      expect(updated.status).toBe('archived')
+      expect(updated.visibility).toBe('private')
+      expect(updated.tags).toEqual(['camping', 'outdoors'])
+    })
+
+    it('updates date fields', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        payload: {
+          startDate: '2026-06-01T10:00:00.000Z',
+          endDate: '2026-06-05T18:00:00.000Z',
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const updated = response.json()
+      expect(updated.startDate).toBe('2026-06-01T10:00:00.000Z')
+      expect(updated.endDate).toBe('2026-06-05T18:00:00.000Z')
+    })
+
+    it.each([
+      ['description', { description: null }],
+      ['startDate', { startDate: null }],
+      ['endDate', { endDate: null }],
+      ['tags', { tags: null }],
+    ])(
+      'clears nullable field %s by setting to null',
+      async (_field, payload) => {
+        const [plan] = await seedTestPlans(1)
+
+        const response = await app.inject({
+          method: 'PATCH',
+          url: `/plans/${plan.planId}`,
+          payload,
+        })
+
+        expect(response.statusCode).toBe(200)
+        const updated = response.json()
+        expect(updated[_field]).toBeNull()
+      }
+    )
+
+    it('returns 400 when body is empty', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        payload: {},
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toEqual({
+        message: 'No fields to update',
+      })
+    })
+
+    it('returns 404 when plan does not exist', async () => {
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${nonExistentId}`,
+        payload: { title: 'Ghost Plan' },
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({
+        message: 'Plan not found',
+      })
+    })
+
+    it('returns 400 for invalid UUID format', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/plans/invalid-uuid',
+        payload: { title: 'Test' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it.each([
+      ['status', { status: 'completed' }],
+      ['visibility', { visibility: 'secret' }],
+    ])('returns 400 for invalid %s value', async (_field, payload) => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        payload,
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 400 when title is empty string', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        payload: { title: '' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('persists update when fetched via GET', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        payload: { title: 'Persisted Title', status: 'archived' },
+      })
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}`,
+      })
+
+      expect(getResponse.statusCode).toBe(200)
+      const fetched = getResponse.json()
+      expect(fetched.title).toBe('Persisted Title')
+      expect(fetched.status).toBe('archived')
+    })
+
+    it('does not affect other plans', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan1.planId}`,
+        payload: { title: 'Changed' },
+      })
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan2.planId}`,
+      })
+
+      expect(getResponse.statusCode).toBe(200)
+      expect(getResponse.json().title).toBe('Test Plan 2')
+    })
+  })
+
   describe('DELETE /plans/:planId', () => {
     it('deletes plan and returns 200 with ok true', async () => {
       const [plan] = await seedTestPlans(1)
