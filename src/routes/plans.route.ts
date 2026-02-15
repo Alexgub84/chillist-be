@@ -28,6 +28,17 @@ interface CreatePlanWithOwnerBody
   participants?: ParticipantBody[]
 }
 
+interface UpdatePlanBody {
+  title?: string
+  description?: string | null
+  status?: 'draft' | 'active' | 'archived'
+  visibility?: 'public' | 'unlisted' | 'private'
+  location?: schema.Location | null
+  startDate?: string | null
+  endDate?: string | null
+  tags?: string[] | null
+}
+
 export async function plansRoutes(fastify: FastifyInstance) {
   // [DEPRECATED] Old route — creates plan without owner. Remove after FE switches to POST /plans/with-owner.
   fastify.post<{ Body: NewPlan }>(
@@ -291,6 +302,90 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         return reply.status(500).send({
           message: 'Failed to retrieve plan',
+        })
+      }
+    }
+  )
+
+  fastify.patch<{ Params: { planId: string }; Body: UpdatePlanBody }>(
+    '/plans/:planId',
+    {
+      schema: {
+        tags: ['plans'],
+        summary: 'Update a plan',
+        description: 'Update an existing plan by its ID',
+        params: { $ref: 'PlanIdParam#' },
+        body: { $ref: 'UpdatePlanBody#' },
+        response: {
+          200: { $ref: 'Plan#' },
+          400: { $ref: 'ErrorResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId } = request.params
+      const updates = request.body
+
+      if (Object.keys(updates).length === 0) {
+        return reply.status(400).send({
+          message: 'No fields to update',
+        })
+      }
+
+      try {
+        const [existingPlan] = await fastify.db
+          .select({ planId: plans.planId })
+          .from(plans)
+          .where(eq(plans.planId, planId))
+
+        if (!existingPlan) {
+          return reply.status(404).send({
+            message: 'Plan not found',
+          })
+        }
+
+        const { startDate, endDate, ...rest } = updates
+        const values = {
+          ...rest,
+          ...(startDate !== undefined && {
+            startDate: startDate ? new Date(String(startDate)) : null,
+          }),
+          ...(endDate !== undefined && {
+            endDate: endDate ? new Date(String(endDate)) : null,
+          }),
+          updatedAt: new Date(),
+        }
+
+        const [updatedPlan] = await fastify.db
+          .update(plans)
+          .set(values)
+          .where(eq(plans.planId, planId))
+          .returning()
+
+        request.log.info(
+          { planId, changes: Object.keys(updates) },
+          'Plan updated'
+        )
+        return updatedPlan
+      } catch (error) {
+        request.log.error({ err: error, planId }, 'Failed to update plan')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to update plan',
         })
       }
     }
