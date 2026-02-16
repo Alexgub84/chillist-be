@@ -86,6 +86,7 @@ export const participants = pgTable('participants', {
   role: participantRoleEnum('role').default('participant').notNull(),
   avatarUrl: text('avatar_url'),
   contactEmail: varchar('contact_email', { length: 255 }),
+  inviteToken: varchar('invite_token', { length: 64 }).unique(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
