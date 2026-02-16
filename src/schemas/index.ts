@@ -33,6 +33,14 @@ import {
   participantIdParamSchema,
   deleteParticipantResponseSchema,
 } from './participant.schema.js'
+import {
+  inviteParamsSchema,
+  inviteParticipantSchema,
+  inviteParticipantListSchema,
+  invitePlanResponseSchema,
+  regenerateTokenParamsSchema,
+  regenerateTokenResponseSchema,
+} from './invite.schema.js'
 
 const schemas = [
   errorResponseSchema,
@@ -61,6 +69,12 @@ const schemas = [
   participantIdParamSchema,
   deleteParticipantResponseSchema,
   planWithDetailsSchema,
+  inviteParamsSchema,
+  inviteParticipantSchema,
+  inviteParticipantListSchema,
+  invitePlanResponseSchema,
+  regenerateTokenParamsSchema,
+  regenerateTokenResponseSchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
@@ -74,3 +88,4 @@ export * from './health.schema.js'
 export * from './plan.schema.js'
 export * from './item.schema.js'
 export * from './participant.schema.js'
+export * from './invite.schema.js'

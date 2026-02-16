@@ -721,6 +721,10 @@
             "type": "string",
             "nullable": true
           },
+          "inviteToken": {
+            "type": "string",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -949,6 +953,163 @@
           "participants"
         ],
         "title": "PlanWithDetails"
+      },
+      "def-26": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inviteToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "planId",
+          "inviteToken"
+        ],
+        "title": "InviteParams"
+      },
+      "def-27": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "participant",
+              "viewer"
+            ]
+          }
+        },
+        "required": [
+          "participantId",
+          "role"
+        ],
+        "title": "InviteParticipant"
+      },
+      "def-28": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-27"
+        },
+        "title": "InviteParticipantList"
+      },
+      "def-29": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "archived"
+            ]
+          },
+          "location": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-4"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "$ref": "#/components/schemas/def-14"
+          },
+          "participants": {
+            "$ref": "#/components/schemas/def-28"
+          }
+        },
+        "required": [
+          "planId",
+          "title",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "items",
+          "participants"
+        ],
+        "title": "InvitePlanResponse"
+      },
+      "def-30": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "planId",
+          "participantId"
+        ],
+        "title": "RegenerateTokenParams"
+      },
+      "def-31": {
+        "type": "object",
+        "properties": {
+          "inviteToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "inviteToken"
+        ],
+        "title": "RegenerateTokenResponse"
       }
     }
   },
@@ -1977,6 +2138,149 @@
           }
         }
       }
+    },
+    "/plans/{planId}/invite/{inviteToken}": {
+      "get": {
+        "summary": "Access a plan via invite link",
+        "tags": [
+          "invite"
+        ],
+        "description": "Public endpoint. Validates the invite token and returns plan data with items. Participant PII is stripped — only displayName and role are included.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-29"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/participants/{participantId}/regenerate-token": {
+      "post": {
+        "summary": "Regenerate invite token for a participant",
+        "tags": [
+          "invite"
+        ],
+        "description": "Generates a new invite token for the specified participant, invalidating the previous one. Requires API key (owner action).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "participantId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-31"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -1995,6 +2299,10 @@
     {
       "name": "items",
       "description": "Item management"
+    },
+    {
+      "name": "invite",
+      "description": "Invite link access"
     }
   ]
 }

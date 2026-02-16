@@ -1,7 +1,12 @@
+import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { plans, participants, NewPlan } from '../db/schema.js'
 import * as schema from '../db/schema.js'
+
+function generateInviteToken(): string {
+  return randomBytes(32).toString('hex')
+}
 
 interface OwnerBody {
   name: string
@@ -145,6 +150,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
               role: 'owner',
               avatarUrl: owner.avatarUrl,
               contactEmail: owner.contactEmail,
+              inviteToken: generateInviteToken(),
             })
             .returning()
 
@@ -163,6 +169,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
                   role: p.role ?? ('participant' as const),
                   avatarUrl: p.avatarUrl,
                   contactEmail: p.contactEmail,
+                  inviteToken: generateInviteToken(),
                 }))
               )
               .returning()

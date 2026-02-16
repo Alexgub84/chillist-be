@@ -1,6 +1,6 @@
 {
   "name": "chillist-be",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Chillist Backend API - Trip planning with shared checklists",
   "type": "module",
   "engines": {

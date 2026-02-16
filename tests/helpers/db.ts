@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
@@ -112,6 +113,7 @@ export async function seedTestParticipants(
       | 'owner'
       | 'participant'
       | 'viewer',
+    inviteToken: randomBytes(32).toString('hex'),
   }))
 
   const inserted = await testDb

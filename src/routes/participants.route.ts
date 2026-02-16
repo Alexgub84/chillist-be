@@ -1,6 +1,11 @@
+import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { participants, plans } from '../db/schema.js'
+
+function generateInviteToken(): string {
+  return randomBytes(32).toString('hex')
+}
 
 interface CreateParticipantBody {
   name: string
@@ -128,6 +133,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           .values({
             planId,
             ...request.body,
+            inviteToken: generateInviteToken(),
           })
           .returning()
 

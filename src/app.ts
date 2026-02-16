@@ -8,6 +8,7 @@ import { healthRoutes } from './routes/health.route.js'
 import { plansRoutes } from './routes/plans.route.js'
 import { itemsRoutes } from './routes/items.route.js'
 import { participantsRoutes } from './routes/participants.route.js'
+import { inviteRoutes } from './routes/invite.route.js'
 import { Database } from './db/index.js'
 
 export interface AppDependencies {
@@ -61,6 +62,7 @@ export async function buildApp(
           { name: 'plans', description: 'Plan management' },
           { name: 'participants', description: 'Participant management' },
           { name: 'items', description: 'Item management' },
+          { name: 'invite', description: 'Invite link access' },
         ],
         components: {
           securitySchemes: {
@@ -110,6 +112,11 @@ export async function buildApp(
       return
     }
 
+    const invitePattern = /^\/plans\/[^/]+\/invite\/[^/]+$/
+    if (invitePattern.test(request.url)) {
+      return
+    }
+
     if (config.apiKey && request.headers['x-api-key'] !== config.apiKey) {
       return reply.status(401).send({ message: 'Unauthorized' })
     }
@@ -136,6 +143,7 @@ export async function buildApp(
   await fastify.register(plansRoutes)
   await fastify.register(participantsRoutes)
   await fastify.register(itemsRoutes)
+  await fastify.register(inviteRoutes)
 
   return fastify
 }

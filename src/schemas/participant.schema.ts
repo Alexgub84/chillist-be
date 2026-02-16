@@ -11,6 +11,7 @@ export const participantSchema = {
     role: { type: 'string', enum: ['owner', 'participant', 'viewer'] },
     avatarUrl: { type: 'string', nullable: true },
     contactEmail: { type: 'string', nullable: true },
+    inviteToken: { type: 'string', nullable: true },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
   },
