@@ -12,6 +12,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
   API_KEY: z.string().optional(),
+  SUPABASE_URL: z.string().url().optional(),
 })
 
 export type Env = z.infer<typeof envSchema>
