@@ -11,6 +11,11 @@
         "type": "apiKey",
         "name": "x-api-key",
         "in": "header"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     },
     "schemas": {
@@ -2281,6 +2286,51 @@
           }
         }
       }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get current user from JWT",
+        "tags": [
+          "auth"
+        ],
+        "description": "Returns the authenticated user identity extracted from the JWT. Returns 401 if no valid JWT is provided.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "role"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "user"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -2303,6 +2353,10 @@
     {
       "name": "invite",
       "description": "Invite link access"
+    },
+    {
+      "name": "auth",
+      "description": "Authentication"
     }
   ]
 }

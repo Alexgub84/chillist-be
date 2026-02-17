@@ -9,7 +9,9 @@ import { plansRoutes } from './routes/plans.route.js'
 import { itemsRoutes } from './routes/items.route.js'
 import { participantsRoutes } from './routes/participants.route.js'
 import { inviteRoutes } from './routes/invite.route.js'
+import { authRoutes } from './routes/auth.route.js'
 import { Database } from './db/index.js'
+import authPlugin, { AuthPluginOptions } from './plugins/auth.js'
 
 export interface AppDependencies {
   db: Database
@@ -18,13 +20,14 @@ export interface AppDependencies {
 export interface BuildAppOptions {
   enableDocs?: boolean
   logger?: false
+  auth?: AuthPluginOptions
 }
 
 export async function buildApp(
   deps: AppDependencies,
   options: BuildAppOptions = {}
 ) {
-  const { enableDocs = config.isDev, logger } = options
+  const { enableDocs = config.isDev, logger, auth } = options
 
   const fastify = Fastify({
     logger:
@@ -63,6 +66,7 @@ export async function buildApp(
           { name: 'participants', description: 'Participant management' },
           { name: 'items', description: 'Item management' },
           { name: 'invite', description: 'Invite link access' },
+          { name: 'auth', description: 'Authentication' },
         ],
         components: {
           securitySchemes: {
@@ -70,6 +74,11 @@ export async function buildApp(
               type: 'apiKey',
               name: 'x-api-key',
               in: 'header',
+            },
+            bearerAuth: {
+              type: 'http',
+              scheme: 'bearer',
+              bearerFormat: 'JWT',
             },
           },
         },
@@ -91,6 +100,8 @@ export async function buildApp(
     credentials: true,
   })
 
+  await fastify.register(authPlugin, auth ?? {})
+
   fastify.addHook('onRequest', async (request) => {
     if (request.url.startsWith('/health')) {
       return
@@ -102,6 +113,7 @@ export async function buildApp(
         url: request.url,
         origin: request.headers.origin ?? null,
         hasApiKey: !!request.headers['x-api-key'],
+        hasJwt: !!request.headers.authorization?.startsWith('Bearer '),
       },
       'Incoming request'
     )
@@ -117,8 +129,14 @@ export async function buildApp(
       return
     }
 
+    if (request.url.startsWith('/auth/')) {
+      return
+    }
+
     if (config.apiKey && request.headers['x-api-key'] !== config.apiKey) {
-      return reply.status(401).send({ message: 'Unauthorized' })
+      if (!request.user) {
+        return reply.status(401).send({ message: 'Unauthorized' })
+      }
     }
   })
 
@@ -144,6 +162,7 @@ export async function buildApp(
   await fastify.register(participantsRoutes)
   await fastify.register(itemsRoutes)
   await fastify.register(inviteRoutes)
+  await fastify.register(authRoutes)
 
   return fastify
 }
