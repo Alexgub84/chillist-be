@@ -9,7 +9,7 @@ export const itemSchema = {
     quantity: { type: 'integer' },
     unit: {
       type: 'string',
-      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'pack', 'set'],
+      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'm', 'cm', 'pack', 'set'],
     },
     status: {
       type: 'string',
@@ -48,7 +48,7 @@ export const createItemBodySchema = {
     quantity: { type: 'integer', minimum: 1 },
     unit: {
       type: 'string',
-      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'pack', 'set'],
+      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'm', 'cm', 'pack', 'set'],
     },
     status: {
       type: 'string',
@@ -69,7 +69,7 @@ export const updateItemBodySchema = {
     quantity: { type: 'integer', minimum: 1 },
     unit: {
       type: 'string',
-      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'pack', 'set'],
+      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'm', 'cm', 'pack', 'set'],
     },
     status: {
       type: 'string',

@@ -7,7 +7,18 @@ interface CreateItemBody {
   category: 'equipment' | 'food'
   quantity: number
   status: 'pending' | 'purchased' | 'packed' | 'canceled'
-  unit?: 'pcs' | 'kg' | 'g' | 'lb' | 'oz' | 'l' | 'ml' | 'pack' | 'set'
+  unit?:
+    | 'pcs'
+    | 'kg'
+    | 'g'
+    | 'lb'
+    | 'oz'
+    | 'l'
+    | 'ml'
+    | 'm'
+    | 'cm'
+    | 'pack'
+    | 'set'
   notes?: string | null
   assignedParticipantId?: string | null
 }
@@ -16,7 +27,18 @@ interface UpdateItemBody {
   name?: string
   category?: 'equipment' | 'food'
   quantity?: number
-  unit?: 'pcs' | 'kg' | 'g' | 'lb' | 'oz' | 'l' | 'ml' | 'pack' | 'set'
+  unit?:
+    | 'pcs'
+    | 'kg'
+    | 'g'
+    | 'lb'
+    | 'oz'
+    | 'l'
+    | 'ml'
+    | 'm'
+    | 'cm'
+    | 'pack'
+    | 'set'
   status?: 'pending' | 'purchased' | 'packed' | 'canceled'
   notes?: string | null
   assignedParticipantId?: string | null
