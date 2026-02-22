@@ -40,6 +40,8 @@ export const unitEnum = pgEnum('unit', [
   'oz',
   'l',
   'ml',
+  'm',
+  'cm',
   'pack',
   'set',
 ])
