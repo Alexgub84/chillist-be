@@ -3,6 +3,7 @@ import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { plans, participants, NewPlan } from '../db/schema.js'
 import * as schema from '../db/schema.js'
+import { checkPlanAccess } from '../utils/plan-access.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -129,8 +130,13 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         const authenticatedUserId = request.user?.id ?? null
 
+        const visibility =
+          planFields.visibility ??
+          (authenticatedUserId ? ('unlisted' as const) : ('public' as const))
+
         const planValues = {
           ...planFields,
+          visibility,
           createdByUserId: authenticatedUserId,
           ...(startDate && { startDate: new Date(String(startDate)) }),
           ...(endDate && { endDate: new Date(String(endDate)) }),
@@ -281,6 +287,18 @@ export async function plansRoutes(fastify: FastifyInstance) {
       const { planId } = request.params
 
       try {
+        const { allowed, plan: accessPlan } = await checkPlanAccess(
+          fastify.db,
+          planId,
+          request.user?.id
+        )
+
+        if (!allowed || !accessPlan) {
+          return reply.status(404).send({
+            message: 'Plan not found',
+          })
+        }
+
         const plan = await fastify.db.query.plans.findFirst({
           where: eq(schema.plans.planId, planId),
           with: {
@@ -288,12 +306,6 @@ export async function plansRoutes(fastify: FastifyInstance) {
             participants: true,
           },
         })
-
-        if (!plan) {
-          return reply.status(404).send({
-            message: 'Plan not found',
-          })
-        }
 
         request.log.info({ planId }, 'Plan retrieved')
         return plan
