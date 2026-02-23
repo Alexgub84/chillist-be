@@ -81,7 +81,10 @@ async function authPlugin(
 
       request.user = extractUser(payload as SupabaseJwtPayload)
     } catch (err) {
-      request.log.debug({ err }, 'JWT verification failed')
+      request.log.warn(
+        { err },
+        'JWT verification failed — request.user will be null'
+      )
     }
   })
 }

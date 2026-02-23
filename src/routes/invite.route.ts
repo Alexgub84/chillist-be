@@ -66,8 +66,19 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           role: p.role,
         }))
 
+        const filteredItems = plan.items.filter(
+          (item) =>
+            !item.assignedParticipantId ||
+            item.assignedParticipantId === participant.participantId
+        )
+
         request.log.info(
-          { planId, invitedParticipantId: participant.participantId },
+          {
+            planId,
+            invitedParticipantId: participant.participantId,
+            totalItems: plan.items.length,
+            visibleItems: filteredItems.length,
+          },
           'Plan accessed via invite link'
         )
 
@@ -82,7 +93,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           tags: plan.tags,
           createdAt: plan.createdAt,
           updatedAt: plan.updatedAt,
-          items: plan.items,
+          items: filteredItems,
           participants: filteredParticipants,
         }
       } catch (error) {

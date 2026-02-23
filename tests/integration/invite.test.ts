@@ -8,7 +8,9 @@ import {
   seedTestPlans,
   setupTestDatabase,
   seedTestItems,
+  getTestDb,
 } from '../helpers/db.js'
+import { items } from '../../src/db/schema.js'
 
 describe('Invite Route', () => {
   let app: FastifyInstance
@@ -144,6 +146,95 @@ describe('Invite Route', () => {
       })
 
       expect(response.statusCode).toBe(400)
+    })
+  })
+
+  describe('GET /plans/:planId/invite/:inviteToken — item filtering', () => {
+    it('shows unassigned items to invite user', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 2)
+      await seedTestItems(plan.planId, 3)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${participantList[1].inviteToken}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().items).toHaveLength(3)
+    })
+
+    it('shows items assigned to the invite user', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 2)
+
+      const db = await getTestDb()
+      await db.insert(items).values({
+        planId: plan.planId,
+        name: 'My Item',
+        category: 'equipment',
+        quantity: 1,
+        unit: 'pcs',
+        status: 'pending',
+        assignedParticipantId: participantList[1].participantId,
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${participantList[1].inviteToken}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().items).toHaveLength(1)
+      expect(response.json().items[0].name).toBe('My Item')
+    })
+
+    it('hides items assigned to other participants', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 3)
+
+      const db = await getTestDb()
+      await db.insert(items).values([
+        {
+          planId: plan.planId,
+          name: 'Unassigned Tent',
+          category: 'equipment',
+          quantity: 1,
+          unit: 'pcs',
+          status: 'pending',
+        },
+        {
+          planId: plan.planId,
+          name: 'My Sleeping Bag',
+          category: 'equipment',
+          quantity: 1,
+          unit: 'pcs',
+          status: 'pending',
+          assignedParticipantId: participantList[1].participantId,
+        },
+        {
+          planId: plan.planId,
+          name: 'Other Person Stove',
+          category: 'equipment',
+          quantity: 1,
+          unit: 'pcs',
+          status: 'pending',
+          assignedParticipantId: participantList[2].participantId,
+        },
+      ])
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${participantList[1].inviteToken}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      const resultItems = response.json().items
+      expect(resultItems).toHaveLength(2)
+      const names = resultItems.map((i: { name: string }) => i.name)
+      expect(names).toContain('Unassigned Tent')
+      expect(names).toContain('My Sleeping Bag')
+      expect(names).not.toContain('Other Person Stove')
     })
   })
 

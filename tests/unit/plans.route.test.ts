@@ -34,12 +34,18 @@ describe('Plans Route - Error Scenarios', () => {
   })
 
   describe('GET /plans - Database Errors', () => {
-    it('returns 503 when database connection fails', async () => {
+    function mockListChainError(error: unknown) {
       mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED')),
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockRejectedValue(error),
+          }),
         }),
       })
+    }
+
+    it('returns 503 when database connection fails', async () => {
+      mockListChainError(new Error('connect ECONNREFUSED'))
 
       const response = await app.inject({
         method: 'GET',
@@ -53,13 +59,7 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 500 when database query fails with unknown error', async () => {
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          orderBy: vi
-            .fn()
-            .mockRejectedValue(new Error('Unknown database error')),
-        }),
-      })
+      mockListChainError(new Error('Unknown database error'))
 
       const response = await app.inject({
         method: 'GET',
@@ -73,11 +73,7 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 500 when non-Error is thrown', async () => {
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockRejectedValue('string error'),
-        }),
-      })
+      mockListChainError('string error')
 
       const response = await app.inject({
         method: 'GET',
@@ -91,11 +87,7 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 503 when connection timeout occurs', async () => {
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockRejectedValue(new Error('connection timeout')),
-        }),
-      })
+      mockListChainError(new Error('connection timeout'))
 
       const response = await app.inject({
         method: 'GET',

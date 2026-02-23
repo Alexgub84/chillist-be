@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { items, plans, participants } from '../db/schema.js'
+import { checkPlanAccess } from '../utils/plan-access.js'
 
 interface CreateItemBody {
   name: string
@@ -167,12 +168,13 @@ export async function itemsRoutes(fastify: FastifyInstance) {
       const { planId } = request.params
 
       try {
-        const [existingPlan] = await fastify.db
-          .select({ planId: plans.planId })
-          .from(plans)
-          .where(eq(plans.planId, planId))
+        const { allowed } = await checkPlanAccess(
+          fastify.db,
+          planId,
+          request.user?.id
+        )
 
-        if (!existingPlan) {
+        if (!allowed) {
           return reply.status(404).send({
             message: 'Plan not found',
           })

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
-import { eq } from 'drizzle-orm'
+import { eq, and, or, exists } from 'drizzle-orm'
 import { plans, participants, NewPlan } from '../db/schema.js'
 import * as schema from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
@@ -119,6 +119,13 @@ export async function plansRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+      if (hasJwt && !request.user) {
+        return reply.status(401).send({
+          message: 'JWT token present but verification failed',
+        })
+      }
+
       try {
         const {
           owner,
@@ -237,13 +244,37 @@ export async function plansRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       try {
-        const allPlans = await fastify.db
+        const userId = request.user?.id
+
+        const conditions = userId
+          ? or(
+              eq(plans.visibility, 'public'),
+              eq(plans.createdByUserId, userId),
+              exists(
+                fastify.db
+                  .select({ one: participants.participantId })
+                  .from(participants)
+                  .where(
+                    and(
+                      eq(participants.planId, plans.planId),
+                      eq(participants.userId, userId)
+                    )
+                  )
+              )
+            )
+          : eq(plans.visibility, 'public')
+
+        const filteredPlans = await fastify.db
           .select()
           .from(plans)
+          .where(conditions)
           .orderBy(plans.createdAt)
 
-        request.log.info({ count: allPlans.length }, 'Plans retrieved')
-        return allPlans
+        request.log.info(
+          { count: filteredPlans.length, authenticated: !!userId },
+          'Plans retrieved'
+        )
+        return filteredPlans
       } catch (error) {
         request.log.error({ err: error }, 'Failed to retrieve plans')
 
@@ -349,6 +380,13 @@ export async function plansRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+      if (hasJwt && !request.user) {
+        return reply.status(401).send({
+          message: 'JWT token present but verification failed',
+        })
+      }
+
       const { planId } = request.params
       const updates = request.body
 
@@ -432,6 +470,13 @@ export async function plansRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+      if (hasJwt && !request.user) {
+        return reply.status(401).send({
+          message: 'JWT token present but verification failed',
+        })
+      }
+
       const { planId } = request.params
 
       try {
