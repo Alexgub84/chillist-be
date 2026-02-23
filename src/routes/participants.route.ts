@@ -15,6 +15,11 @@ interface CreateParticipantBody {
   role?: 'participant' | 'viewer'
   avatarUrl?: string
   contactEmail?: string
+  adultsCount?: number
+  kidsCount?: number
+  foodPreferences?: string
+  allergies?: string
+  notes?: string
 }
 
 interface UpdateParticipantBody {
@@ -25,6 +30,11 @@ interface UpdateParticipantBody {
   role?: 'participant' | 'viewer'
   avatarUrl?: string | null
   contactEmail?: string | null
+  adultsCount?: number | null
+  kidsCount?: number | null
+  foodPreferences?: string | null
+  allergies?: string | null
+  notes?: string | null
 }
 
 export async function participantsRoutes(fastify: FastifyInstance) {

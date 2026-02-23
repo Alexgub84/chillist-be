@@ -43,6 +43,13 @@
       "when": 1771834667407,
       "tag": "0005_harsh_korg",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771842420207,
+      "tag": "0006_secret_purple_man",
+      "breakpoints": true
     }
   ]
 }

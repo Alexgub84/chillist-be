@@ -133,6 +133,11 @@ export const participants = pgTable('participants', {
   contactEmail: varchar('contact_email', { length: 255 }),
   inviteToken: varchar('invite_token', { length: 64 }).unique(),
   inviteStatus: inviteStatusEnum('invite_status').default('pending').notNull(),
+  adultsCount: integer('adults_count'),
+  kidsCount: integer('kids_count'),
+  foodPreferences: text('food_preferences'),
+  allergies: text('allergies'),
+  notes: text('notes'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
