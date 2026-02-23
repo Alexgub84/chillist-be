@@ -1,9 +1,10 @@
 import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
-import { eq, and, or, exists } from 'drizzle-orm'
+import { eq, and, or, exists, sql } from 'drizzle-orm'
 import { plans, participants, NewPlan } from '../db/schema.js'
 import * as schema from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
+import { isAdmin } from '../utils/admin.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -137,7 +138,11 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         const authenticatedUserId = request.user?.id ?? null
 
-        if (authenticatedUserId && planFields.visibility === 'public') {
+        if (
+          authenticatedUserId &&
+          !isAdmin(request.user) &&
+          planFields.visibility === 'public'
+        ) {
           return reply.status(400).send({
             message:
               'Signed-in users cannot create public plans. Use invite_only or private.',
@@ -264,23 +269,25 @@ export async function plansRoutes(fastify: FastifyInstance) {
       try {
         const userId = request.user?.id
 
-        const conditions = userId
-          ? or(
-              eq(plans.visibility, 'public'),
-              eq(plans.createdByUserId, userId),
-              exists(
-                fastify.db
-                  .select({ one: participants.participantId })
-                  .from(participants)
-                  .where(
-                    and(
-                      eq(participants.planId, plans.planId),
-                      eq(participants.userId, userId)
+        const conditions = isAdmin(request.user)
+          ? sql`true`
+          : userId
+            ? or(
+                eq(plans.visibility, 'public'),
+                eq(plans.createdByUserId, userId),
+                exists(
+                  fastify.db
+                    .select({ one: participants.participantId })
+                    .from(participants)
+                    .where(
+                      and(
+                        eq(participants.planId, plans.planId),
+                        eq(participants.userId, userId)
+                      )
                     )
-                  )
+                )
               )
-            )
-          : eq(plans.visibility, 'public')
+            : eq(plans.visibility, 'public')
 
         const filteredPlans = await fastify.db
           .select()
@@ -339,7 +346,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
         const { allowed, plan: accessPlan } = await checkPlanAccess(
           fastify.db,
           planId,
-          request.user?.id
+          request.user
         )
 
         if (!allowed || !accessPlan) {
@@ -415,7 +422,11 @@ export async function plansRoutes(fastify: FastifyInstance) {
       }
 
       if (updates.visibility) {
-        if (request.user && updates.visibility === 'public') {
+        if (
+          request.user &&
+          !isAdmin(request.user) &&
+          updates.visibility === 'public'
+        ) {
           return reply.status(400).send({
             message:
               'Signed-in users cannot set visibility to public. Use invite_only or private.',

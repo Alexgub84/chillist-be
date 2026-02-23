@@ -21,6 +21,14 @@ import { randomBytes } from 'node:crypto'
 const OWNER_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
 const PARTICIPANT_USER_ID = 'bbbbbbbb-1111-2222-3333-444444444444'
 const UNRELATED_USER_ID = 'cccccccc-1111-2222-3333-444444444444'
+const ADMIN_USER_ID = 'dddddddd-1111-2222-3333-444444444444'
+
+function signAdminJwt(overrides: { sub?: string } = {}) {
+  return signTestJwt({
+    sub: overrides.sub ?? ADMIN_USER_ID,
+    app_metadata: { role: 'admin' },
+  })
+}
 
 const validOwner = {
   name: 'Alex',
@@ -171,6 +179,24 @@ describe('Plan Access Control', () => {
       expect(response.json().message).toMatch(/signed-in users cannot/i)
     })
 
+    it('allows admin to create public plan', async () => {
+      const token = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          title: 'Admin Public Plan',
+          visibility: 'public',
+          owner: validOwner,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().visibility).toBe('public')
+    })
+
     it.each(['invite_only', 'private'] as const)(
       'returns 400 when anonymous user sets visibility to %s',
       async (visibility) => {
@@ -208,6 +234,25 @@ describe('Plan Access Control', () => {
 
       expect(response.statusCode).toBe(400)
       expect(response.json().message).toMatch(/signed-in users cannot/i)
+    })
+
+    it('allows admin to update visibility to public', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'invite_only',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { visibility: 'public' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().visibility).toBe('public')
     })
 
     it.each(['invite_only', 'private'] as const)(
@@ -408,6 +453,42 @@ describe('Plan Access Control', () => {
 
       expect(response.statusCode).toBe(404)
     })
+
+    it('returns invite_only plan to admin (unrelated user)', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'invite_only',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().planId).toBe(plan.planId)
+    })
+
+    it('returns private plan to admin (unrelated user)', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'private',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().planId).toBe(plan.planId)
+    })
   })
 
   describe('Response shape — no information leakage', () => {
@@ -562,6 +643,36 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(200)
       expect(response.json()).toHaveLength(0)
     })
+
+    it('returns all plans for admin regardless of visibility', async () => {
+      await createPlanDirectly(db, { visibility: 'public' })
+      await createPlanDirectly(db, {
+        visibility: 'invite_only',
+        createdByUserId: OWNER_USER_ID,
+      })
+      await createPlanDirectly(db, {
+        visibility: 'private',
+        createdByUserId: UNRELATED_USER_ID,
+      })
+
+      const token = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans',
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const result = response.json()
+      expect(result).toHaveLength(3)
+      const visibilities = result.map(
+        (p: { visibility: string }) => p.visibility
+      )
+      expect(visibilities).toContain('public')
+      expect(visibilities).toContain('invite_only')
+      expect(visibilities).toContain('private')
+    })
   })
 
   describe('GET /plans/:planId/participants — access control', () => {
@@ -624,6 +735,24 @@ describe('Plan Access Control', () => {
       })
 
       expect(response.statusCode).toBe(404)
+    })
+
+    it('returns participants for invite_only plan to admin', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'invite_only',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toHaveLength(1)
     })
   })
 
@@ -705,6 +834,33 @@ describe('Plan Access Control', () => {
       })
 
       expect(response.statusCode).toBe(404)
+    })
+
+    it('returns items for invite_only plan to admin', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'invite_only',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      await db.insert(items).values({
+        planId: plan.planId,
+        name: 'Admin View Item',
+        category: 'equipment',
+        quantity: 1,
+        unit: 'pcs',
+        status: 'pending',
+      })
+
+      const token = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toHaveLength(1)
     })
   })
 
