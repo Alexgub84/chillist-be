@@ -163,7 +163,7 @@
             "type": "string",
             "enum": [
               "public",
-              "unlisted",
+              "invite_only",
               "private"
             ]
           },
@@ -284,7 +284,7 @@
             "type": "string",
             "enum": [
               "public",
-              "unlisted",
+              "invite_only",
               "private"
             ]
           },
@@ -337,7 +337,7 @@
             "type": "string",
             "enum": [
               "public",
-              "unlisted",
+              "invite_only",
               "private"
             ]
           },
@@ -408,7 +408,7 @@
             "type": "string",
             "enum": [
               "public",
-              "unlisted",
+              "invite_only",
               "private"
             ]
           },
@@ -959,7 +959,7 @@
             "type": "string",
             "enum": [
               "public",
-              "unlisted",
+              "invite_only",
               "private"
             ]
           },

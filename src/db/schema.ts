@@ -49,7 +49,7 @@ export const planStatusEnum = pgEnum('plan_status', [
 ])
 export const visibilityEnum = pgEnum('visibility', [
   'public',
-  'unlisted',
+  'invite_only',
   'private',
 ])
 export const participantRoleEnum = pgEnum('participant_role', [

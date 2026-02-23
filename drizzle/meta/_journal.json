@@ -50,6 +50,13 @@
       "when": 1771842420207,
       "tag": "0006_secret_purple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771863200642,
+      "tag": "0007_parched_sage",
+      "breakpoints": true
     }
   ]
 }

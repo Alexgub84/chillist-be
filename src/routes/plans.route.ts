@@ -38,7 +38,7 @@ interface UpdatePlanBody {
   title?: string
   description?: string | null
   status?: 'draft' | 'active' | 'archived'
-  visibility?: 'public' | 'unlisted' | 'private'
+  visibility?: 'public' | 'invite_only' | 'private'
   location?: schema.Location | null
   startDate?: string | null
   endDate?: string | null
@@ -137,9 +137,27 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         const authenticatedUserId = request.user?.id ?? null
 
+        if (authenticatedUserId && planFields.visibility === 'public') {
+          return reply.status(400).send({
+            message:
+              'Signed-in users cannot create public plans. Use invite_only or private.',
+          })
+        }
+
+        if (
+          !authenticatedUserId &&
+          (planFields.visibility === 'invite_only' ||
+            planFields.visibility === 'private')
+        ) {
+          return reply.status(400).send({
+            message:
+              'Anonymous users can only create public plans. Sign in to use invite_only or private visibility.',
+          })
+        }
+
         const visibility =
           planFields.visibility ??
-          (authenticatedUserId ? ('unlisted' as const) : ('public' as const))
+          (authenticatedUserId ? ('invite_only' as const) : ('public' as const))
 
         const planValues = {
           ...planFields,
@@ -394,6 +412,26 @@ export async function plansRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({
           message: 'No fields to update',
         })
+      }
+
+      if (updates.visibility) {
+        if (request.user && updates.visibility === 'public') {
+          return reply.status(400).send({
+            message:
+              'Signed-in users cannot set visibility to public. Use invite_only or private.',
+          })
+        }
+
+        if (
+          !request.user &&
+          (updates.visibility === 'invite_only' ||
+            updates.visibility === 'private')
+        ) {
+          return reply.status(400).send({
+            message:
+              'Anonymous users can only set visibility to public. Sign in to use invite_only or private.',
+          })
+        }
       }
 
       try {

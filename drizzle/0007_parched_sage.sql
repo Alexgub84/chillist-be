@@ -1,0 +1,1 @@
+ALTER TYPE "public"."visibility" RENAME VALUE 'unlisted' TO 'invite_only';

@@ -31,7 +31,7 @@ const validOwner = {
 async function createPlanDirectly(
   db: Database,
   overrides: {
-    visibility?: 'public' | 'unlisted' | 'private'
+    visibility?: 'public' | 'invite_only' | 'private'
     createdByUserId?: string | null
   } = {}
 ) {
@@ -110,7 +110,7 @@ describe('Plan Access Control', () => {
   })
 
   describe('POST /plans/with-owner — visibility defaults', () => {
-    it('defaults to unlisted when JWT is present', async () => {
+    it('defaults to invite_only when JWT is present', async () => {
       const token = await signTestJwt({ sub: OWNER_USER_ID })
 
       const response = await app.inject({
@@ -121,7 +121,7 @@ describe('Plan Access Control', () => {
       })
 
       expect(response.statusCode).toBe(201)
-      expect(response.json().visibility).toBe('unlisted')
+      expect(response.json().visibility).toBe('invite_only')
     })
 
     it('defaults to public when no JWT is present', async () => {
@@ -135,7 +135,25 @@ describe('Plan Access Control', () => {
       expect(response.json().visibility).toBe('public')
     })
 
-    it('respects explicit visibility even with JWT', async () => {
+    it('allows signed-in user to set visibility to private', async () => {
+      const token = await signTestJwt({ sub: OWNER_USER_ID })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          title: 'Private Plan',
+          visibility: 'private',
+          owner: validOwner,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().visibility).toBe('private')
+    })
+
+    it('returns 400 when signed-in user sets visibility to public', async () => {
       const token = await signTestJwt({ sub: OWNER_USER_ID })
 
       const response = await app.inject({
@@ -149,9 +167,66 @@ describe('Plan Access Control', () => {
         },
       })
 
-      expect(response.statusCode).toBe(201)
-      expect(response.json().visibility).toBe('public')
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toMatch(/signed-in users cannot/i)
     })
+
+    it.each(['invite_only', 'private'] as const)(
+      'returns 400 when anonymous user sets visibility to %s',
+      async (visibility) => {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/plans/with-owner',
+          payload: {
+            title: 'Restricted Plan',
+            visibility,
+            owner: validOwner,
+          },
+        })
+
+        expect(response.statusCode).toBe(400)
+        expect(response.json().message).toMatch(/anonymous users/i)
+      }
+    )
+  })
+
+  describe('PATCH /plans/:planId — visibility enforcement', () => {
+    it('returns 400 when signed-in user updates visibility to public', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'invite_only',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signTestJwt({ sub: OWNER_USER_ID })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { visibility: 'public' },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toMatch(/signed-in users cannot/i)
+    })
+
+    it.each(['invite_only', 'private'] as const)(
+      'returns 400 when anonymous user updates visibility to %s',
+      async (visibility) => {
+        const { plan } = await createPlanDirectly(db, {
+          visibility: 'public',
+        })
+
+        const response = await app.inject({
+          method: 'PATCH',
+          url: `/plans/${plan.planId}`,
+          payload: { visibility },
+        })
+
+        expect(response.statusCode).toBe(400)
+        expect(response.json().message).toMatch(/anonymous users/i)
+      }
+    )
   })
 
   describe('GET /plans/:planId — access control', () => {
@@ -167,9 +242,9 @@ describe('Plan Access Control', () => {
       expect(response.json().planId).toBe(plan.planId)
     })
 
-    it('returns unlisted plan to owner', async () => {
+    it('returns invite_only plan to owner', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -185,9 +260,9 @@ describe('Plan Access Control', () => {
       expect(response.json().planId).toBe(plan.planId)
     })
 
-    it('returns unlisted plan to linked participant', async () => {
+    it('returns invite_only plan to linked participant', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -205,9 +280,9 @@ describe('Plan Access Control', () => {
       expect(response.json().planId).toBe(plan.planId)
     })
 
-    it('returns 404 for unlisted plan with unrelated JWT user', async () => {
+    it('returns 404 for invite_only plan with unrelated JWT user', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -222,9 +297,9 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('returns 404 for unlisted plan without JWT', async () => {
+    it('returns 404 for invite_only plan without JWT', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -280,9 +355,9 @@ describe('Plan Access Control', () => {
       expect(response.json().planId).toBe(plan.planId)
     })
 
-    it('returns unlisted plan to linked viewer', async () => {
+    it('returns invite_only plan to linked viewer', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -300,9 +375,9 @@ describe('Plan Access Control', () => {
       expect(response.json().planId).toBe(plan.planId)
     })
 
-    it('returns 404 for unlisted plan with expired JWT', async () => {
+    it('returns 404 for invite_only plan with expired JWT', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -317,9 +392,9 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('returns 404 for unlisted plan with null createdByUserId', async () => {
+    it('returns 404 for invite_only plan with null createdByUserId', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: null,
       })
 
@@ -338,7 +413,7 @@ describe('Plan Access Control', () => {
   describe('Response shape — no information leakage', () => {
     it('unauthorized 404 is identical to nonexistent 404', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -362,10 +437,10 @@ describe('Plan Access Control', () => {
     })
   })
 
-  describe('Invite route — still works for unlisted plans', () => {
-    it('returns plan data via invite token on unlisted plan', async () => {
+  describe('Invite route — still works for invite_only plans', () => {
+    it('returns plan data via invite token on invite_only plan', async () => {
       const { plan, owner } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -378,9 +453,9 @@ describe('Plan Access Control', () => {
       expect(response.json().planId).toBe(plan.planId)
     })
 
-    it('returns 404 for wrong invite token on unlisted plan', async () => {
+    it('returns 404 for wrong invite token on invite_only plan', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -399,7 +474,7 @@ describe('Plan Access Control', () => {
     it('returns only public plans when no JWT', async () => {
       await createPlanDirectly(db, { visibility: 'public' })
       await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
       await createPlanDirectly(db, {
@@ -421,7 +496,7 @@ describe('Plan Access Control', () => {
     it('returns own plans + public plans with JWT', async () => {
       await createPlanDirectly(db, { visibility: 'public' })
       await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
       await createPlanDirectly(db, {
@@ -444,12 +519,12 @@ describe('Plan Access Control', () => {
         (p: { visibility: string }) => p.visibility
       )
       expect(visibilities).toContain('public')
-      expect(visibilities).toContain('unlisted')
+      expect(visibilities).toContain('invite_only')
     })
 
     it('includes plans where user is a linked participant', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -470,9 +545,9 @@ describe('Plan Access Control', () => {
       ).toBe(true)
     })
 
-    it('does not include other users unlisted plans', async () => {
+    it('does not include other users invite_only plans', async () => {
       await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -502,9 +577,9 @@ describe('Plan Access Control', () => {
       expect(response.json()).toHaveLength(1)
     })
 
-    it('returns participants for unlisted plan to owner', async () => {
+    it('returns participants for invite_only plan to owner', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -520,9 +595,9 @@ describe('Plan Access Control', () => {
       expect(response.json()).toHaveLength(1)
     })
 
-    it('returns 404 for unlisted plan participants with unrelated user', async () => {
+    it('returns 404 for invite_only plan participants with unrelated user', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -537,9 +612,9 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('returns 404 for unlisted plan participants without JWT', async () => {
+    it('returns 404 for invite_only plan participants without JWT', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -574,9 +649,9 @@ describe('Plan Access Control', () => {
       expect(response.json()).toHaveLength(1)
     })
 
-    it('returns items for unlisted plan to owner', async () => {
+    it('returns items for invite_only plan to owner', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -601,9 +676,9 @@ describe('Plan Access Control', () => {
       expect(response.json()).toHaveLength(1)
     })
 
-    it('returns 404 for unlisted plan items with unrelated user', async () => {
+    it('returns 404 for invite_only plan items with unrelated user', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -618,9 +693,9 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('returns 404 for unlisted plan items without JWT', async () => {
+    it('returns 404 for invite_only plan items without JWT', async () => {
       const { plan } = await createPlanDirectly(db, {
-        visibility: 'unlisted',
+        visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
       })
 
@@ -662,7 +737,7 @@ describe('Plan Access Control', () => {
       expect(response.json().visibility).toBe('public')
     })
 
-    it('POST /plans/with-owner creates plan with valid JWT (unlisted, owner set)', async () => {
+    it('POST /plans/with-owner creates plan with valid JWT (invite_only, owner set)', async () => {
       const token = await signTestJwt({ sub: OWNER_USER_ID })
 
       const response = await app.inject({
@@ -674,7 +749,7 @@ describe('Plan Access Control', () => {
 
       expect(response.statusCode).toBe(201)
       expect(response.json().createdByUserId).toBe(OWNER_USER_ID)
-      expect(response.json().visibility).toBe('unlisted')
+      expect(response.json().visibility).toBe('invite_only')
     })
 
     it('PATCH /plans/:planId returns 401 with invalid JWT', async () => {
