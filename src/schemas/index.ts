@@ -40,6 +40,12 @@ import {
   regenerateTokenParamsSchema,
   regenerateTokenResponseSchema,
 } from './invite.schema.js'
+import {
+  userPreferencesSchema,
+  profileResponseSchema,
+  updateProfileBodySchema,
+  updateProfileResponseSchema,
+} from './auth.schema.js'
 
 const schemas = [
   errorResponseSchema,
@@ -73,6 +79,10 @@ const schemas = [
   invitePlanResponseSchema,
   regenerateTokenParamsSchema,
   regenerateTokenResponseSchema,
+  userPreferencesSchema,
+  profileResponseSchema,
+  updateProfileBodySchema,
+  updateProfileResponseSchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
@@ -87,3 +97,4 @@ export * from './plan.schema.js'
 export * from './item.schema.js'
 export * from './participant.schema.js'
 export * from './invite.schema.js'
+export * from './auth.schema.js'
