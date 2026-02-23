@@ -1,5 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import helmet from '@fastify/helmet'
+import rateLimit from '@fastify/rate-limit'
 import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
 import { config } from './config.js'
@@ -98,6 +100,15 @@ export async function buildApp(
     origin: config.isDev ? true : config.frontendUrl,
     methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
+  })
+
+  await fastify.register(helmet, {
+    contentSecurityPolicy: config.isDev ? false : undefined,
+  })
+
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
   })
 
   await fastify.register(authPlugin, auth ?? {})

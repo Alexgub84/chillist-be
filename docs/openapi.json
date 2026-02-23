@@ -1124,6 +1124,106 @@
           "inviteToken"
         ],
         "title": "RegenerateTokenResponse"
+      },
+      "def-31": {
+        "type": "object",
+        "properties": {
+          "foodPreferences": {
+            "type": "string",
+            "nullable": true,
+            "description": "Free-text dietary preferences, e.g. \"vegetarian, no shellfish\""
+          },
+          "allergies": {
+            "type": "string",
+            "nullable": true,
+            "description": "Free-text allergy list, e.g. \"nuts, gluten, dairy\""
+          },
+          "defaultEquipment": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "List of equipment item names the user typically brings on trips, e.g. [\"tent\", \"sleeping bag\", \"headlamp\"]"
+          }
+        },
+        "title": "UserPreferences"
+      },
+      "def-32": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "email",
+              "role"
+            ]
+          },
+          "preferences": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-31"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "App preferences for this user. Null if the user has never saved preferences."
+          }
+        },
+        "required": [
+          "user",
+          "preferences"
+        ],
+        "title": "ProfileResponse"
+      },
+      "def-33": {
+        "type": "object",
+        "properties": {
+          "foodPreferences": {
+            "type": "string",
+            "nullable": true,
+            "description": "Free-text dietary preferences, e.g. \"vegetarian, no shellfish\". Send null to clear."
+          },
+          "allergies": {
+            "type": "string",
+            "nullable": true,
+            "description": "Free-text allergy list, e.g. \"nuts, gluten, dairy\". Send null to clear."
+          },
+          "defaultEquipment": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "List of equipment item names the user typically brings. Send null to clear."
+          }
+        },
+        "title": "UpdateProfileBody"
+      },
+      "def-34": {
+        "type": "object",
+        "properties": {
+          "preferences": {
+            "$ref": "#/components/schemas/def-31"
+          }
+        },
+        "required": [
+          "preferences"
+        ],
+        "title": "UpdateProfileResponse"
       }
     }
   },
@@ -2274,6 +2374,55 @@
                   "required": [
                     "user"
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/profile": {
+      "get": {
+        "summary": "Get current user profile",
+        "tags": [
+          "auth"
+        ],
+        "description": "Returns user identity from JWT and app preferences from the database. Returns 401 if no valid JWT is provided.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-32"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update user preferences",
+        "tags": [
+          "auth"
+        ],
+        "description": "Creates or updates the authenticated user's app preferences. Returns 401 if no valid JWT is provided.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-33"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-34"
                 }
               }
             }
