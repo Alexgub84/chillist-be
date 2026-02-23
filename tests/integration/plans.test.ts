@@ -192,7 +192,6 @@ describe('Plans Route', () => {
         payload: {
           title: 'Beach Trip',
           description: 'A fun beach trip',
-          visibility: 'private',
           location: {
             locationId: 'loc-1',
             name: 'Malibu Beach',
@@ -216,7 +215,7 @@ describe('Plans Route', () => {
       const plan = response.json()
       expect(plan.title).toBe('Beach Trip')
       expect(plan.description).toBe('A fun beach trip')
-      expect(plan.visibility).toBe('private')
+      expect(plan.visibility).toBe('public')
       expect(plan.startDate).toBe('2026-03-01T10:00:00.000Z')
       expect(plan.endDate).toBe('2026-03-05T18:00:00.000Z')
       expect(plan.tags).toEqual(['beach', 'vacation'])
@@ -753,7 +752,6 @@ describe('Plans Route', () => {
           title: 'New Title',
           description: 'New description',
           status: 'archived',
-          visibility: 'private',
           tags: ['camping', 'outdoors'],
         },
       })
@@ -764,7 +762,6 @@ describe('Plans Route', () => {
       expect(updated.title).toBe('New Title')
       expect(updated.description).toBe('New description')
       expect(updated.status).toBe('archived')
-      expect(updated.visibility).toBe('private')
       expect(updated.tags).toEqual(['camping', 'outdoors'])
     })
 

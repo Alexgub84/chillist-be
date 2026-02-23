@@ -22,7 +22,7 @@ export const planSchema = {
     title: { type: 'string' },
     description: { type: 'string', nullable: true },
     status: { type: 'string', enum: ['draft', 'active', 'archived'] },
-    visibility: { type: 'string', enum: ['public', 'unlisted', 'private'] },
+    visibility: { type: 'string', enum: ['public', 'invite_only', 'private'] },
     ownerParticipantId: { type: 'string', format: 'uuid', nullable: true },
     createdByUserId: { type: 'string', format: 'uuid', nullable: true },
     location: {
@@ -70,7 +70,7 @@ export const createPlanBodyLegacySchema = {
   properties: {
     title: { type: 'string', minLength: 1, maxLength: 255 },
     description: { type: 'string', nullable: true },
-    visibility: { type: 'string', enum: ['public', 'unlisted', 'private'] },
+    visibility: { type: 'string', enum: ['public', 'invite_only', 'private'] },
     location: {
       oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
     },
@@ -87,7 +87,7 @@ export const createPlanBodySchema = {
   properties: {
     title: { type: 'string', minLength: 1, maxLength: 255 },
     description: { type: 'string', nullable: true },
-    visibility: { type: 'string', enum: ['public', 'unlisted', 'private'] },
+    visibility: { type: 'string', enum: ['public', 'invite_only', 'private'] },
     location: {
       oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
     },
@@ -110,7 +110,7 @@ export const updatePlanBodySchema = {
     title: { type: 'string', minLength: 1, maxLength: 255 },
     description: { type: 'string', nullable: true },
     status: { type: 'string', enum: ['draft', 'active', 'archived'] },
-    visibility: { type: 'string', enum: ['public', 'unlisted', 'private'] },
+    visibility: { type: 'string', enum: ['public', 'invite_only', 'private'] },
     location: {
       oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
     },
@@ -146,7 +146,7 @@ export const planWithDetailsSchema = {
     title: { type: 'string' },
     description: { type: 'string', nullable: true },
     status: { type: 'string', enum: ['draft', 'active', 'archived'] },
-    visibility: { type: 'string', enum: ['public', 'unlisted', 'private'] },
+    visibility: { type: 'string', enum: ['public', 'invite_only', 'private'] },
     ownerParticipantId: { type: 'string', format: 'uuid', nullable: true },
     createdByUserId: { type: 'string', format: 'uuid', nullable: true },
     location: {
