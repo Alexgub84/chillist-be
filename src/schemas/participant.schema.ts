@@ -4,6 +4,7 @@ export const participantSchema = {
   properties: {
     participantId: { type: 'string', format: 'uuid' },
     planId: { type: 'string', format: 'uuid' },
+    userId: { type: 'string', format: 'uuid', nullable: true },
     name: { type: 'string' },
     lastName: { type: 'string' },
     contactPhone: { type: 'string' },

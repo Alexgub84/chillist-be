@@ -24,6 +24,7 @@ export const planSchema = {
     status: { type: 'string', enum: ['draft', 'active', 'archived'] },
     visibility: { type: 'string', enum: ['public', 'unlisted', 'private'] },
     ownerParticipantId: { type: 'string', format: 'uuid', nullable: true },
+    createdByUserId: { type: 'string', format: 'uuid', nullable: true },
     location: {
       oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
     },
@@ -147,6 +148,7 @@ export const planWithDetailsSchema = {
     status: { type: 'string', enum: ['draft', 'active', 'archived'] },
     visibility: { type: 'string', enum: ['public', 'unlisted', 'private'] },
     ownerParticipantId: { type: 'string', format: 'uuid', nullable: true },
+    createdByUserId: { type: 'string', format: 'uuid', nullable: true },
     location: {
       oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
     },

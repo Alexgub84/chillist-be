@@ -127,8 +127,11 @@ export async function plansRoutes(fastify: FastifyInstance) {
           ...planFields
         } = request.body
 
+        const authenticatedUserId = request.user?.id ?? null
+
         const planValues = {
           ...planFields,
+          createdByUserId: authenticatedUserId,
           ...(startDate && { startDate: new Date(String(startDate)) }),
           ...(endDate && { endDate: new Date(String(endDate)) }),
         }
@@ -143,6 +146,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
             .insert(participants)
             .values({
               planId: createdPlan.planId,
+              userId: authenticatedUserId,
               name: owner.name,
               lastName: owner.lastName,
               contactPhone: owner.contactPhone,

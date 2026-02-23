@@ -88,12 +88,3 @@ export const itemIdParamSchema = {
   },
   required: ['itemId'],
 } as const
-
-export const deleteItemResponseSchema = {
-  $id: 'DeleteItemResponse',
-  type: 'object',
-  properties: {
-    ok: { type: 'boolean' },
-  },
-  required: ['ok'],
-} as const

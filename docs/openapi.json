@@ -172,6 +172,11 @@
             "format": "uuid",
             "nullable": true
           },
+          "createdByUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "location": {
             "oneOf": [
               {
@@ -369,7 +374,7 @@
           "participants": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-21"
+              "$ref": "#/components/schemas/def-20"
             }
           }
         },
@@ -683,18 +688,6 @@
       "def-18": {
         "type": "object",
         "properties": {
-          "ok": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "ok"
-        ],
-        "title": "DeleteItemResponse"
-      },
-      "def-19": {
-        "type": "object",
-        "properties": {
           "participantId": {
             "type": "string",
             "format": "uuid"
@@ -702,6 +695,11 @@
           "planId": {
             "type": "string",
             "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "name": {
             "type": "string"
@@ -757,14 +755,14 @@
         ],
         "title": "Participant"
       },
-      "def-20": {
+      "def-19": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-19"
+          "$ref": "#/components/schemas/def-18"
         },
         "title": "ParticipantList"
       },
-      "def-21": {
+      "def-20": {
         "type": "object",
         "properties": {
           "name": {
@@ -809,7 +807,7 @@
         ],
         "title": "CreateParticipantBody"
       },
-      "def-22": {
+      "def-21": {
         "type": "object",
         "properties": {
           "name": {
@@ -851,7 +849,7 @@
         },
         "title": "UpdateParticipantBody"
       },
-      "def-23": {
+      "def-22": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -864,7 +862,7 @@
         ],
         "title": "ParticipantIdParam"
       },
-      "def-24": {
+      "def-23": {
         "type": "object",
         "properties": {
           "ok": {
@@ -876,7 +874,7 @@
         ],
         "title": "DeleteParticipantResponse"
       },
-      "def-25": {
+      "def-24": {
         "type": "object",
         "properties": {
           "planId": {
@@ -907,6 +905,11 @@
             ]
           },
           "ownerParticipantId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdByUserId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -950,7 +953,7 @@
             "$ref": "#/components/schemas/def-14"
           },
           "participants": {
-            "$ref": "#/components/schemas/def-20"
+            "$ref": "#/components/schemas/def-19"
           }
         },
         "required": [
@@ -965,7 +968,7 @@
         ],
         "title": "PlanWithDetails"
       },
-      "def-26": {
+      "def-25": {
         "type": "object",
         "properties": {
           "planId": {
@@ -984,7 +987,7 @@
         ],
         "title": "InviteParams"
       },
-      "def-27": {
+      "def-26": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -1010,14 +1013,14 @@
         ],
         "title": "InviteParticipant"
       },
-      "def-28": {
+      "def-27": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-27"
+          "$ref": "#/components/schemas/def-26"
         },
         "title": "InviteParticipantList"
       },
-      "def-29": {
+      "def-28": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1078,7 +1081,7 @@
             "$ref": "#/components/schemas/def-14"
           },
           "participants": {
-            "$ref": "#/components/schemas/def-28"
+            "$ref": "#/components/schemas/def-27"
           }
         },
         "required": [
@@ -1092,7 +1095,7 @@
         ],
         "title": "InvitePlanResponse"
       },
-      "def-30": {
+      "def-29": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1110,7 +1113,7 @@
         ],
         "title": "RegenerateTokenParams"
       },
-      "def-31": {
+      "def-30": {
         "type": "object",
         "properties": {
           "inviteToken": {
@@ -1267,7 +1270,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-25"
+                  "$ref": "#/components/schemas/def-24"
                 }
               }
             }
@@ -1329,7 +1332,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-25"
+                  "$ref": "#/components/schemas/def-24"
                 }
               }
             }
@@ -1540,7 +1543,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-20"
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
@@ -1587,7 +1590,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-21"
+                "$ref": "#/components/schemas/def-20"
               }
             }
           }
@@ -1609,7 +1612,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-19"
+                  "$ref": "#/components/schemas/def-18"
                 }
               }
             }
@@ -1681,7 +1684,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-19"
+                  "$ref": "#/components/schemas/def-18"
                 }
               }
             }
@@ -1728,7 +1731,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-22"
+                "$ref": "#/components/schemas/def-21"
               }
             }
           }
@@ -1750,7 +1753,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-19"
+                  "$ref": "#/components/schemas/def-18"
                 }
               }
             }
@@ -1820,7 +1823,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-24"
+                  "$ref": "#/components/schemas/def-23"
                 }
               }
             }
@@ -2088,66 +2091,6 @@
             }
           }
         }
-      },
-      "delete": {
-        "summary": "Delete an item",
-        "tags": [
-          "items"
-        ],
-        "description": "Delete an item by its ID. Cascade delete handles related assignments.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
-            "name": "itemId",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-18"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/plans/{planId}/invite/{inviteToken}": {
@@ -2184,7 +2127,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-29"
+                  "$ref": "#/components/schemas/def-28"
                 }
               }
             }
@@ -2255,7 +2198,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-31"
+                  "$ref": "#/components/schemas/def-30"
                 }
               }
             }
