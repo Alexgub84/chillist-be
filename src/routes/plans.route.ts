@@ -119,6 +119,13 @@ export async function plansRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+      if (hasJwt && !request.user) {
+        return reply.status(401).send({
+          message: 'JWT token present but verification failed',
+        })
+      }
+
       try {
         const {
           owner,
@@ -373,6 +380,13 @@ export async function plansRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+      if (hasJwt && !request.user) {
+        return reply.status(401).send({
+          message: 'JWT token present but verification failed',
+        })
+      }
+
       const { planId } = request.params
       const updates = request.body
 
@@ -456,6 +470,13 @@ export async function plansRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+      if (hasJwt && !request.user) {
+        return reply.status(401).send({
+          message: 'JWT token present but verification failed',
+        })
+      }
+
       const { planId } = request.params
 
       try {

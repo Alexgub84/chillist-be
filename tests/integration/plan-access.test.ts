@@ -12,6 +12,7 @@ import {
   getTestIssuer,
   signTestJwt,
   signExpiredJwt,
+  signJwtWithWrongKey,
 } from '../helpers/auth.js'
 import { Database } from '../../src/db/index.js'
 import { plans, participants, items } from '../../src/db/schema.js'
@@ -629,6 +630,78 @@ describe('Plan Access Control', () => {
       })
 
       expect(response.statusCode).toBe(404)
+    })
+  })
+
+  describe('JWT fail-fast — invalid JWT returns 401 on write endpoints', () => {
+    it('POST /plans/with-owner returns 401 with invalid JWT', async () => {
+      const badToken = await signJwtWithWrongKey()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        headers: { authorization: `Bearer ${badToken}` },
+        payload: { title: 'Should Fail', owner: validOwner },
+      })
+
+      expect(response.statusCode).toBe(401)
+      expect(response.json().message).toBe(
+        'JWT token present but verification failed'
+      )
+    })
+
+    it('POST /plans/with-owner creates plan without JWT (public, no guard)', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        payload: { title: 'No JWT Plan', owner: validOwner },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().createdByUserId).toBeNull()
+      expect(response.json().visibility).toBe('public')
+    })
+
+    it('POST /plans/with-owner creates plan with valid JWT (unlisted, owner set)', async () => {
+      const token = await signTestJwt({ sub: OWNER_USER_ID })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/with-owner',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { title: 'Valid JWT Plan', owner: validOwner },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().createdByUserId).toBe(OWNER_USER_ID)
+      expect(response.json().visibility).toBe('unlisted')
+    })
+
+    it('PATCH /plans/:planId returns 401 with invalid JWT', async () => {
+      const { plan } = await createPlanDirectly(db, { visibility: 'public' })
+      const badToken = await signJwtWithWrongKey()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${badToken}` },
+        payload: { title: 'Updated' },
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+
+    it('DELETE /plans/:planId returns 401 with invalid JWT', async () => {
+      const { plan } = await createPlanDirectly(db, { visibility: 'public' })
+      const badToken = await signJwtWithWrongKey()
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${badToken}` },
+      })
+
+      expect(response.statusCode).toBe(401)
     })
   })
 })
