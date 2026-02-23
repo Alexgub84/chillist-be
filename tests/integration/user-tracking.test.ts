@@ -151,6 +151,7 @@ describe('Opportunistic User Tracking', () => {
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${createdPlan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(getResponse.statusCode).toBe(200)
