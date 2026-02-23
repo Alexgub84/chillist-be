@@ -1,6 +1,8 @@
 import { eq, and } from 'drizzle-orm'
+import type { JwtUser } from '../plugins/auth.js'
 import { plans, participants, Plan } from '../db/schema.js'
 import { Database } from '../db/index.js'
+import { isAdmin } from './admin.js'
 
 export interface PlanAccessResult {
   allowed: boolean
@@ -10,7 +12,7 @@ export interface PlanAccessResult {
 export async function checkPlanAccess(
   db: Database,
   planId: string,
-  userId: string | undefined
+  user: JwtUser | null | undefined
 ): Promise<PlanAccessResult> {
   const [plan] = await db.select().from(plans).where(eq(plans.planId, planId))
 
@@ -18,10 +20,15 @@ export async function checkPlanAccess(
     return { allowed: false, plan: null }
   }
 
+  if (isAdmin(user)) {
+    return { allowed: true, plan }
+  }
+
   if (plan.visibility === 'public') {
     return { allowed: true, plan }
   }
 
+  const userId = user?.id
   if (!userId) {
     return { allowed: false, plan: null }
   }

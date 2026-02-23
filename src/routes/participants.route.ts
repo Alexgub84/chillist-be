@@ -62,7 +62,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         const { allowed } = await checkPlanAccess(
           fastify.db,
           planId,
-          request.user?.id
+          request.user
         )
 
         if (!allowed) {

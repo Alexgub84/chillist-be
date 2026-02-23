@@ -23,6 +23,7 @@ export type JWKSResolver = (
 interface SupabaseJwtPayload extends JWTPayload {
   email?: string
   role?: string
+  app_metadata?: { role?: string }
 }
 
 function extractUser(payload: SupabaseJwtPayload): JwtUser | null {
@@ -31,7 +32,7 @@ function extractUser(payload: SupabaseJwtPayload): JwtUser | null {
   return {
     id: payload.sub,
     email: payload.email ?? '',
-    role: payload.role ?? 'authenticated',
+    role: payload.app_metadata?.role ?? payload.role ?? 'authenticated',
   }
 }
 

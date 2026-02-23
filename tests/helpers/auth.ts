@@ -25,6 +25,7 @@ interface TestTokenClaims {
   sub?: string
   email?: string | null
   role?: string | null
+  app_metadata?: { role?: string } | null
   exp?: number
 }
 
@@ -41,6 +42,10 @@ export async function signTestJwt(
 
   if (claims.role !== null) {
     payload.role = claims.role ?? 'authenticated'
+  }
+
+  if (claims.app_metadata !== null && claims.app_metadata !== undefined) {
+    payload.app_metadata = claims.app_metadata
   }
 
   return new SignJWT(payload)
