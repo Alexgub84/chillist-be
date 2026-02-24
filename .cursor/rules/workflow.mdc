@@ -24,6 +24,17 @@ Before writing any code, FIRST use the Read tool on ALL of these files:
 Read the docs FIRST, then explore the specific files in this repo that are relevant to the task.
 Do NOT scan the entire codebase upfront - only look at files directly related to the work.
 
+# Before Committing
+
+Always pull main and merge into your feature branch before committing:
+
+1. `git fetch origin main`
+2. `git merge origin/main` (resolve conflicts if any)
+3. Run `npm run openapi:generate` to regenerate the OpenAPI spec
+4. Then stage, commit, and push
+
+This prevents branch conflicts in PRs caused by stale branches.
+
 # Updating Documentation
 
 When you fix a bug, learn something new, or change workflow:
@@ -31,4 +42,4 @@ When you fix a bug, learn something new, or change workflow:
 - If the fix implies a new rule, propose adding it to ../chillist-docs/rules/backend.md
 - If specs changed (features done, new endpoints), update ../chillist-docs/specs/mvp-v1.md
 - If setup/scripts changed, update ../chillist-docs/guides/backend.md
-- If API routes or schemas changed, run npm run openapi:generate and commit docs/openapi.json
+- If API routes or schemas changed, run npm run openapi:generate and commit docs/openapi.json (note: the pre-commit hook now auto-generates and stages this, but run it manually when validating changes before commit)
