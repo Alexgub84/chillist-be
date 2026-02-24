@@ -734,6 +734,14 @@
             "type": "string",
             "nullable": true
           },
+          "inviteStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "invited",
+              "accepted"
+            ]
+          },
           "rsvpStatus": {
             "type": "string",
             "enum": [
@@ -2506,6 +2514,98 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/def-34"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/claim/{inviteToken}": {
+      "post": {
+        "summary": "Claim a participant spot via invite token",
+        "tags": [
+          "auth"
+        ],
+        "description": "Links an authenticated user (JWT) to an existing participant record identified by the invite token. After claiming, the user can access the plan via JWT without the invite token.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-18"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }

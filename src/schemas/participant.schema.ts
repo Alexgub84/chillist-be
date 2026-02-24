@@ -13,6 +13,10 @@ export const participantSchema = {
     avatarUrl: { type: 'string', nullable: true },
     contactEmail: { type: 'string', nullable: true },
     inviteToken: { type: 'string', nullable: true },
+    inviteStatus: {
+      type: 'string',
+      enum: ['pending', 'invited', 'accepted'],
+    },
     rsvpStatus: {
       type: 'string',
       enum: ['pending', 'confirmed', 'not_sure'],
