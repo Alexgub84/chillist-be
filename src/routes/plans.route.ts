@@ -508,10 +508,11 @@ export async function plansRoutes(fastify: FastifyInstance) {
         tags: ['plans'],
         summary: 'Delete a plan',
         description:
-          'Delete a plan by its ID. Cascade delete handles related items, participants, and assignments.',
+          'Delete a plan by its ID. Requires JWT. Admin can delete any plan; owner can delete their own. Cascade delete handles related items, participants, and assignments.',
         params: { $ref: 'PlanIdParam#' },
         response: {
           200: { $ref: 'DeletePlanResponse#' },
+          401: { $ref: 'ErrorResponse#' },
           404: { $ref: 'ErrorResponse#' },
           500: { $ref: 'ErrorResponse#' },
           503: { $ref: 'ErrorResponse#' },
@@ -520,7 +521,14 @@ export async function plansRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const hasJwt = request.headers.authorization?.startsWith('Bearer ')
-      if (hasJwt && !request.user) {
+
+      if (!hasJwt) {
+        return reply.status(401).send({
+          message: 'Authentication required',
+        })
+      }
+
+      if (!request.user) {
         return reply.status(401).send({
           message: 'JWT token present but verification failed',
         })
@@ -530,7 +538,10 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
       try {
         const [existingPlan] = await fastify.db
-          .select({ planId: plans.planId })
+          .select({
+            planId: plans.planId,
+            createdByUserId: plans.createdByUserId,
+          })
           .from(plans)
           .where(eq(plans.planId, planId))
 
@@ -540,9 +551,25 @@ export async function plansRoutes(fastify: FastifyInstance) {
           })
         }
 
+        if (
+          !isAdmin(request.user) &&
+          existingPlan.createdByUserId !== request.user.id
+        ) {
+          return reply.status(404).send({
+            message: 'Plan not found',
+          })
+        }
+
         await fastify.db.delete(plans).where(eq(plans.planId, planId))
 
-        request.log.info({ planId }, 'Plan deleted')
+        request.log.info(
+          {
+            planId,
+            deletedBy: request.user.id,
+            isAdmin: isAdmin(request.user),
+          },
+          'Plan deleted'
+        )
         return reply.status(200).send({ ok: true })
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to delete plan')

@@ -1622,7 +1622,7 @@
         "tags": [
           "plans"
         ],
-        "description": "Delete a plan by its ID. Cascade delete handles related items, participants, and assignments.",
+        "description": "Delete a plan by its ID. Requires JWT. Admin can delete any plan; owner can delete their own. Cascade delete handles related items, participants, and assignments.",
         "parameters": [
           {
             "schema": {
@@ -1641,6 +1641,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/def-12"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
