@@ -25,6 +25,7 @@ services:
       - HOST=0.0.0.0
       - LOG_LEVEL=warn
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/chillist_test
+      - SUPABASE_URL=https://test-project.supabase.co
     depends_on:
       postgres:
         condition: service_healthy

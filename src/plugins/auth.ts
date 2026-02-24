@@ -65,11 +65,19 @@ async function authPlugin(
     )
     jwks = createRemoteJWKSet(jwksUrl) as JWKSResolver
     issuer = issuer ?? `${config.supabaseUrl}/auth/v1`
+
+    fastify.log.info(
+      { jwksUrl: jwksUrl.toString(), issuer },
+      'JWT verification enabled — JWKS configured'
+    )
   }
 
   fastify.jwtEnabled = true
 
-  const verifyOpts = issuer ? { issuer } : undefined
+  const verifyOpts = {
+    ...(issuer && { issuer }),
+    clockTolerance: 30,
+  }
 
   fastify.addHook('onRequest', async (request: FastifyRequest) => {
     const authHeader = request.headers.authorization
@@ -82,8 +90,9 @@ async function authPlugin(
 
       request.user = extractUser(payload as SupabaseJwtPayload)
     } catch (err) {
+      const errorType = err instanceof Error ? err.constructor.name : 'Unknown'
       request.log.warn(
-        { err },
+        { err, errorType },
         'JWT verification failed — request.user will be null'
       )
     }
