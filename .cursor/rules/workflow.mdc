@@ -26,14 +26,18 @@ Do NOT scan the entire codebase upfront - only look at files directly related to
 
 # Before Committing
 
-Always pull main and merge into your feature branch before committing:
+Always do the following before committing:
 
-1. `git fetch origin main`
-2. `git merge origin/main` (resolve conflicts if any)
-3. Run `npm run openapi:generate` to regenerate the OpenAPI spec
+1. Pull main and merge: `git fetch origin main && git merge origin/main` (resolve conflicts if any)
+2. Run `npm run openapi:generate` to regenerate the OpenAPI spec
+3. Update docs in `../chillist-docs/` if the change affects them:
+   - `guides/backend.md` — update "What's next" section when phases/steps are completed
+   - `specs/mvp-v1.md` — update Auth status row when auth milestones are reached
+   - `specs/user-management.md` — update phase/step status and endpoint tables
+   - `dev-lessons/backend.md` — add entry if a bug was fixed or a non-obvious lesson learned
 4. Then stage, commit, and push
 
-This prevents branch conflicts in PRs caused by stale branches.
+This prevents branch conflicts and keeps documentation in sync with code.
 
 # Updating Documentation
 
