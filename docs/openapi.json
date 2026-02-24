@@ -734,6 +734,19 @@
             "type": "string",
             "nullable": true
           },
+          "rsvpStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "not_sure"
+            ]
+          },
+          "lastActivityAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "adultsCount": {
             "type": "integer",
             "nullable": true
@@ -770,6 +783,7 @@
           "lastName",
           "contactPhone",
           "role",
+          "rsvpStatus",
           "createdAt",
           "updatedAt"
         ],
@@ -1622,7 +1636,7 @@
         "tags": [
           "plans"
         ],
-        "description": "Delete a plan by its ID. Cascade delete handles related items, participants, and assignments.",
+        "description": "Delete a plan by its ID. Requires JWT. Admin can delete any plan; owner can delete their own. Cascade delete handles related items, participants, and assignments.",
         "parameters": [
           {
             "schema": {
@@ -1641,6 +1655,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/def-12"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
@@ -2510,6 +2534,10 @@
     {
       "name": "invite",
       "description": "Invite link access"
+    },
+    {
+      "name": "guest",
+      "description": "Guest access via invite token"
     },
     {
       "name": "auth",

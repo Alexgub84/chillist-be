@@ -935,4 +935,133 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(401)
     })
   })
+
+  describe('DELETE /plans/:planId — access control', () => {
+    it('returns 401 when no JWT is provided', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'public',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan.planId}`,
+      })
+
+      expect(response.statusCode).toBe(401)
+      expect(response.json().message).toBe('Authentication required')
+    })
+
+    it('allows owner to delete their own plan', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'invite_only',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signTestJwt({ sub: OWNER_USER_ID })
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual({ ok: true })
+    })
+
+    it('allows admin to delete any plan', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'private',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual({ ok: true })
+    })
+
+    it.each(['public', 'invite_only', 'private'] as const)(
+      'admin can delete %s plan owned by another user',
+      async (visibility) => {
+        const { plan } = await createPlanDirectly(db, {
+          visibility,
+          createdByUserId: OWNER_USER_ID,
+        })
+
+        const token = await signAdminJwt()
+
+        const response = await app.inject({
+          method: 'DELETE',
+          url: `/plans/${plan.planId}`,
+          headers: { authorization: `Bearer ${token}` },
+        })
+
+        expect(response.statusCode).toBe(200)
+        expect(response.json()).toEqual({ ok: true })
+      }
+    )
+
+    it('returns 404 when non-owner authenticated user tries to delete', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'public',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signTestJwt({ sub: UNRELATED_USER_ID })
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json().message).toBe('Plan not found')
+    })
+
+    it('returns 404 for nonexistent plan with valid JWT', async () => {
+      const token = await signTestJwt({ sub: OWNER_USER_ID })
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/plans/00000000-0000-0000-0000-000000000000',
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('unauthorized 404 is identical to nonexistent 404 on delete', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'invite_only',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signTestJwt({ sub: UNRELATED_USER_ID })
+
+      const unauthorizedResponse = await app.inject({
+        method: 'DELETE',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      const nonexistentResponse = await app.inject({
+        method: 'DELETE',
+        url: '/plans/00000000-0000-0000-0000-000000000000',
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(unauthorizedResponse.statusCode).toBe(404)
+      expect(nonexistentResponse.statusCode).toBe(404)
+      expect(unauthorizedResponse.json()).toEqual(nonexistentResponse.json())
+    })
+  })
 })
