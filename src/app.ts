@@ -14,6 +14,7 @@ import { inviteRoutes } from './routes/invite.route.js'
 import { authRoutes } from './routes/auth.route.js'
 import { Database } from './db/index.js'
 import authPlugin, { AuthPluginOptions } from './plugins/auth.js'
+import guestAuthPlugin from './plugins/guest-auth.js'
 
 export interface AppDependencies {
   db: Database
@@ -23,13 +24,15 @@ export interface BuildAppOptions {
   enableDocs?: boolean
   logger?: false
   auth?: AuthPluginOptions
+  apiKey?: string
 }
 
 export async function buildApp(
   deps: AppDependencies,
   options: BuildAppOptions = {}
 ) {
-  const { enableDocs = config.isDev, logger, auth } = options
+  const { enableDocs = config.isDev, logger, auth, apiKey } = options
+  const effectiveApiKey = apiKey ?? config.apiKey
 
   const fastify = Fastify({
     logger:
@@ -68,6 +71,7 @@ export async function buildApp(
           { name: 'participants', description: 'Participant management' },
           { name: 'items', description: 'Item management' },
           { name: 'invite', description: 'Invite link access' },
+          { name: 'guest', description: 'Guest access via invite token' },
           { name: 'auth', description: 'Authentication' },
         ],
         components: {
@@ -112,6 +116,7 @@ export async function buildApp(
   })
 
   await fastify.register(authPlugin, auth ?? {})
+  await fastify.register(guestAuthPlugin)
 
   fastify.addHook('onRequest', async (request) => {
     if (request.url.startsWith('/health')) {
@@ -125,6 +130,7 @@ export async function buildApp(
         origin: request.headers.origin ?? null,
         hasApiKey: !!request.headers['x-api-key'],
         hasJwt: !!request.headers.authorization?.startsWith('Bearer '),
+        hasInviteToken: !!request.headers['x-invite-token'],
       },
       'Incoming request'
     )
@@ -144,7 +150,15 @@ export async function buildApp(
       return
     }
 
-    if (config.apiKey && request.headers['x-api-key'] !== config.apiKey) {
+    if (request.url.startsWith('/guest/')) {
+      return
+    }
+
+    if (request.url.startsWith('/invite/')) {
+      return
+    }
+
+    if (effectiveApiKey && request.headers['x-api-key'] !== effectiveApiKey) {
       if (!request.user) {
         return reply.status(401).send({ message: 'Unauthorized' })
       }

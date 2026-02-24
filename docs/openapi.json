@@ -734,6 +734,19 @@
             "type": "string",
             "nullable": true
           },
+          "rsvpStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "not_sure"
+            ]
+          },
+          "lastActivityAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "adultsCount": {
             "type": "integer",
             "nullable": true
@@ -770,6 +783,7 @@
           "lastName",
           "contactPhone",
           "role",
+          "rsvpStatus",
           "createdAt",
           "updatedAt"
         ],
@@ -2520,6 +2534,10 @@
     {
       "name": "invite",
       "description": "Invite link access"
+    },
+    {
+      "name": "guest",
+      "description": "Guest access via invite token"
     },
     {
       "name": "auth",

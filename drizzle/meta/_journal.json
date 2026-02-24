@@ -57,6 +57,13 @@
       "when": 1771863200642,
       "tag": "0007_parched_sage",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771960780305,
+      "tag": "0008_unknown_sue_storm",
+      "breakpoints": true
     }
   ]
 }

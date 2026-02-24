@@ -62,6 +62,11 @@ export const inviteStatusEnum = pgEnum('invite_status', [
   'invited',
   'accepted',
 ])
+export const rsvpStatusEnum = pgEnum('rsvp_status', [
+  'pending',
+  'confirmed',
+  'not_sure',
+])
 export const itemCategoryEnum = pgEnum('item_category', ['equipment', 'food'])
 export const itemStatusEnum = pgEnum('item_status', [
   'pending',
@@ -138,6 +143,8 @@ export const participants = pgTable('participants', {
   foodPreferences: text('food_preferences'),
   allergies: text('allergies'),
   notes: text('notes'),
+  rsvpStatus: rsvpStatusEnum('rsvp_status').default('pending').notNull(),
+  lastActivityAt: timestamp('last_activity_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

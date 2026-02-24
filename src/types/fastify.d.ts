@@ -1,5 +1,6 @@
 import { Database } from '../db/index.js'
 import { JwtUser } from '../plugins/auth.js'
+import { GuestParticipant } from '../plugins/guest-auth.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -9,5 +10,6 @@ declare module 'fastify' {
 
   interface FastifyRequest {
     user: JwtUser | null
+    guestParticipant: GuestParticipant | null
   }
 }
