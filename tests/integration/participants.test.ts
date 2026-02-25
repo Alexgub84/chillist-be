@@ -577,4 +577,89 @@ describe('Participants Route', () => {
       expect(updatedItem.assignedParticipantId).toBeNull()
     })
   })
+
+  describe('POST /plans/:planId/participants/:participantId/regenerate-token', () => {
+    it('generates a new token and returns it', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participants = await seedTestParticipants(plan.planId, 2)
+      const participant = participants[1]
+      const oldToken = participant.inviteToken
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/participants/${participant.participantId}/regenerate-token`,
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const result = response.json()
+      expect(result.inviteToken).toBeDefined()
+      expect(typeof result.inviteToken).toBe('string')
+      expect(result.inviteToken).toHaveLength(64)
+      expect(result.inviteToken).not.toBe(oldToken)
+    })
+
+    it('invalidates the old token after regeneration', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participants = await seedTestParticipants(plan.planId, 1)
+      const oldToken = participants[0].inviteToken!
+
+      const regenResponse = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/participants/${participants[0].participantId}/regenerate-token`,
+      })
+      const newToken = regenResponse.json().inviteToken
+
+      const oldTokenResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${oldToken}`,
+      })
+      expect(oldTokenResponse.statusCode).toBe(404)
+
+      const newTokenResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${newToken}`,
+      })
+      expect(newTokenResponse.statusCode).toBe(200)
+    })
+
+    it('returns 404 when participant does not exist', async () => {
+      const [plan] = await seedTestPlans(1)
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/participants/${nonExistentId}/regenerate-token`,
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({
+        message: 'Participant not found in this plan',
+      })
+    })
+
+    it('returns 404 when participant belongs to a different plan', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+      const participants1 = await seedTestParticipants(plan1.planId, 1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan2.planId}/participants/${participants1[0].participantId}/regenerate-token`,
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({
+        message: 'Participant not found in this plan',
+      })
+    })
+
+    it('returns 400 for invalid UUID params', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/bad-uuid/participants/also-bad/regenerate-token',
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+  })
 })

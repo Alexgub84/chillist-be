@@ -394,181 +394,506 @@ describe('Invite Route', () => {
     })
   })
 
-  describe('POST /plans/:planId/participants/:participantId/regenerate-token', () => {
-    it('generates a new token and returns it', async () => {
+  describe('GET /plans/:planId/invite/:inviteToken — guest identity fields', () => {
+    it('returns myParticipantId matching the token owner', async () => {
       const [plan] = await seedTestPlans(1)
-      const participants = await seedTestParticipants(plan.planId, 2)
-      const participant = participants[1]
-      const oldToken = participant.inviteToken
+      const participantList = await seedTestParticipants(plan.planId, 2)
+      const token = participantList[1].inviteToken!
 
       const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/participants/${participant.participantId}/regenerate-token`,
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${token}`,
       })
 
       expect(response.statusCode).toBe(200)
-
       const result = response.json()
-      expect(result.inviteToken).toBeDefined()
-      expect(typeof result.inviteToken).toBe('string')
-      expect(result.inviteToken).toHaveLength(64)
-      expect(result.inviteToken).not.toBe(oldToken)
+      expect(result.myParticipantId).toBe(participantList[1].participantId)
     })
 
-    it('invalidates the old token after regeneration', async () => {
+    it('returns myRsvpStatus defaulting to pending', async () => {
       const [plan] = await seedTestPlans(1)
-      const participants = await seedTestParticipants(plan.planId, 1)
-      const oldToken = participants[0].inviteToken!
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
 
-      const regenResponse = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/participants/${participants[0].participantId}/regenerate-token`,
-      })
-      const newToken = regenResponse.json().inviteToken
-
-      const oldTokenResponse = await app.inject({
+      const response = await app.inject({
         method: 'GET',
-        url: `/plans/${plan.planId}/invite/${oldToken}`,
+        url: `/plans/${plan.planId}/invite/${token}`,
       })
-      expect(oldTokenResponse.statusCode).toBe(404)
 
-      const newTokenResponse = await app.inject({
-        method: 'GET',
-        url: `/plans/${plan.planId}/invite/${newToken}`,
-      })
-      expect(newTokenResponse.statusCode).toBe(200)
+      expect(response.statusCode).toBe(200)
+      expect(response.json().myRsvpStatus).toBe('pending')
     })
 
-    it('returns 404 when participant does not exist', async () => {
+    it('returns myPreferences with default null values', async () => {
       const [plan] = await seedTestPlans(1)
-      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
 
       const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/participants/${nonExistentId}/regenerate-token`,
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${token}`,
       })
 
-      expect(response.statusCode).toBe(404)
-      expect(response.json()).toEqual({
-        message: 'Participant not found in this plan',
-      })
+      expect(response.statusCode).toBe(200)
+      const prefs = response.json().myPreferences
+      expect(prefs).toBeDefined()
+      expect(prefs.adultsCount).toBeNull()
+      expect(prefs.kidsCount).toBeNull()
+      expect(prefs.foodPreferences).toBeNull()
+      expect(prefs.allergies).toBeNull()
+      expect(prefs.notes).toBeNull()
     })
 
-    it('returns 404 when participant belongs to a different plan', async () => {
-      const [plan1, plan2] = await seedTestPlans(2)
-      const participants1 = await seedTestParticipants(plan1.planId, 1)
+    it('returns updated myPreferences after PATCH', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: {
+          adultsCount: 3,
+          kidsCount: 2,
+          foodPreferences: 'halal',
+          allergies: 'nuts',
+          notes: 'Late arrival',
+        },
+      })
 
       const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan2.planId}/participants/${participants1[0].participantId}/regenerate-token`,
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${token}`,
       })
 
-      expect(response.statusCode).toBe(404)
-      expect(response.json()).toEqual({
-        message: 'Participant not found in this plan',
-      })
+      expect(response.statusCode).toBe(200)
+      const prefs = response.json().myPreferences
+      expect(prefs.adultsCount).toBe(3)
+      expect(prefs.kidsCount).toBe(2)
+      expect(prefs.foodPreferences).toBe('halal')
+      expect(prefs.allergies).toBe('nuts')
+      expect(prefs.notes).toBe('Late arrival')
     })
 
-    it('returns 400 for invalid UUID params', async () => {
+    it('reflects updated myRsvpStatus after PATCH preferences with rsvpStatus', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { rsvpStatus: 'confirmed' },
+      })
+
       const response = await app.inject({
-        method: 'POST',
-        url: '/plans/bad-uuid/participants/also-bad/regenerate-token',
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${token}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().myRsvpStatus).toBe('confirmed')
+    })
+  })
+
+  describe('PATCH /plans/:planId/invite/:inviteToken/preferences — rsvpStatus', () => {
+    it('accepts rsvpStatus confirmed and persists it', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { rsvpStatus: 'confirmed' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().rsvpStatus).toBe('confirmed')
+    })
+
+    it('accepts rsvpStatus not_sure and persists it', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { rsvpStatus: 'not_sure' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().rsvpStatus).toBe('not_sure')
+    })
+
+    it('rejects rsvpStatus pending via schema validation', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { rsvpStatus: 'pending' },
       })
 
       expect(response.statusCode).toBe(400)
     })
   })
 
-  describe('Invite token generation on participant creation', () => {
-    it('generates inviteToken when creating a participant via POST', async () => {
+  describe('POST /plans/:planId/invite/:inviteToken/items', () => {
+    it('creates an item auto-assigned to the token participant', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 2)
+      const token = participantList[1].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items`,
+        payload: {
+          name: 'Sleeping Bag',
+          category: 'equipment',
+          quantity: 1,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const item = response.json()
+      expect(item.name).toBe('Sleeping Bag')
+      expect(item.category).toBe('equipment')
+      expect(item.quantity).toBe(1)
+      expect(item.unit).toBe('pcs')
+      expect(item.status).toBe('pending')
+      expect(item.assignedParticipantId).toBe(participantList[1].participantId)
+      expect(item.planId).toBe(plan.planId)
+    })
+
+    it('defaults equipment unit to pcs', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items`,
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 2,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().unit).toBe('pcs')
+    })
+
+    it('requires unit for food items', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items`,
+        payload: {
+          name: 'Water',
+          category: 'food',
+          quantity: 5,
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toBe('Unit is required for food items')
+    })
+
+    it('creates food item with explicit unit', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items`,
+        payload: {
+          name: 'Water',
+          category: 'food',
+          quantity: 5,
+          unit: 'l',
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().unit).toBe('l')
+      expect(response.json().category).toBe('food')
+    })
+
+    it('returns 404 for invalid invite token', async () => {
       const [plan] = await seedTestPlans(1)
 
       const response = await app.inject({
         method: 'POST',
-        url: `/plans/${plan.planId}/participants`,
+        url: `/plans/${plan.planId}/invite/bad-token-value/items`,
         payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+        },
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json().message).toBe(
+        'Invalid invite token or plan not found'
+      )
+    })
+
+    it('returns 404 when token belongs to a different plan', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+      const participants1 = await seedTestParticipants(plan1.planId, 1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan2.planId}/invite/${participants1[0].inviteToken}/items`,
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+        },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('does not require API key header', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items`,
+        headers: {},
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+    })
+  })
+
+  describe('PATCH /plans/:planId/invite/:inviteToken/items/:itemId', () => {
+    it('updates an item assigned to the token participant', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 2)
+      const token = participantList[1].inviteToken!
+
+      const db = await getTestDb()
+      const [item] = await db
+        .insert(items)
+        .values({
+          planId: plan.planId,
+          name: 'Old Name',
+          category: 'equipment',
+          quantity: 1,
+          unit: 'pcs',
+          status: 'pending',
+          assignedParticipantId: participantList[1].participantId,
+        })
+        .returning()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/${item.itemId}`,
+        payload: { name: 'New Name', quantity: 3 },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.name).toBe('New Name')
+      expect(updated.quantity).toBe(3)
+      expect(updated.assignedParticipantId).toBe(
+        participantList[1].participantId
+      )
+    })
+
+    it('returns 403 when item is assigned to a different participant', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 3)
+      const token = participantList[1].inviteToken!
+
+      const db = await getTestDb()
+      const [item] = await db
+        .insert(items)
+        .values({
+          planId: plan.planId,
+          name: 'Other Item',
+          category: 'equipment',
+          quantity: 1,
+          unit: 'pcs',
+          status: 'pending',
+          assignedParticipantId: participantList[2].participantId,
+        })
+        .returning()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/${item.itemId}`,
+        payload: { name: 'Hacked Name' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(response.json().message).toBe(
+        'You can only edit items assigned to you'
+      )
+    })
+
+    it('returns 403 when item is unassigned', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const db = await getTestDb()
+      const [item] = await db
+        .insert(items)
+        .values({
+          planId: plan.planId,
+          name: 'Unassigned Item',
+          category: 'equipment',
+          quantity: 1,
+          unit: 'pcs',
+          status: 'pending',
+        })
+        .returning()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/${item.itemId}`,
+        payload: { name: 'Should Fail' },
+      })
+
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('returns 404 for non-existent item', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+      const fakeItemId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/${fakeItemId}`,
+        payload: { name: 'Ghost Item' },
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json().message).toBe('Item not found')
+    })
+
+    it('returns 400 when body is empty', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const db = await getTestDb()
+      const [item] = await db
+        .insert(items)
+        .values({
+          planId: plan.planId,
           name: 'Test',
-          lastName: 'User',
-          contactPhone: '+1-555-999-0000',
-        },
-      })
+          category: 'equipment',
+          quantity: 1,
+          unit: 'pcs',
+          status: 'pending',
+          assignedParticipantId: participantList[0].participantId,
+        })
+        .returning()
 
-      expect(response.statusCode).toBe(201)
-
-      const participant = response.json()
-      expect(participant.inviteToken).toBeDefined()
-      expect(typeof participant.inviteToken).toBe('string')
-      expect(participant.inviteToken).toHaveLength(64)
-    })
-
-    it('generates unique inviteTokens for each participant', async () => {
-      const [plan] = await seedTestPlans(1)
-
-      const response1 = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/participants`,
-        payload: {
-          name: 'User',
-          lastName: 'One',
-          contactPhone: '+1-555-111-0001',
-        },
-      })
-
-      const response2 = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/participants`,
-        payload: {
-          name: 'User',
-          lastName: 'Two',
-          contactPhone: '+1-555-111-0002',
-        },
-      })
-
-      const token1 = response1.json().inviteToken
-      const token2 = response2.json().inviteToken
-      expect(token1).not.toBe(token2)
-    })
-
-    it('generates inviteTokens in POST /plans/with-owner', async () => {
       const response = await app.inject({
-        method: 'POST',
-        url: '/plans/with-owner',
-        payload: {
-          title: 'Test Plan',
-          owner: {
-            name: 'Owner',
-            lastName: 'Test',
-            contactPhone: '+1-555-000-0001',
-          },
-          participants: [
-            {
-              name: 'Guest',
-              lastName: 'One',
-              contactPhone: '+1-555-000-0002',
-            },
-          ],
-        },
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/${item.itemId}`,
+        payload: {},
       })
 
-      expect(response.statusCode).toBe(201)
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toBe('No fields to update')
+    })
 
-      const result = response.json()
-      expect(result.participants).toHaveLength(2)
+    it('returns 404 for invalid invite token', async () => {
+      const [plan] = await seedTestPlans(1)
+      const fakeItemId = '00000000-0000-0000-0000-000000000000'
 
-      const ownerParticipant = result.participants.find(
-        (p: { role: string }) => p.role === 'owner'
-      )
-      const guestParticipant = result.participants.find(
-        (p: { role: string }) => p.role === 'participant'
-      )
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/bad-token-value/items/${fakeItemId}`,
+        payload: { name: 'Test' },
+      })
 
-      expect(ownerParticipant.inviteToken).toBeDefined()
-      expect(ownerParticipant.inviteToken).toHaveLength(64)
-      expect(guestParticipant.inviteToken).toBeDefined()
-      expect(guestParticipant.inviteToken).toHaveLength(64)
-      expect(ownerParticipant.inviteToken).not.toBe(
-        guestParticipant.inviteToken
+      expect(response.statusCode).toBe(404)
+      expect(response.json().message).toBe(
+        'Invalid invite token or plan not found'
       )
+    })
+
+    it('allows updating item status', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const db = await getTestDb()
+      const [item] = await db
+        .insert(items)
+        .values({
+          planId: plan.planId,
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+          unit: 'pcs',
+          status: 'pending',
+          assignedParticipantId: participantList[0].participantId,
+        })
+        .returning()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/${item.itemId}`,
+        payload: { status: 'purchased' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().status).toBe('purchased')
+    })
+
+    it('does not require API key header', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const db = await getTestDb()
+      const [item] = await db
+        .insert(items)
+        .values({
+          planId: plan.planId,
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+          unit: 'pcs',
+          status: 'pending',
+          assignedParticipantId: participantList[0].participantId,
+        })
+        .returning()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/${item.itemId}`,
+        headers: {},
+        payload: { name: 'Updated' },
+      })
+
+      expect(response.statusCode).toBe(200)
     })
   })
 })

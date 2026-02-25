@@ -43,6 +43,12 @@ export const invitePlanResponseSchema = {
     updatedAt: { type: 'string', format: 'date-time' },
     items: { $ref: 'ItemList#' },
     participants: { $ref: 'InviteParticipantList#' },
+    myParticipantId: { type: 'string', format: 'uuid' },
+    myRsvpStatus: {
+      type: 'string',
+      enum: ['pending', 'confirmed', 'not_sure'],
+    },
+    myPreferences: { $ref: 'InviteMyPreferences#' },
   },
   required: [
     'planId',
@@ -52,7 +58,22 @@ export const invitePlanResponseSchema = {
     'updatedAt',
     'items',
     'participants',
+    'myParticipantId',
+    'myRsvpStatus',
+    'myPreferences',
   ],
+} as const
+
+export const inviteMyPreferencesSchema = {
+  $id: 'InviteMyPreferences',
+  type: 'object',
+  properties: {
+    adultsCount: { type: 'integer', nullable: true },
+    kidsCount: { type: 'integer', nullable: true },
+    foodPreferences: { type: 'string', nullable: true },
+    allergies: { type: 'string', nullable: true },
+    notes: { type: 'string', nullable: true },
+  },
 } as const
 
 export const regenerateTokenParamsSchema = {
@@ -84,6 +105,7 @@ export const updateInvitePreferencesBodySchema = {
     foodPreferences: { type: 'string', nullable: true },
     allergies: { type: 'string', nullable: true },
     notes: { type: 'string', nullable: true },
+    rsvpStatus: { type: 'string', enum: ['confirmed', 'not_sure'] },
   },
 } as const
 
@@ -105,4 +127,50 @@ export const invitePreferencesResponseSchema = {
     notes: { type: 'string', nullable: true },
   },
   required: ['participantId', 'role', 'rsvpStatus'],
+} as const
+
+export const inviteItemParamsSchema = {
+  $id: 'InviteItemParams',
+  type: 'object',
+  properties: {
+    planId: { type: 'string', format: 'uuid' },
+    inviteToken: { type: 'string', minLength: 1, maxLength: 64 },
+    itemId: { type: 'string', format: 'uuid' },
+  },
+  required: ['planId', 'inviteToken', 'itemId'],
+} as const
+
+export const createInviteItemBodySchema = {
+  $id: 'CreateInviteItemBody',
+  type: 'object',
+  properties: {
+    name: { type: 'string', minLength: 1, maxLength: 255 },
+    category: { type: 'string', enum: ['equipment', 'food'] },
+    quantity: { type: 'integer', minimum: 1 },
+    unit: {
+      type: 'string',
+      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'm', 'cm', 'pack', 'set'],
+    },
+    notes: { type: 'string', nullable: true },
+  },
+  required: ['name', 'category', 'quantity'],
+} as const
+
+export const updateInviteItemBodySchema = {
+  $id: 'UpdateInviteItemBody',
+  type: 'object',
+  properties: {
+    name: { type: 'string', minLength: 1, maxLength: 255 },
+    category: { type: 'string', enum: ['equipment', 'food'] },
+    quantity: { type: 'integer', minimum: 1 },
+    unit: {
+      type: 'string',
+      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'm', 'cm', 'pack', 'set'],
+    },
+    status: {
+      type: 'string',
+      enum: ['pending', 'purchased', 'packed', 'canceled'],
+    },
+    notes: { type: 'string', nullable: true },
+  },
 } as const
