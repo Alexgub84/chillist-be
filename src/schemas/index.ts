@@ -39,6 +39,8 @@ import {
   invitePlanResponseSchema,
   regenerateTokenParamsSchema,
   regenerateTokenResponseSchema,
+  updateInvitePreferencesBodySchema,
+  invitePreferencesResponseSchema,
 } from './invite.schema.js'
 import {
   userPreferencesSchema,
@@ -79,6 +81,8 @@ const schemas = [
   invitePlanResponseSchema,
   regenerateTokenParamsSchema,
   regenerateTokenResponseSchema,
+  updateInvitePreferencesBodySchema,
+  invitePreferencesResponseSchema,
   userPreferencesSchema,
   profileResponseSchema,
   updateProfileBodySchema,

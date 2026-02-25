@@ -73,3 +73,36 @@ export const regenerateTokenResponseSchema = {
   },
   required: ['inviteToken'],
 } as const
+
+export const updateInvitePreferencesBodySchema = {
+  $id: 'UpdateInvitePreferencesBody',
+  type: 'object',
+  properties: {
+    displayName: { type: 'string', maxLength: 255, nullable: true },
+    adultsCount: { type: 'integer', minimum: 0, nullable: true },
+    kidsCount: { type: 'integer', minimum: 0, nullable: true },
+    foodPreferences: { type: 'string', nullable: true },
+    allergies: { type: 'string', nullable: true },
+    notes: { type: 'string', nullable: true },
+  },
+} as const
+
+export const invitePreferencesResponseSchema = {
+  $id: 'InvitePreferencesResponse',
+  type: 'object',
+  properties: {
+    participantId: { type: 'string', format: 'uuid' },
+    displayName: { type: 'string', nullable: true },
+    role: { type: 'string', enum: ['owner', 'participant', 'viewer'] },
+    rsvpStatus: {
+      type: 'string',
+      enum: ['pending', 'confirmed', 'not_sure'],
+    },
+    adultsCount: { type: 'integer', nullable: true },
+    kidsCount: { type: 'integer', nullable: true },
+    foodPreferences: { type: 'string', nullable: true },
+    allergies: { type: 'string', nullable: true },
+    notes: { type: 'string', nullable: true },
+  },
+  required: ['participantId', 'role', 'rsvpStatus'],
+} as const

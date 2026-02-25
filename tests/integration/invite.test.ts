@@ -238,6 +238,162 @@ describe('Invite Route', () => {
     })
   })
 
+  describe('PATCH /plans/:planId/invite/:inviteToken/preferences', () => {
+    it('updates guest preferences and returns preference fields', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participants = await seedTestParticipants(plan.planId, 2)
+      const token = participants[1].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: {
+          displayName: 'Alex G',
+          adultsCount: 2,
+          kidsCount: 1,
+          foodPreferences: 'vegetarian',
+          allergies: 'peanuts',
+          notes: 'Arriving late',
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const body = response.json()
+      expect(body.participantId).toBe(participants[1].participantId)
+      expect(body.displayName).toBe('Alex G')
+      expect(body.adultsCount).toBe(2)
+      expect(body.kidsCount).toBe(1)
+      expect(body.foodPreferences).toBe('vegetarian')
+      expect(body.allergies).toBe('peanuts')
+      expect(body.notes).toBe('Arriving late')
+      expect(body.role).toBe('participant')
+      expect(body.rsvpStatus).toBe('pending')
+    })
+
+    it('allows partial updates — only sent fields are changed', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participants = await seedTestParticipants(plan.planId, 1)
+      const token = participants[0].inviteToken!
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { foodPreferences: 'vegan', allergies: 'gluten' },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { allergies: 'dairy' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.foodPreferences).toBe('vegan')
+      expect(body.allergies).toBe('dairy')
+    })
+
+    it('clears a field when null is sent', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participants = await seedTestParticipants(plan.planId, 1)
+      const token = participants[0].inviteToken!
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { foodPreferences: 'kosher' },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { foodPreferences: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().foodPreferences).toBeNull()
+    })
+
+    it('returns 400 when body is empty', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participants = await seedTestParticipants(plan.planId, 1)
+      const token = participants[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: {},
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json()).toEqual({ message: 'No fields to update' })
+    })
+
+    it('returns 404 when invite token is invalid', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/bad-token-value/preferences`,
+        payload: { displayName: 'Test' },
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({
+        message: 'Invalid invite token or plan not found',
+      })
+    })
+
+    it('returns 404 when token belongs to a different plan', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+      const participants1 = await seedTestParticipants(plan1.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan2.planId}/invite/${participants1[0].inviteToken}/preferences`,
+        payload: { displayName: 'Cross-plan' },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('does not require API key header', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participants = await seedTestParticipants(plan.planId, 1)
+      const token = participants[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        headers: {},
+        payload: { displayName: 'No API Key' },
+      })
+
+      expect(response.statusCode).toBe(200)
+    })
+
+    it('does not expose PII fields in response', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participants = await seedTestParticipants(plan.planId, 1)
+      const token = participants[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { displayName: 'Updated' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.name).toBeUndefined()
+      expect(body.lastName).toBeUndefined()
+      expect(body.contactPhone).toBeUndefined()
+      expect(body.contactEmail).toBeUndefined()
+      expect(body.inviteToken).toBeUndefined()
+    })
+  })
+
   describe('POST /plans/:planId/participants/:participantId/regenerate-token', () => {
     it('generates a new token and returns it', async () => {
       const [plan] = await seedTestPlans(1)

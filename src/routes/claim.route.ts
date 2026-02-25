@@ -42,12 +42,20 @@ export async function claimRoutes(fastify: FastifyInstance) {
           )
 
         if (!participant) {
+          request.log.warn(
+            { planId, userId, inviteToken: inviteToken.slice(0, 8) + '...' },
+            'Claim rejected — invalid invite token'
+          )
           return reply
             .status(404)
             .send({ message: 'Invalid invite token or plan not found' })
         }
 
         if (participant.userId && participant.userId !== userId) {
+          request.log.warn(
+            { planId, userId, existingUserId: participant.userId },
+            'Claim rejected — participant linked to another account'
+          )
           return reply.status(400).send({
             message: 'This participant is already linked to another account',
           })
@@ -73,6 +81,10 @@ export async function claimRoutes(fastify: FastifyInstance) {
           .limit(1)
 
         if (existingParticipant) {
+          request.log.warn(
+            { planId, userId },
+            'Claim rejected — user already a participant in this plan'
+          )
           return reply.status(400).send({
             message: 'You are already a participant in this plan',
           })

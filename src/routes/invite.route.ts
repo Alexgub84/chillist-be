@@ -41,6 +41,10 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           )
 
         if (!participant) {
+          request.log.warn(
+            { planId, inviteToken: inviteToken.slice(0, 8) + '...' },
+            'Invite link rejected — invalid token'
+          )
           return reply.status(404).send({
             message: 'Invalid or expired invite link',
           })
@@ -55,6 +59,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         })
 
         if (!plan) {
+          request.log.warn({ planId }, 'Invite link rejected — plan not found')
           return reply.status(404).send({
             message: 'Plan not found',
           })
@@ -75,11 +80,12 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         request.log.info(
           {
             planId,
+            planTitle: plan.title,
             invitedParticipantId: participant.participantId,
             totalItems: plan.items.length,
             visibleItems: filteredItems.length,
           },
-          'Plan accessed via invite link'
+          'Guest accessed plan via invite link'
         )
 
         return {
@@ -116,6 +122,117 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({
           message: 'Failed to access plan',
         })
+      }
+    }
+  )
+
+  fastify.patch<{
+    Params: { planId: string; inviteToken: string }
+    Body: {
+      displayName?: string | null
+      adultsCount?: number | null
+      kidsCount?: number | null
+      foodPreferences?: string | null
+      allergies?: string | null
+      notes?: string | null
+    }
+  }>(
+    '/plans/:planId/invite/:inviteToken/preferences',
+    {
+      schema: {
+        tags: ['invite'],
+        summary: 'Update guest preferences via invite token',
+        description:
+          'Allows a guest to update their per-plan preferences (display name, group size, dietary info) using the invite token in the URL. All fields are optional — send only what changed. Send null to clear a field.',
+        params: { $ref: 'InviteParams#' },
+        body: { $ref: 'UpdateInvitePreferencesBody#' },
+        response: {
+          200: { $ref: 'InvitePreferencesResponse#' },
+          400: { $ref: 'ErrorResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId, inviteToken } = request.params
+      const updates = request.body
+
+      if (Object.keys(updates).length === 0) {
+        return reply.status(400).send({ message: 'No fields to update' })
+      }
+
+      try {
+        const [participant] = await fastify.db
+          .select({
+            participantId: participants.participantId,
+            planId: participants.planId,
+          })
+          .from(participants)
+          .where(
+            and(
+              eq(participants.planId, planId),
+              eq(participants.inviteToken, inviteToken)
+            )
+          )
+
+        if (!participant) {
+          request.log.warn(
+            { planId, inviteToken: inviteToken.slice(0, 8) + '...' },
+            'Invite preferences rejected — invalid token'
+          )
+          return reply
+            .status(404)
+            .send({ message: 'Invalid invite token or plan not found' })
+        }
+
+        const [updated] = await fastify.db
+          .update(participants)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(participants.participantId, participant.participantId))
+          .returning()
+
+        request.log.info(
+          {
+            participantId: updated.participantId,
+            planId,
+            fields: Object.keys(updates),
+          },
+          'Guest preferences updated via invite token'
+        )
+
+        return {
+          participantId: updated.participantId,
+          displayName: updated.displayName,
+          role: updated.role,
+          rsvpStatus: updated.rsvpStatus,
+          adultsCount: updated.adultsCount,
+          kidsCount: updated.kidsCount,
+          foodPreferences: updated.foodPreferences,
+          allergies: updated.allergies,
+          notes: updated.notes,
+        }
+      } catch (error) {
+        request.log.error(
+          { err: error, planId },
+          'Failed to update guest preferences'
+        )
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply
+            .status(503)
+            .send({ message: 'Database connection error' })
+        }
+
+        return reply
+          .status(500)
+          .send({ message: 'Failed to update preferences' })
       }
     }
   )

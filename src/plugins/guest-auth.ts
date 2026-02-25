@@ -24,7 +24,13 @@ async function guestAuthPlugin(fastify: FastifyInstance) {
         .from(participants)
         .where(eq(participants.inviteToken, inviteToken))
 
-      if (!participant) return
+      if (!participant) {
+        request.log.warn(
+          { inviteToken: inviteToken.slice(0, 8) + '...' },
+          'Invite token not found in database'
+        )
+        return
+      }
 
       request.guestParticipant = {
         participantId: participant.participantId,
@@ -35,6 +41,14 @@ async function guestAuthPlugin(fastify: FastifyInstance) {
         .update(participants)
         .set({ lastActivityAt: new Date() })
         .where(eq(participants.participantId, participant.participantId))
+
+      request.log.info(
+        {
+          participantId: participant.participantId,
+          planId: participant.planId,
+        },
+        'Guest authenticated via invite token'
+      )
     } catch (err) {
       request.log.warn(
         { err },
