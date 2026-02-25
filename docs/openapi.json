@@ -1209,6 +1209,94 @@
       "def-31": {
         "type": "object",
         "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
+          "adultsCount": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "kidsCount": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "foodPreferences": {
+            "type": "string",
+            "nullable": true
+          },
+          "allergies": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "title": "UpdateInvitePreferencesBody"
+      },
+      "def-32": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "participant",
+              "viewer"
+            ]
+          },
+          "rsvpStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "not_sure"
+            ]
+          },
+          "adultsCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "kidsCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "foodPreferences": {
+            "type": "string",
+            "nullable": true
+          },
+          "allergies": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "participantId",
+          "role",
+          "rsvpStatus"
+        ],
+        "title": "InvitePreferencesResponse"
+      },
+      "def-33": {
+        "type": "object",
+        "properties": {
           "foodPreferences": {
             "type": "string",
             "nullable": true,
@@ -1230,7 +1318,7 @@
         },
         "title": "UserPreferences"
       },
-      "def-32": {
+      "def-34": {
         "type": "object",
         "properties": {
           "user": {
@@ -1255,7 +1343,7 @@
           "preferences": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-31"
+                "$ref": "#/components/schemas/def-33"
               },
               {
                 "type": "null"
@@ -1270,7 +1358,7 @@
         ],
         "title": "ProfileResponse"
       },
-      "def-33": {
+      "def-35": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -1294,11 +1382,11 @@
         },
         "title": "UpdateProfileBody"
       },
-      "def-34": {
+      "def-36": {
         "type": "object",
         "properties": {
           "preferences": {
-            "$ref": "#/components/schemas/def-31"
+            "$ref": "#/components/schemas/def-33"
           }
         },
         "required": [
@@ -2356,6 +2444,97 @@
         }
       }
     },
+    "/plans/{planId}/invite/{inviteToken}/preferences": {
+      "patch": {
+        "summary": "Update guest preferences via invite token",
+        "tags": [
+          "invite"
+        ],
+        "description": "Allows a guest to update their per-plan preferences (display name, group size, dietary info) using the invite token in the URL. All fields are optional — send only what changed. Send null to clear a field.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-31"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-32"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/plans/{planId}/participants/{participantId}/regenerate-token": {
       "post": {
         "summary": "Regenerate invite token for a participant",
@@ -2485,7 +2664,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-32"
+                  "$ref": "#/components/schemas/def-34"
                 }
               }
             }
@@ -2502,7 +2681,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-33"
+                "$ref": "#/components/schemas/def-35"
               }
             }
           }
@@ -2513,7 +2692,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-34"
+                  "$ref": "#/components/schemas/def-36"
                 }
               }
             }

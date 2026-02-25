@@ -142,7 +142,7 @@ export async function buildApp(
       return
     }
 
-    const invitePattern = /^\/plans\/[^/]+\/invite\/[^/]+$/
+    const invitePattern = /^\/plans\/[^/]+\/invite\/[^/]+/
     if (invitePattern.test(request.url)) {
       return
     }
@@ -176,6 +176,8 @@ export async function buildApp(
         method: request.method,
         url: request.url,
         statusCode: reply.statusCode,
+        userId: request.user?.id ?? null,
+        guestParticipantId: request.guestParticipant?.participantId ?? null,
         corsOrigin: reply.getHeader('access-control-allow-origin') ?? null,
         responseTimeMs: reply.elapsedTime,
       },

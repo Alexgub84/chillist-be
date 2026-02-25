@@ -89,6 +89,13 @@ async function authPlugin(
       const { payload } = await jwtVerify(token, jwks!, verifyOpts)
 
       request.user = extractUser(payload as SupabaseJwtPayload)
+
+      if (request.user) {
+        request.log.info(
+          { userId: request.user.id, role: request.user.role },
+          'User authenticated via JWT'
+        )
+      }
     } catch (err) {
       const errorType = err instanceof Error ? err.constructor.name : 'Unknown'
       request.log.warn(

@@ -296,7 +296,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
           .orderBy(plans.createdAt)
 
         request.log.info(
-          { count: filteredPlans.length, authenticated: !!userId },
+          { count: filteredPlans.length, userId: userId ?? null },
           'Plans retrieved'
         )
         return filteredPlans
@@ -363,7 +363,10 @@ export async function plansRoutes(fastify: FastifyInstance) {
           },
         })
 
-        request.log.info({ planId }, 'Plan retrieved')
+        request.log.info(
+          { planId, userId: request.user?.id ?? null },
+          'Plan retrieved'
+        )
         return plan
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to retrieve plan')
