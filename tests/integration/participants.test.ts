@@ -4,6 +4,7 @@ import { FastifyInstance } from 'fastify'
 import {
   cleanupTestDatabase,
   closeTestDatabase,
+  getTestDb,
   seedTestParticipants,
   seedTestPlans,
   setupTestDatabase,
@@ -14,8 +15,12 @@ import {
   getTestIssuer,
   signTestJwt,
 } from '../helpers/auth.js'
+import { participants } from '../../src/db/schema.js'
+import { randomBytes } from 'node:crypto'
 
 const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
+const OTHER_USER_ID = 'bbbbbbbb-1111-2222-3333-444444444444'
+const ADMIN_USER_ID = 'dddddddd-1111-2222-3333-444444444444'
 
 describe('Participants Route', () => {
   let app: FastifyInstance
@@ -361,7 +366,9 @@ describe('Participants Route', () => {
 
   describe('PATCH /participants/:participantId', () => {
     it('updates name and returns 200', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
       const [participant] = await seedTestParticipants(plan.planId, 1)
 
       const response = await app.inject({
@@ -382,7 +389,9 @@ describe('Participants Route', () => {
     })
 
     it('updates multiple fields at once', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
       const seeded = await seedTestParticipants(plan.planId, 2)
       const participant = seeded.find((p) => p.role !== 'owner')!
 
@@ -412,7 +421,9 @@ describe('Participants Route', () => {
     })
 
     it('sets nullable fields to null', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
 
       const createResponse = await app.inject({
         method: 'POST',
@@ -466,7 +477,9 @@ describe('Participants Route', () => {
     })
 
     it('returns 400 for invalid role value', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
       const [participant] = await seedTestParticipants(plan.planId, 1)
 
       const response = await app.inject({
@@ -480,7 +493,9 @@ describe('Participants Route', () => {
     })
 
     it('returns 400 when changing owner role', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
       const seeded = await seedTestParticipants(plan.planId, 1)
       const owner = seeded[0]
 
@@ -498,7 +513,9 @@ describe('Participants Route', () => {
     })
 
     it('allows updating owner non-role fields', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
       const seeded = await seedTestParticipants(plan.planId, 1)
       const owner = seeded[0]
 
@@ -515,7 +532,9 @@ describe('Participants Route', () => {
     })
 
     it('returns 400 when name is empty string', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
       const [participant] = await seedTestParticipants(plan.planId, 1)
 
       const response = await app.inject({
@@ -526,6 +545,169 @@ describe('Participants Route', () => {
       })
 
       expect(response.statusCode).toBe(400)
+    })
+
+    it.each(['pending', 'confirmed', 'not_sure'] as const)(
+      'updates rsvpStatus to %s',
+      async (rsvpStatus) => {
+        const [plan] = await seedTestPlans(1, {
+          createdByUserId: TEST_USER_ID,
+        })
+        const [participant] = await seedTestParticipants(plan.planId, 1)
+
+        const response = await app.inject({
+          method: 'PATCH',
+          url: `/participants/${participant.participantId}`,
+          headers: { authorization: `Bearer ${token}` },
+          payload: { rsvpStatus },
+        })
+
+        expect(response.statusCode).toBe(200)
+        expect(response.json().rsvpStatus).toBe(rsvpStatus)
+      }
+    )
+
+    it('returns 400 for invalid rsvpStatus value', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const [participant] = await seedTestParticipants(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { rsvpStatus: 'declined' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('allows linked participant to update their own record', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const db = await getTestDb()
+      const [selfParticipant] = await db
+        .insert(participants)
+        .values({
+          planId: plan.planId,
+          name: 'Other',
+          lastName: 'User',
+          contactPhone: '+1-555-999-0000',
+          role: 'participant',
+          userId: OTHER_USER_ID,
+          inviteToken: randomBytes(32).toString('hex'),
+        })
+        .returning()
+
+      const otherToken = await signTestJwt({ sub: OTHER_USER_ID })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${selfParticipant.participantId}`,
+        headers: { authorization: `Bearer ${otherToken}` },
+        payload: { rsvpStatus: 'confirmed' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().rsvpStatus).toBe('confirmed')
+      expect(response.json().inviteToken).toBeNull()
+    })
+
+    it('returns 403 when participant edits another participant', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const seeded = await seedTestParticipants(plan.planId, 2)
+      const targetParticipant = seeded.find((p) => p.role !== 'owner')!
+
+      const db = await getTestDb()
+      await db
+        .insert(participants)
+        .values({
+          planId: plan.planId,
+          name: 'Unrelated',
+          lastName: 'Person',
+          contactPhone: '+1-555-888-0000',
+          role: 'participant',
+          userId: OTHER_USER_ID,
+          inviteToken: randomBytes(32).toString('hex'),
+        })
+        .returning()
+
+      const otherToken = await signTestJwt({ sub: OTHER_USER_ID })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${targetParticipant.participantId}`,
+        headers: { authorization: `Bearer ${otherToken}` },
+        payload: { rsvpStatus: 'confirmed' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(response.json()).toEqual({
+        message: 'You can only edit your own preferences',
+      })
+    })
+
+    it('allows admin to update any participant', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: OTHER_USER_ID,
+      })
+      const [participant] = await seedTestParticipants(plan.planId, 1)
+
+      const adminToken = await signTestJwt({
+        sub: ADMIN_USER_ID,
+        app_metadata: { role: 'admin' },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${adminToken}` },
+        payload: { rsvpStatus: 'confirmed' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().rsvpStatus).toBe('confirmed')
+    })
+
+    it('owner can update any participant rsvpStatus', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const seeded = await seedTestParticipants(plan.planId, 2)
+      const nonOwner = seeded.find((p) => p.role !== 'owner')!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${nonOwner.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { rsvpStatus: 'not_sure' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().rsvpStatus).toBe('not_sure')
+    })
+
+    it('returns 403 for unlinked participant (no userId match)', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: OTHER_USER_ID,
+      })
+      const [participant] = await seedTestParticipants(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { rsvpStatus: 'confirmed' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(response.json()).toEqual({
+        message: 'You can only edit your own preferences',
+      })
     })
   })
 

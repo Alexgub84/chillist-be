@@ -883,6 +883,14 @@
           "notes": {
             "type": "string",
             "nullable": true
+          },
+          "rsvpStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "not_sure"
+            ]
           }
         },
         "title": "UpdateParticipantBody"
@@ -2325,7 +2333,7 @@
         "tags": [
           "participants"
         ],
-        "description": "Update an existing participant by its ID",
+        "description": "Update an existing participant by its ID. Owner/admin can update any participant; linked participants can only update their own record.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2358,6 +2366,16 @@
             }
           },
           "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Default Response",
             "content": {
               "application/json": {
