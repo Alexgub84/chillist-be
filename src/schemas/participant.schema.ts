@@ -37,6 +37,7 @@ export const participantSchema = {
     'lastName',
     'contactPhone',
     'role',
+    'inviteStatus',
     'rsvpStatus',
     'createdAt',
     'updatedAt',

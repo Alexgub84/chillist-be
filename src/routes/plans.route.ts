@@ -296,8 +296,20 @@ export async function plansRoutes(fastify: FastifyInstance) {
           },
         })
 
-        request.log.info({ planId, userId: request.user!.id }, 'Plan retrieved')
-        return plan
+        if (!plan) {
+          return reply.status(404).send({ message: 'Plan not found' })
+        }
+
+        const userId = request.user!.id
+        const isOwnerOrAdmin =
+          isAdmin(request.user) || plan.createdByUserId === userId
+
+        const safeParticipants = isOwnerOrAdmin
+          ? plan.participants
+          : plan.participants.map((p) => ({ ...p, inviteToken: null }))
+
+        request.log.info({ planId, userId }, 'Plan retrieved')
+        return { ...plan, participants: safeParticipants }
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to retrieve plan')
 

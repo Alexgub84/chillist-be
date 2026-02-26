@@ -93,6 +93,7 @@ export async function claimRoutes(fastify: FastifyInstance) {
         const updateFields: Record<string, unknown> = {
           userId,
           inviteStatus: 'accepted' as const,
+          inviteToken: null,
           updatedAt: new Date(),
         }
 
