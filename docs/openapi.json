@@ -7,11 +7,6 @@
   },
   "components": {
     "securitySchemes": {
-      "apiKey": {
-        "type": "apiKey",
-        "name": "x-api-key",
-        "in": "header"
-      },
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
@@ -314,59 +309,6 @@
               "type": "string"
             },
             "nullable": true
-          }
-        },
-        "required": [
-          "title"
-        ],
-        "title": "CreatePlanBodyLegacy"
-      },
-      "def-9": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "visibility": {
-            "type": "string",
-            "enum": [
-              "public",
-              "invite_only",
-              "private"
-            ]
-          },
-          "location": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/def-4"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "startDate": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "endDate": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "nullable": true
           },
           "owner": {
             "$ref": "#/components/schemas/def-7"
@@ -374,7 +316,7 @@
           "participants": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-20"
+              "$ref": "#/components/schemas/def-19"
             }
           }
         },
@@ -384,7 +326,7 @@
         ],
         "title": "CreatePlanBody"
       },
-      "def-10": {
+      "def-9": {
         "type": "object",
         "properties": {
           "title": {
@@ -442,7 +384,7 @@
         },
         "title": "UpdatePlanBody"
       },
-      "def-11": {
+      "def-10": {
         "type": "object",
         "properties": {
           "planId": {
@@ -455,7 +397,7 @@
         ],
         "title": "PlanIdParam"
       },
-      "def-12": {
+      "def-11": {
         "type": "object",
         "properties": {
           "ok": {
@@ -467,7 +409,7 @@
         ],
         "title": "DeletePlanResponse"
       },
-      "def-13": {
+      "def-12": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -547,14 +489,14 @@
         ],
         "title": "Item"
       },
-      "def-14": {
+      "def-13": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-13"
+          "$ref": "#/components/schemas/def-12"
         },
         "title": "ItemList"
       },
-      "def-15": {
+      "def-14": {
         "type": "object",
         "properties": {
           "name": {
@@ -616,7 +558,7 @@
         ],
         "title": "CreateItemBody"
       },
-      "def-16": {
+      "def-15": {
         "type": "object",
         "properties": {
           "name": {
@@ -672,7 +614,7 @@
         },
         "title": "UpdateItemBody"
       },
-      "def-17": {
+      "def-16": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -685,7 +627,7 @@
         ],
         "title": "ItemIdParam"
       },
-      "def-18": {
+      "def-17": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -797,14 +739,14 @@
         ],
         "title": "Participant"
       },
-      "def-19": {
+      "def-18": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-18"
+          "$ref": "#/components/schemas/def-17"
         },
         "title": "ParticipantList"
       },
-      "def-20": {
+      "def-19": {
         "type": "object",
         "properties": {
           "name": {
@@ -866,7 +808,7 @@
         ],
         "title": "CreateParticipantBody"
       },
-      "def-21": {
+      "def-20": {
         "type": "object",
         "properties": {
           "name": {
@@ -930,7 +872,7 @@
         },
         "title": "UpdateParticipantBody"
       },
-      "def-22": {
+      "def-21": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -943,7 +885,7 @@
         ],
         "title": "ParticipantIdParam"
       },
-      "def-23": {
+      "def-22": {
         "type": "object",
         "properties": {
           "ok": {
@@ -955,7 +897,7 @@
         ],
         "title": "DeleteParticipantResponse"
       },
-      "def-24": {
+      "def-23": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1031,10 +973,10 @@
             "format": "date-time"
           },
           "items": {
-            "$ref": "#/components/schemas/def-14"
+            "$ref": "#/components/schemas/def-13"
           },
           "participants": {
-            "$ref": "#/components/schemas/def-19"
+            "$ref": "#/components/schemas/def-18"
           }
         },
         "required": [
@@ -1049,7 +991,7 @@
         ],
         "title": "PlanWithDetails"
       },
-      "def-25": {
+      "def-24": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1068,7 +1010,7 @@
         ],
         "title": "InviteParams"
       },
-      "def-26": {
+      "def-25": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -1094,12 +1036,38 @@
         ],
         "title": "InviteParticipant"
       },
-      "def-27": {
+      "def-26": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-26"
+          "$ref": "#/components/schemas/def-25"
         },
         "title": "InviteParticipantList"
+      },
+      "def-27": {
+        "type": "object",
+        "properties": {
+          "adultsCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "kidsCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "foodPreferences": {
+            "type": "string",
+            "nullable": true
+          },
+          "allergies": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "title": "InviteMyPreferences"
       },
       "def-28": {
         "type": "object",
@@ -1159,9 +1127,24 @@
             "format": "date-time"
           },
           "items": {
-            "$ref": "#/components/schemas/def-14"
+            "$ref": "#/components/schemas/def-13"
           },
           "participants": {
+            "$ref": "#/components/schemas/def-26"
+          },
+          "myParticipantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "myRsvpStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "not_sure"
+            ]
+          },
+          "myPreferences": {
             "$ref": "#/components/schemas/def-27"
           }
         },
@@ -1172,7 +1155,10 @@
           "createdAt",
           "updatedAt",
           "items",
-          "participants"
+          "participants",
+          "myParticipantId",
+          "myRsvpStatus",
+          "myPreferences"
         ],
         "title": "InvitePlanResponse"
       },
@@ -1235,6 +1221,13 @@
           "notes": {
             "type": "string",
             "nullable": true
+          },
+          "rsvpStatus": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "not_sure"
+            ]
           }
         },
         "title": "UpdateInvitePreferencesBody"
@@ -1297,6 +1290,128 @@
       "def-33": {
         "type": "object",
         "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inviteToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "planId",
+          "inviteToken",
+          "itemId"
+        ],
+        "title": "InviteItemParams"
+      },
+      "def-34": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "equipment",
+              "food"
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "pcs",
+              "kg",
+              "g",
+              "lb",
+              "oz",
+              "l",
+              "ml",
+              "m",
+              "cm",
+              "pack",
+              "set"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "category",
+          "quantity"
+        ],
+        "title": "CreateInviteItemBody"
+      },
+      "def-35": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "equipment",
+              "food"
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "pcs",
+              "kg",
+              "g",
+              "lb",
+              "oz",
+              "l",
+              "ml",
+              "m",
+              "cm",
+              "pack",
+              "set"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "purchased",
+              "packed",
+              "canceled"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "title": "UpdateInviteItemBody"
+      },
+      "def-36": {
+        "type": "object",
+        "properties": {
           "foodPreferences": {
             "type": "string",
             "nullable": true,
@@ -1318,7 +1433,7 @@
         },
         "title": "UserPreferences"
       },
-      "def-34": {
+      "def-37": {
         "type": "object",
         "properties": {
           "user": {
@@ -1343,7 +1458,7 @@
           "preferences": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-33"
+                "$ref": "#/components/schemas/def-36"
               },
               {
                 "type": "null"
@@ -1358,7 +1473,7 @@
         ],
         "title": "ProfileResponse"
       },
-      "def-35": {
+      "def-38": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -1382,11 +1497,11 @@
         },
         "title": "UpdateProfileBody"
       },
-      "def-36": {
+      "def-39": {
         "type": "object",
         "properties": {
           "preferences": {
-            "$ref": "#/components/schemas/def-33"
+            "$ref": "#/components/schemas/def-36"
           }
         },
         "required": [
@@ -1420,11 +1535,11 @@
     },
     "/plans": {
       "post": {
-        "summary": "[DEPRECATED] Create a plan without owner",
+        "summary": "Create a plan with owner participant",
         "tags": [
           "plans"
         ],
-        "description": "Deprecated: Use POST /plans/with-owner instead. Creates a plan without an owner participant.",
+        "description": "Creates a plan and its owner participant in a single transaction. Requires JWT. Returns the plan with participants[] and items[].",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1440,12 +1555,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-5"
+                  "$ref": "#/components/schemas/def-23"
                 }
               }
             }
           },
           "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -1517,66 +1642,6 @@
         }
       }
     },
-    "/plans/with-owner": {
-      "post": {
-        "summary": "[NEW] Create a plan with owner participant",
-        "tags": [
-          "plans"
-        ],
-        "description": "Creates a plan and its owner participant in a single transaction. Returns the plan with participants[] and items[]. Replaces POST /plans for new FE integration.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/def-9"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-24"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/plans/{planId}": {
       "get": {
         "summary": "Get plan by ID (now includes participants)",
@@ -1601,7 +1666,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-24"
+                  "$ref": "#/components/schemas/def-23"
                 }
               }
             }
@@ -1658,7 +1723,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-10"
+                "$ref": "#/components/schemas/def-9"
               }
             }
           }
@@ -1750,7 +1815,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-12"
+                  "$ref": "#/components/schemas/def-11"
                 }
               }
             }
@@ -1822,7 +1887,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-19"
+                  "$ref": "#/components/schemas/def-18"
                 }
               }
             }
@@ -1869,7 +1934,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-20"
+                "$ref": "#/components/schemas/def-19"
               }
             }
           }
@@ -1891,7 +1956,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-18"
+                  "$ref": "#/components/schemas/def-17"
                 }
               }
             }
@@ -1963,7 +2028,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-18"
+                  "$ref": "#/components/schemas/def-17"
                 }
               }
             }
@@ -2010,7 +2075,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-21"
+                "$ref": "#/components/schemas/def-20"
               }
             }
           }
@@ -2032,7 +2097,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-18"
+                  "$ref": "#/components/schemas/def-17"
                 }
               }
             }
@@ -2102,7 +2167,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-23"
+                  "$ref": "#/components/schemas/def-22"
                 }
               }
             }
@@ -2113,6 +2178,77 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/participants/{participantId}/regenerate-token": {
+      "post": {
+        "summary": "Regenerate invite token for a participant",
+        "tags": [
+          "participants"
+        ],
+        "description": "Generates a new invite token for the specified participant, invalidating the previous one. Requires API key (owner action).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "participantId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-30"
                 }
               }
             }
@@ -2161,7 +2297,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-15"
+                "$ref": "#/components/schemas/def-14"
               }
             }
           }
@@ -2183,7 +2319,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-13"
+                  "$ref": "#/components/schemas/def-12"
                 }
               }
             }
@@ -2253,7 +2389,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-14"
+                  "$ref": "#/components/schemas/def-13"
                 }
               }
             }
@@ -2302,7 +2438,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-16"
+                "$ref": "#/components/schemas/def-15"
               }
             }
           }
@@ -2324,7 +2460,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-13"
+                  "$ref": "#/components/schemas/def-12"
                 }
               }
             }
@@ -2535,13 +2671,22 @@
         }
       }
     },
-    "/plans/{planId}/participants/{participantId}/regenerate-token": {
+    "/plans/{planId}/invite/{inviteToken}/items": {
       "post": {
-        "summary": "Regenerate invite token for a participant",
+        "summary": "Create an item as a guest via invite token",
         "tags": [
           "invite"
         ],
-        "description": "Generates a new invite token for the specified participant, invalidating the previous one. Requires API key (owner action).",
+        "description": "Creates a new item auto-assigned to the participant matched by the invite token. Equipment items default to pcs; food items require a unit.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-34"
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "schema": {
@@ -2555,10 +2700,111 @@
           {
             "schema": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-12"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/invite/{inviteToken}/items/{itemId}": {
+      "patch": {
+        "summary": "Update an item as a guest via invite token",
+        "tags": [
+          "invite"
+        ],
+        "description": "Updates an existing item. Only allowed if the item is assigned to the participant matched by the invite token. Returns 403 if the item belongs to another participant.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-35"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
               "format": "uuid"
             },
             "in": "path",
-            "name": "participantId",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "itemId",
             "required": true
           }
         ],
@@ -2568,7 +2814,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-30"
+                  "$ref": "#/components/schemas/def-12"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
@@ -2664,7 +2930,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-34"
+                  "$ref": "#/components/schemas/def-37"
                 }
               }
             }
@@ -2681,7 +2947,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-35"
+                "$ref": "#/components/schemas/def-38"
               }
             }
           }
@@ -2692,7 +2958,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-36"
+                  "$ref": "#/components/schemas/def-39"
                 }
               }
             }
@@ -2734,7 +3000,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-18"
+                  "$ref": "#/components/schemas/def-17"
                 }
               }
             }

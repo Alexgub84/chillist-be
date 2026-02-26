@@ -12,7 +12,6 @@ const envSchema = z
       .default('info'),
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
     FRONTEND_URL: z.string().url().default('http://localhost:5173'),
-    API_KEY: z.string().optional(),
     SUPABASE_URL: z.string().url().optional(),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SUPABASE_URL, {

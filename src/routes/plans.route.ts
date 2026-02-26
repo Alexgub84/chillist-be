@@ -47,86 +47,38 @@ interface UpdatePlanBody {
 }
 
 export async function plansRoutes(fastify: FastifyInstance) {
-  // [DEPRECATED] Old route — creates plan without owner. Remove after FE switches to POST /plans/with-owner.
-  fastify.post<{ Body: NewPlan }>(
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'OPTIONS') return
+    const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+    if (!hasJwt) {
+      return reply.status(401).send({ message: 'Authentication required' })
+    }
+    if (!request.user) {
+      return reply
+        .status(401)
+        .send({ message: 'JWT token present but verification failed' })
+    }
+  })
+
+  fastify.post<{ Body: CreatePlanWithOwnerBody }>(
     '/plans',
     {
       schema: {
         tags: ['plans'],
-        summary: '[DEPRECATED] Create a plan without owner',
+        summary: 'Create a plan with owner participant',
         description:
-          'Deprecated: Use POST /plans/with-owner instead. Creates a plan without an owner participant.',
-        body: { $ref: 'CreatePlanBodyLegacy#' },
-        response: {
-          201: { $ref: 'Plan#' },
-          400: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
-        },
-      },
-    },
-    async (request, reply) => {
-      try {
-        const { startDate, endDate, ...rest } = request.body
-        const values = {
-          ...rest,
-          ...(startDate && { startDate: new Date(String(startDate)) }),
-          ...(endDate && { endDate: new Date(String(endDate)) }),
-        }
-
-        const [createdPlan] = await fastify.db
-          .insert(plans)
-          .values(values)
-          .returning()
-
-        request.log.info({ planId: createdPlan.planId }, 'Plan created')
-        return reply.status(201).send(createdPlan)
-      } catch (error) {
-        request.log.error({ err: error }, 'Failed to create plan')
-
-        const isConnectionError =
-          error instanceof Error &&
-          (error.message.includes('connect') ||
-            error.message.includes('timeout'))
-
-        if (isConnectionError) {
-          return reply.status(503).send({
-            message: 'Database connection error',
-          })
-        }
-
-        return reply.status(500).send({
-          message: 'Failed to create plan',
-        })
-      }
-    }
-  )
-
-  fastify.post<{ Body: CreatePlanWithOwnerBody }>(
-    '/plans/with-owner',
-    {
-      schema: {
-        tags: ['plans'],
-        summary: '[NEW] Create a plan with owner participant',
-        description:
-          'Creates a plan and its owner participant in a single transaction. Returns the plan with participants[] and items[]. Replaces POST /plans for new FE integration.',
+          'Creates a plan and its owner participant in a single transaction. Requires JWT. Returns the plan with participants[] and items[].',
         body: { $ref: 'CreatePlanBody#' },
         response: {
           201: { $ref: 'PlanWithDetails#' },
           400: { $ref: 'ErrorResponse#' },
+          401: { $ref: 'ErrorResponse#' },
           500: { $ref: 'ErrorResponse#' },
           503: { $ref: 'ErrorResponse#' },
         },
       },
     },
     async (request, reply) => {
-      const hasJwt = request.headers.authorization?.startsWith('Bearer ')
-      if (hasJwt && !request.user) {
-        return reply.status(401).send({
-          message: 'JWT token present but verification failed',
-        })
-      }
-
       try {
         const {
           owner,
@@ -136,33 +88,16 @@ export async function plansRoutes(fastify: FastifyInstance) {
           ...planFields
         } = request.body
 
-        const authenticatedUserId = request.user?.id ?? null
+        const authenticatedUserId = request.user!.id
 
-        if (
-          authenticatedUserId &&
-          !isAdmin(request.user) &&
-          planFields.visibility === 'public'
-        ) {
+        if (!isAdmin(request.user) && planFields.visibility === 'public') {
           return reply.status(400).send({
             message:
               'Signed-in users cannot create public plans. Use invite_only or private.',
           })
         }
 
-        if (
-          !authenticatedUserId &&
-          (planFields.visibility === 'invite_only' ||
-            planFields.visibility === 'private')
-        ) {
-          return reply.status(400).send({
-            message:
-              'Anonymous users can only create public plans. Sign in to use invite_only or private visibility.',
-          })
-        }
-
-        const visibility =
-          planFields.visibility ??
-          (authenticatedUserId ? ('invite_only' as const) : ('public' as const))
+        const visibility = planFields.visibility ?? ('invite_only' as const)
 
         const planValues = {
           ...planFields,
@@ -267,27 +202,25 @@ export async function plansRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       try {
-        const userId = request.user?.id
+        const userId = request.user!.id
 
         const conditions = isAdmin(request.user)
           ? sql`true`
-          : userId
-            ? or(
-                eq(plans.visibility, 'public'),
-                eq(plans.createdByUserId, userId),
-                exists(
-                  fastify.db
-                    .select({ one: participants.participantId })
-                    .from(participants)
-                    .where(
-                      and(
-                        eq(participants.planId, plans.planId),
-                        eq(participants.userId, userId)
-                      )
+          : or(
+              eq(plans.visibility, 'public'),
+              eq(plans.createdByUserId, userId),
+              exists(
+                fastify.db
+                  .select({ one: participants.participantId })
+                  .from(participants)
+                  .where(
+                    and(
+                      eq(participants.planId, plans.planId),
+                      eq(participants.userId, userId)
                     )
-                )
+                  )
               )
-            : eq(plans.visibility, 'public')
+            )
 
         const filteredPlans = await fastify.db
           .select()
@@ -296,7 +229,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
           .orderBy(plans.createdAt)
 
         request.log.info(
-          { count: filteredPlans.length, userId: userId ?? null },
+          { count: filteredPlans.length, userId },
           'Plans retrieved'
         )
         return filteredPlans
@@ -363,10 +296,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
           },
         })
 
-        request.log.info(
-          { planId, userId: request.user?.id ?? null },
-          'Plan retrieved'
-        )
+        request.log.info({ planId, userId: request.user!.id }, 'Plan retrieved')
         return plan
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to retrieve plan')
@@ -408,13 +338,6 @@ export async function plansRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const hasJwt = request.headers.authorization?.startsWith('Bearer ')
-      if (hasJwt && !request.user) {
-        return reply.status(401).send({
-          message: 'JWT token present but verification failed',
-        })
-      }
-
       const { planId } = request.params
       const updates = request.body
 
@@ -424,28 +347,15 @@ export async function plansRoutes(fastify: FastifyInstance) {
         })
       }
 
-      if (updates.visibility) {
-        if (
-          request.user &&
-          !isAdmin(request.user) &&
-          updates.visibility === 'public'
-        ) {
-          return reply.status(400).send({
-            message:
-              'Signed-in users cannot set visibility to public. Use invite_only or private.',
-          })
-        }
-
-        if (
-          !request.user &&
-          (updates.visibility === 'invite_only' ||
-            updates.visibility === 'private')
-        ) {
-          return reply.status(400).send({
-            message:
-              'Anonymous users can only set visibility to public. Sign in to use invite_only or private.',
-          })
-        }
+      if (
+        updates.visibility &&
+        !isAdmin(request.user) &&
+        updates.visibility === 'public'
+      ) {
+        return reply.status(400).send({
+          message:
+            'Signed-in users cannot set visibility to public. Use invite_only or private.',
+        })
       }
 
       try {
@@ -523,20 +433,6 @@ export async function plansRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const hasJwt = request.headers.authorization?.startsWith('Bearer ')
-
-      if (!hasJwt) {
-        return reply.status(401).send({
-          message: 'Authentication required',
-        })
-      }
-
-      if (!request.user) {
-        return reply.status(401).send({
-          message: 'JWT token present but verification failed',
-        })
-      }
-
       const { planId } = request.params
 
       try {
@@ -556,7 +452,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         if (
           !isAdmin(request.user) &&
-          existingPlan.createdByUserId !== request.user.id
+          existingPlan.createdByUserId !== request.user!.id
         ) {
           return reply.status(404).send({
             message: 'Plan not found',
@@ -568,7 +464,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
         request.log.info(
           {
             planId,
-            deletedBy: request.user.id,
+            deletedBy: request.user!.id,
             isAdmin: isAdmin(request.user),
           },
           'Plan deleted'

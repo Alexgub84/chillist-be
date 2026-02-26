@@ -39,6 +39,19 @@ interface UpdateParticipantBody {
 }
 
 export async function participantsRoutes(fastify: FastifyInstance) {
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'OPTIONS') return
+    const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+    if (!hasJwt) {
+      return reply.status(401).send({ message: 'Authentication required' })
+    }
+    if (!request.user) {
+      return reply
+        .status(401)
+        .send({ message: 'JWT token present but verification failed' })
+    }
+  })
+
   fastify.get<{ Params: { planId: string } }>(
     '/plans/:planId/participants',
     {
@@ -393,6 +406,75 @@ export async function participantsRoutes(fastify: FastifyInstance) {
 
         return reply.status(500).send({
           message: 'Failed to delete participant',
+        })
+      }
+    }
+  )
+
+  fastify.post<{ Params: { planId: string; participantId: string } }>(
+    '/plans/:planId/participants/:participantId/regenerate-token',
+    {
+      schema: {
+        tags: ['participants'],
+        summary: 'Regenerate invite token for a participant',
+        description:
+          'Generates a new invite token for the specified participant, invalidating the previous one. Requires API key (owner action).',
+        params: { $ref: 'RegenerateTokenParams#' },
+        response: {
+          200: { $ref: 'RegenerateTokenResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId, participantId } = request.params
+
+      try {
+        const [existing] = await fastify.db
+          .select({
+            participantId: participants.participantId,
+            planId: participants.planId,
+          })
+          .from(participants)
+          .where(eq(participants.participantId, participantId))
+
+        if (!existing || existing.planId !== planId) {
+          return reply.status(404).send({
+            message: 'Participant not found in this plan',
+          })
+        }
+
+        const newToken = generateInviteToken()
+
+        await fastify.db
+          .update(participants)
+          .set({ inviteToken: newToken, updatedAt: new Date() })
+          .where(eq(participants.participantId, participantId))
+
+        request.log.info({ participantId, planId }, 'Invite token regenerated')
+
+        return { inviteToken: newToken }
+      } catch (error) {
+        request.log.error(
+          { err: error, participantId, planId },
+          'Failed to regenerate invite token'
+        )
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to regenerate invite token',
         })
       }
     }

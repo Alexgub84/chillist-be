@@ -8,6 +8,5 @@ export const config = {
   isDev: env.NODE_ENV !== 'production',
   databaseUrl: env.DATABASE_URL,
   frontendUrl: env.FRONTEND_URL,
-  apiKey: env.API_KEY,
   supabaseUrl: env.SUPABASE_URL,
 } as const

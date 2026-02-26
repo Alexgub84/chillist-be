@@ -103,15 +103,15 @@ describe.skipIf(!SUPABASE_URL)('Auth E2E — Real Supabase JWKS', () => {
     })
   })
 
-  describe('Plans routes still work without auth', () => {
-    it('GET /plans accessible without JWT', async () => {
+  describe('Plans routes require JWT', () => {
+    it('GET /plans returns 401 without JWT', async () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
         headers: {},
       })
 
-      expect(response.statusCode).toBe(200)
+      expect(response.statusCode).toBe(401)
     })
 
     it('health endpoint accessible without auth', async () => {

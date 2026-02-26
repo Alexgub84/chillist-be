@@ -1,12 +1,14 @@
-import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
 import { eq, and } from 'drizzle-orm'
-import { participants } from '../db/schema.js'
+import {
+  participants,
+  items,
+  plans,
+  Unit,
+  ItemCategory,
+  ItemStatus,
+} from '../db/schema.js'
 import * as schema from '../db/schema.js'
-
-function generateInviteToken(): string {
-  return randomBytes(32).toString('hex')
-}
 
 export async function inviteRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { planId: string; inviteToken: string } }>(
@@ -31,7 +33,15 @@ export async function inviteRoutes(fastify: FastifyInstance) {
 
       try {
         const [participant] = await fastify.db
-          .select({ participantId: participants.participantId })
+          .select({
+            participantId: participants.participantId,
+            rsvpStatus: participants.rsvpStatus,
+            adultsCount: participants.adultsCount,
+            kidsCount: participants.kidsCount,
+            foodPreferences: participants.foodPreferences,
+            allergies: participants.allergies,
+            notes: participants.notes,
+          })
           .from(participants)
           .where(
             and(
@@ -65,11 +75,20 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           })
         }
 
-        const filteredParticipants = plan.participants.map((p) => ({
-          participantId: p.participantId,
-          displayName: p.displayName,
-          role: p.role,
-        }))
+        const filteredParticipants = plan.participants.map((p) => {
+          let displayName = p.displayName
+          if (!displayName || displayName.trim() === '') {
+            const firstName = p.name || ''
+            const lastInitial =
+              p.lastName && p.lastName.length > 0 ? ` ${p.lastName[0]}.` : ''
+            displayName = `${firstName}${lastInitial}`.trim()
+          }
+          return {
+            participantId: p.participantId,
+            displayName,
+            role: p.role,
+          }
+        })
 
         const filteredItems = plan.items.filter(
           (item) =>
@@ -101,6 +120,15 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           updatedAt: plan.updatedAt,
           items: filteredItems,
           participants: filteredParticipants,
+          myParticipantId: participant.participantId,
+          myRsvpStatus: participant.rsvpStatus,
+          myPreferences: {
+            adultsCount: participant.adultsCount,
+            kidsCount: participant.kidsCount,
+            foodPreferences: participant.foodPreferences,
+            allergies: participant.allergies,
+            notes: participant.notes,
+          },
         }
       } catch (error) {
         request.log.error(
@@ -135,6 +163,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
       foodPreferences?: string | null
       allergies?: string | null
       notes?: string | null
+      rsvpStatus?: 'confirmed' | 'not_sure'
     }
   }>(
     '/plans/:planId/invite/:inviteToken/preferences',
@@ -237,17 +266,28 @@ export async function inviteRoutes(fastify: FastifyInstance) {
     }
   )
 
-  fastify.post<{ Params: { planId: string; participantId: string } }>(
-    '/plans/:planId/participants/:participantId/regenerate-token',
+  fastify.post<{
+    Params: { planId: string; inviteToken: string }
+    Body: {
+      name: string
+      category: ItemCategory
+      quantity: number
+      unit?: Unit
+      notes?: string | null
+    }
+  }>(
+    '/plans/:planId/invite/:inviteToken/items',
     {
       schema: {
         tags: ['invite'],
-        summary: 'Regenerate invite token for a participant',
+        summary: 'Create an item as a guest via invite token',
         description:
-          'Generates a new invite token for the specified participant, invalidating the previous one. Requires API key (owner action).',
-        params: { $ref: 'RegenerateTokenParams#' },
+          'Creates a new item auto-assigned to the participant matched by the invite token. Equipment items default to pcs; food items require a unit.',
+        params: { $ref: 'InviteParams#' },
+        body: { $ref: 'CreateInviteItemBody#' },
         response: {
-          200: { $ref: 'RegenerateTokenResponse#' },
+          201: { $ref: 'Item#' },
+          400: { $ref: 'ErrorResponse#' },
           404: { $ref: 'ErrorResponse#' },
           500: { $ref: 'ErrorResponse#' },
           503: { $ref: 'ErrorResponse#' },
@@ -255,37 +295,190 @@ export async function inviteRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { planId, participantId } = request.params
+      const { planId, inviteToken } = request.params
+      const { category, unit, ...rest } = request.body
+
+      if (category === 'food' && !unit) {
+        return reply
+          .status(400)
+          .send({ message: 'Unit is required for food items' })
+      }
+
+      const resolvedUnit = category === 'equipment' ? 'pcs' : unit!
 
       try {
-        const [existing] = await fastify.db
+        const [participant] = await fastify.db
           .select({
             participantId: participants.participantId,
             planId: participants.planId,
           })
           .from(participants)
-          .where(eq(participants.participantId, participantId))
+          .where(
+            and(
+              eq(participants.planId, planId),
+              eq(participants.inviteToken, inviteToken)
+            )
+          )
 
-        if (!existing || existing.planId !== planId) {
-          return reply.status(404).send({
-            message: 'Participant not found in this plan',
-          })
+        if (!participant) {
+          request.log.warn(
+            { planId, inviteToken: inviteToken.slice(0, 8) + '...' },
+            'Guest item creation rejected — invalid token'
+          )
+          return reply
+            .status(404)
+            .send({ message: 'Invalid invite token or plan not found' })
         }
 
-        const newToken = generateInviteToken()
+        const [existingPlan] = await fastify.db
+          .select({ planId: plans.planId })
+          .from(plans)
+          .where(eq(plans.planId, planId))
 
-        await fastify.db
-          .update(participants)
-          .set({ inviteToken: newToken, updatedAt: new Date() })
-          .where(eq(participants.participantId, participantId))
+        if (!existingPlan) {
+          return reply.status(404).send({ message: 'Plan not found' })
+        }
 
-        request.log.info({ participantId, planId }, 'Invite token regenerated')
+        const [createdItem] = await fastify.db
+          .insert(items)
+          .values({
+            planId,
+            category,
+            unit: resolvedUnit,
+            assignedParticipantId: participant.participantId,
+            ...rest,
+          })
+          .returning()
 
-        return { inviteToken: newToken }
+        request.log.info(
+          {
+            itemId: createdItem.itemId,
+            planId,
+            assignedParticipantId: participant.participantId,
+          },
+          'Guest created item via invite token'
+        )
+        return reply.status(201).send(createdItem)
+      } catch (error) {
+        request.log.error({ err: error, planId }, 'Failed to create guest item')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply
+            .status(503)
+            .send({ message: 'Database connection error' })
+        }
+
+        return reply.status(500).send({ message: 'Failed to create item' })
+      }
+    }
+  )
+
+  fastify.patch<{
+    Params: { planId: string; inviteToken: string; itemId: string }
+    Body: {
+      name?: string
+      category?: ItemCategory
+      quantity?: number
+      unit?: Unit
+      status?: ItemStatus
+      notes?: string | null
+    }
+  }>(
+    '/plans/:planId/invite/:inviteToken/items/:itemId',
+    {
+      schema: {
+        tags: ['invite'],
+        summary: 'Update an item as a guest via invite token',
+        description:
+          'Updates an existing item. Only allowed if the item is assigned to the participant matched by the invite token. Returns 403 if the item belongs to another participant.',
+        params: { $ref: 'InviteItemParams#' },
+        body: { $ref: 'UpdateInviteItemBody#' },
+        response: {
+          200: { $ref: 'Item#' },
+          400: { $ref: 'ErrorResponse#' },
+          403: { $ref: 'ErrorResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId, inviteToken, itemId } = request.params
+      const updates = request.body
+
+      if (Object.keys(updates).length === 0) {
+        return reply.status(400).send({ message: 'No fields to update' })
+      }
+
+      try {
+        const [participant] = await fastify.db
+          .select({
+            participantId: participants.participantId,
+            planId: participants.planId,
+          })
+          .from(participants)
+          .where(
+            and(
+              eq(participants.planId, planId),
+              eq(participants.inviteToken, inviteToken)
+            )
+          )
+
+        if (!participant) {
+          request.log.warn(
+            { planId, inviteToken: inviteToken.slice(0, 8) + '...' },
+            'Guest item update rejected — invalid token'
+          )
+          return reply
+            .status(404)
+            .send({ message: 'Invalid invite token or plan not found' })
+        }
+
+        const [existingItem] = await fastify.db
+          .select({
+            itemId: items.itemId,
+            planId: items.planId,
+            assignedParticipantId: items.assignedParticipantId,
+          })
+          .from(items)
+          .where(eq(items.itemId, itemId))
+
+        if (!existingItem || existingItem.planId !== planId) {
+          return reply.status(404).send({ message: 'Item not found' })
+        }
+
+        if (existingItem.assignedParticipantId !== participant.participantId) {
+          return reply
+            .status(403)
+            .send({ message: 'You can only edit items assigned to you' })
+        }
+
+        const [updatedItem] = await fastify.db
+          .update(items)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(items.itemId, itemId))
+          .returning()
+
+        request.log.info(
+          {
+            itemId,
+            planId,
+            participantId: participant.participantId,
+            changes: Object.keys(updates),
+          },
+          'Guest updated item via invite token'
+        )
+        return updatedItem
       } catch (error) {
         request.log.error(
-          { err: error, participantId, planId },
-          'Failed to regenerate invite token'
+          { err: error, planId, itemId },
+          'Failed to update guest item'
         )
 
         const isConnectionError =
@@ -294,14 +487,12 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             error.message.includes('timeout'))
 
         if (isConnectionError) {
-          return reply.status(503).send({
-            message: 'Database connection error',
-          })
+          return reply
+            .status(503)
+            .send({ message: 'Database connection error' })
         }
 
-        return reply.status(500).send({
-          message: 'Failed to regenerate invite token',
-        })
+        return reply.status(500).send({ message: 'Failed to update item' })
       }
     }
   )

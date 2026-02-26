@@ -16,7 +16,14 @@ import {
   signTestJwt,
 } from '../helpers/auth.js'
 
+const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
 const ADMIN_USER_ID = 'dddddddd-1111-2222-3333-444444444444'
+
+let token: string
+
+function authHeaders() {
+  return { authorization: `Bearer ${token}` }
+}
 
 function signAdminJwt() {
   return signTestJwt({
@@ -37,6 +44,7 @@ describe('Plans Route', () => {
   beforeAll(async () => {
     const db = await setupTestDatabase()
     await setupTestKeys()
+    token = await signTestJwt({ sub: TEST_USER_ID })
     app = await buildApp(
       { db },
       {
@@ -55,11 +63,32 @@ describe('Plans Route', () => {
     await cleanupTestDatabase()
   })
 
+  describe('JWT enforcement', () => {
+    it.each([
+      ['GET', '/plans'],
+      ['POST', '/plans'],
+      ['GET', '/plans/00000000-0000-0000-0000-000000000000'],
+      ['PATCH', '/plans/00000000-0000-0000-0000-000000000000'],
+      ['DELETE', '/plans/00000000-0000-0000-0000-000000000000'],
+    ])('%s %s returns 401 without JWT', async (method, url) => {
+      const response = await app.inject({
+        method: method as 'GET' | 'POST' | 'PATCH' | 'DELETE',
+        url,
+      })
+
+      expect(response.statusCode).toBe(401)
+      expect(response.json()).toEqual({
+        message: 'Authentication required',
+      })
+    })
+  })
+
   describe('GET /plans', () => {
     it('returns empty array when no plans exist', async () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(200)
@@ -72,6 +101,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(200)
@@ -97,6 +127,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
+        headers: authHeaders(),
       })
 
       const plans = response.json()
@@ -115,6 +146,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
+        headers: authHeaders(),
       })
 
       const [plan] = response.json()
@@ -134,52 +166,12 @@ describe('Plans Route', () => {
     })
   })
 
-  describe('POST /plans (deprecated)', () => {
-    it('creates plan with title only and returns 201', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/plans',
-        payload: { title: 'Weekend Camping' },
-      })
-
-      expect(response.statusCode).toBe(201)
-
-      const plan = response.json()
-      expect(plan.title).toBe('Weekend Camping')
-      expect(plan.planId).toBeDefined()
-      expect(plan.status).toBe('draft')
-      expect(plan.visibility).toBe('public')
-      expect(plan.description).toBeNull()
-      expect(plan.createdAt).toBeDefined()
-      expect(plan.updatedAt).toBeDefined()
-    })
-
-    it('returns 400 when title is missing', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/plans',
-        payload: { description: 'No title' },
-      })
-
-      expect(response.statusCode).toBe(400)
-    })
-
-    it('returns 400 when title is empty string', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/plans',
-        payload: { title: '' },
-      })
-
-      expect(response.statusCode).toBe(400)
-    })
-  })
-
-  describe('POST /plans/with-owner', () => {
+  describe('POST /plans', () => {
     it('creates plan with owner and returns 201', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: {
           title: 'Weekend Camping',
           owner: validOwner,
@@ -192,7 +184,7 @@ describe('Plans Route', () => {
       expect(plan.title).toBe('Weekend Camping')
       expect(plan.planId).toBeDefined()
       expect(plan.status).toBe('draft')
-      expect(plan.visibility).toBe('public')
+      expect(plan.visibility).toBe('invite_only')
       expect(plan.ownerParticipantId).toBeDefined()
 
       expect(plan.participants).toHaveLength(1)
@@ -210,10 +202,12 @@ describe('Plans Route', () => {
     it('creates plan with all optional fields and owner optional fields', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: {
           title: 'Beach Trip',
           description: 'A fun beach trip',
+          visibility: 'private',
           location: {
             locationId: 'loc-1',
             name: 'Malibu Beach',
@@ -237,7 +231,7 @@ describe('Plans Route', () => {
       const plan = response.json()
       expect(plan.title).toBe('Beach Trip')
       expect(plan.description).toBe('A fun beach trip')
-      expect(plan.visibility).toBe('public')
+      expect(plan.visibility).toBe('private')
       expect(plan.startDate).toBe('2026-03-01T10:00:00.000Z')
       expect(plan.endDate).toBe('2026-03-05T18:00:00.000Z')
       expect(plan.tags).toEqual(['beach', 'vacation'])
@@ -251,7 +245,8 @@ describe('Plans Route', () => {
     it('creates plan with owner and participants', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: {
           title: 'Group Trip',
           owner: validOwner,
@@ -301,7 +296,8 @@ describe('Plans Route', () => {
     it('creates plan with empty participants array', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: {
           title: 'Solo Plan',
           owner: validOwner,
@@ -319,7 +315,8 @@ describe('Plans Route', () => {
     it('created participants are retrievable via GET', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: {
           title: 'Retrievable Participants Plan',
           owner: validOwner,
@@ -338,6 +335,7 @@ describe('Plans Route', () => {
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${createdPlan.planId}`,
+        headers: authHeaders(),
       })
 
       const plan = getResponse.json()
@@ -351,7 +349,8 @@ describe('Plans Route', () => {
     it('returns 400 when participant in array has role owner', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: {
           title: 'Bad Role Plan',
           owner: validOwner,
@@ -372,7 +371,8 @@ describe('Plans Route', () => {
     it('returns 400 when title is missing', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: { owner: validOwner },
       })
 
@@ -382,7 +382,8 @@ describe('Plans Route', () => {
     it('returns 400 when owner is missing', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: { title: 'No Owner Plan' },
       })
 
@@ -405,7 +406,8 @@ describe('Plans Route', () => {
     ])('returns 400 when %s is missing', async (_field, payload) => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload,
       })
 
@@ -415,7 +417,8 @@ describe('Plans Route', () => {
     it('returns 400 when title is empty string', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: { title: '', owner: validOwner },
       })
 
@@ -425,7 +428,8 @@ describe('Plans Route', () => {
     it('created plan is retrievable via GET with participants', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: { title: 'Retrievable Plan', owner: validOwner },
       })
 
@@ -434,6 +438,7 @@ describe('Plans Route', () => {
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${createdPlan.planId}`,
+        headers: authHeaders(),
       })
 
       expect(getResponse.statusCode).toBe(200)
@@ -449,7 +454,8 @@ describe('Plans Route', () => {
     it('owner appears in participants list endpoint', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: { title: 'Owner List Test', owner: validOwner },
       })
 
@@ -458,6 +464,7 @@ describe('Plans Route', () => {
       const participantsResponse = await app.inject({
         method: 'GET',
         url: `/plans/${createdPlan.planId}/participants`,
+        headers: authHeaders(),
       })
 
       expect(participantsResponse.statusCode).toBe(200)
@@ -471,7 +478,8 @@ describe('Plans Route', () => {
     it('additional participants can be added after plan creation', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: { title: 'Multi Participant Plan', owner: validOwner },
       })
 
@@ -480,6 +488,7 @@ describe('Plans Route', () => {
       await app.inject({
         method: 'POST',
         url: `/plans/${createdPlan.planId}/participants`,
+        headers: authHeaders(),
         payload: {
           name: 'Sarah',
           lastName: 'Johnson',
@@ -490,6 +499,7 @@ describe('Plans Route', () => {
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${createdPlan.planId}`,
+        headers: authHeaders(),
       })
 
       const plan = getResponse.json()
@@ -503,7 +513,8 @@ describe('Plans Route', () => {
     it('owner cannot be deleted from participants', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: authHeaders(),
         payload: { title: 'Owner Delete Test', owner: validOwner },
       })
 
@@ -513,6 +524,7 @@ describe('Plans Route', () => {
       const deleteResponse = await app.inject({
         method: 'DELETE',
         url: `/participants/${ownerId}`,
+        headers: authHeaders(),
       })
 
       expect(deleteResponse.statusCode).toBe(400)
@@ -531,6 +543,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${seededPlan.planId}`,
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(200)
@@ -547,6 +560,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${seededPlan.planId}`,
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(200)
@@ -564,6 +578,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${nonExistentId}`,
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(404)
@@ -576,6 +591,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans/invalid-uuid',
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(400)
@@ -587,6 +603,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${seededPlan.planId}`,
+        headers: authHeaders(),
       })
 
       const plan = response.json()
@@ -616,6 +633,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${seededPlan.planId}`,
+        headers: authHeaders(),
       })
 
       const plan = response.json()
@@ -645,6 +663,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan1.planId}`,
+        headers: authHeaders(),
       })
 
       const plan = response.json()
@@ -662,6 +681,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${targetPlan.planId}`,
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(200)
@@ -678,6 +698,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${seededPlan.planId}`,
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(200)
@@ -698,6 +719,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${seededPlan.planId}`,
+        headers: authHeaders(),
       })
 
       const plan = response.json()
@@ -730,6 +752,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan1.planId}`,
+        headers: authHeaders(),
       })
 
       const plan = response.json()
@@ -748,6 +771,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
         payload: { title: 'Updated Title' },
       })
 
@@ -770,6 +794,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
         payload: {
           title: 'New Title',
           description: 'New description',
@@ -793,6 +818,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
         payload: {
           startDate: '2026-06-01T10:00:00.000Z',
           endDate: '2026-06-05T18:00:00.000Z',
@@ -819,6 +845,7 @@ describe('Plans Route', () => {
         const response = await app.inject({
           method: 'PATCH',
           url: `/plans/${plan.planId}`,
+          headers: authHeaders(),
           payload,
         })
 
@@ -834,6 +861,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
         payload: {},
       })
 
@@ -849,6 +877,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/plans/${nonExistentId}`,
+        headers: authHeaders(),
         payload: { title: 'Ghost Plan' },
       })
 
@@ -862,6 +891,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: '/plans/invalid-uuid',
+        headers: authHeaders(),
         payload: { title: 'Test' },
       })
 
@@ -877,6 +907,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
         payload,
       })
 
@@ -889,6 +920,7 @@ describe('Plans Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
         payload: { title: '' },
       })
 
@@ -901,12 +933,14 @@ describe('Plans Route', () => {
       await app.inject({
         method: 'PATCH',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
         payload: { title: 'Persisted Title', status: 'archived' },
       })
 
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
       })
 
       expect(getResponse.statusCode).toBe(200)
@@ -921,12 +955,14 @@ describe('Plans Route', () => {
       await app.inject({
         method: 'PATCH',
         url: `/plans/${plan1.planId}`,
+        headers: authHeaders(),
         payload: { title: 'Changed' },
       })
 
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan2.planId}`,
+        headers: authHeaders(),
       })
 
       expect(getResponse.statusCode).toBe(200)
@@ -937,12 +973,12 @@ describe('Plans Route', () => {
   describe('DELETE /plans/:planId', () => {
     it('deletes plan and returns 200 with ok true', async () => {
       const [plan] = await seedTestPlans(1)
-      const token = await signAdminJwt()
+      const adminToken = await signAdminJwt()
 
       const response = await app.inject({
         method: 'DELETE',
         url: `/plans/${plan.planId}`,
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${adminToken}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -951,17 +987,18 @@ describe('Plans Route', () => {
 
     it('deleted plan is no longer retrievable via GET', async () => {
       const [plan] = await seedTestPlans(1)
-      const token = await signAdminJwt()
+      const adminToken = await signAdminJwt()
 
       await app.inject({
         method: 'DELETE',
         url: `/plans/${plan.planId}`,
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${adminToken}` },
       })
 
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
       })
 
       expect(getResponse.statusCode).toBe(404)
@@ -969,17 +1006,18 @@ describe('Plans Route', () => {
 
     it('deleted plan is removed from list', async () => {
       const [plan1, plan2] = await seedTestPlans(2)
-      const token = await signAdminJwt()
+      const adminToken = await signAdminJwt()
 
       await app.inject({
         method: 'DELETE',
         url: `/plans/${plan1.planId}`,
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${adminToken}` },
       })
 
       const listResponse = await app.inject({
         method: 'GET',
         url: '/plans',
+        headers: authHeaders(),
       })
 
       const plans = listResponse.json()
@@ -991,12 +1029,12 @@ describe('Plans Route', () => {
       const [plan] = await seedTestPlans(1)
       await seedTestItems(plan.planId, 3)
       await seedTestParticipants(plan.planId, 2)
-      const token = await signAdminJwt()
+      const adminToken = await signAdminJwt()
 
       const response = await app.inject({
         method: 'DELETE',
         url: `/plans/${plan.planId}`,
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${adminToken}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -1004,6 +1042,7 @@ describe('Plans Route', () => {
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
       })
 
       expect(getResponse.statusCode).toBe(404)
@@ -1022,12 +1061,12 @@ describe('Plans Route', () => {
 
     it('returns 404 when plan does not exist', async () => {
       const nonExistentId = '00000000-0000-0000-0000-000000000000'
-      const token = await signAdminJwt()
+      const adminToken = await signAdminJwt()
 
       const response = await app.inject({
         method: 'DELETE',
         url: `/plans/${nonExistentId}`,
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${adminToken}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -1037,12 +1076,12 @@ describe('Plans Route', () => {
     })
 
     it('returns 400 for invalid UUID format', async () => {
-      const token = await signAdminJwt()
+      const adminToken = await signAdminJwt()
 
       const response = await app.inject({
         method: 'DELETE',
         url: '/plans/invalid-uuid',
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${adminToken}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -1052,17 +1091,18 @@ describe('Plans Route', () => {
       const [plan1, plan2] = await seedTestPlans(2)
       await seedTestItems(plan1.planId, 2)
       await seedTestItems(plan2.planId, 3)
-      const token = await signAdminJwt()
+      const adminToken = await signAdminJwt()
 
       await app.inject({
         method: 'DELETE',
         url: `/plans/${plan1.planId}`,
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${adminToken}` },
       })
 
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan2.planId}`,
+        headers: authHeaders(),
       })
 
       expect(getResponse.statusCode).toBe(200)

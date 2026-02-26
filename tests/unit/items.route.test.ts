@@ -4,6 +4,12 @@ import { itemsRoutes } from '../../src/routes/items.route.js'
 import { registerSchemas } from '../../src/schemas/index.js'
 
 const VALID_UUID = '00000000-0000-0000-0000-000000000000'
+const FAKE_USER = {
+  id: 'aaaaaaaa-1111-2222-3333-444444444444',
+  email: 'test@test.com',
+  role: 'authenticated' as const,
+}
+const AUTH_HEADERS = { authorization: 'Bearer fake-jwt-token' }
 
 function createMockDb() {
   return {
@@ -48,6 +54,12 @@ describe('Items Route - Error Scenarios', () => {
 
     app = Fastify({ logger: false })
     app.decorate('db', mockDb)
+    app.decorateRequest('user', null)
+    app.addHook('onRequest', async (request) => {
+      if (request.headers.authorization?.startsWith('Bearer ')) {
+        request.user = FAKE_USER
+      }
+    })
     registerSchemas(app)
     await app.register(itemsRoutes)
   })
@@ -73,6 +85,7 @@ describe('Items Route - Error Scenarios', () => {
         const response = await app.inject({
           method: 'POST',
           url: `/plans/${VALID_UUID}/items`,
+          headers: AUTH_HEADERS,
           payload: validEquipmentPayload,
         })
 
@@ -91,6 +104,7 @@ describe('Items Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${VALID_UUID}/items`,
+        headers: AUTH_HEADERS,
         payload: validEquipmentPayload,
       })
 
@@ -113,6 +127,7 @@ describe('Items Route - Error Scenarios', () => {
         const response = await app.inject({
           method: 'POST',
           url: `/plans/${VALID_UUID}/items`,
+          headers: AUTH_HEADERS,
           payload: validEquipmentPayload,
         })
 
@@ -128,6 +143,7 @@ describe('Items Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${VALID_UUID}/items`,
+        headers: AUTH_HEADERS,
         payload: validEquipmentPayload,
       })
 

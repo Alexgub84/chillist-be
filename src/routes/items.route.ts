@@ -1,51 +1,49 @@
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
-import { items, plans, participants } from '../db/schema.js'
+import {
+  items,
+  plans,
+  participants,
+  Unit,
+  ItemCategory,
+  ItemStatus,
+} from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 
 interface CreateItemBody {
   name: string
-  category: 'equipment' | 'food'
+  category: ItemCategory
   quantity: number
-  status: 'pending' | 'purchased' | 'packed' | 'canceled'
-  unit?:
-    | 'pcs'
-    | 'kg'
-    | 'g'
-    | 'lb'
-    | 'oz'
-    | 'l'
-    | 'ml'
-    | 'm'
-    | 'cm'
-    | 'pack'
-    | 'set'
+  status: ItemStatus
+  unit?: Unit
   notes?: string | null
   assignedParticipantId?: string | null
 }
 
 interface UpdateItemBody {
   name?: string
-  category?: 'equipment' | 'food'
+  category?: ItemCategory
   quantity?: number
-  unit?:
-    | 'pcs'
-    | 'kg'
-    | 'g'
-    | 'lb'
-    | 'oz'
-    | 'l'
-    | 'ml'
-    | 'm'
-    | 'cm'
-    | 'pack'
-    | 'set'
-  status?: 'pending' | 'purchased' | 'packed' | 'canceled'
+  unit?: Unit
+  status?: ItemStatus
   notes?: string | null
   assignedParticipantId?: string | null
 }
 
 export async function itemsRoutes(fastify: FastifyInstance) {
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'OPTIONS') return
+    const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+    if (!hasJwt) {
+      return reply.status(401).send({ message: 'Authentication required' })
+    }
+    if (!request.user) {
+      return reply
+        .status(401)
+        .send({ message: 'JWT token present but verification failed' })
+    }
+  })
+
   fastify.post<{ Params: { planId: string }; Body: CreateItemBody }>(
     '/plans/:planId/items',
     {

@@ -46,13 +46,13 @@ describe('Opportunistic User Tracking', () => {
     await cleanupTestDatabase()
   })
 
-  describe('POST /plans/with-owner — user tracking', () => {
+  describe('POST /plans — user tracking', () => {
     it('sets createdByUserId and owner userId when JWT is present', async () => {
       const token = await signTestJwt({ sub: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         headers: { authorization: `Bearer ${token}` },
         payload: {
           title: 'Authenticated Plan',
@@ -71,25 +71,17 @@ describe('Opportunistic User Tracking', () => {
       expect(ownerParticipant.userId).toBe(TEST_USER_ID)
     })
 
-    it('leaves createdByUserId and owner userId null without JWT', async () => {
+    it('returns 401 without JWT', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         payload: {
           title: 'Anonymous Plan',
           owner: validOwner,
         },
       })
 
-      expect(response.statusCode).toBe(201)
-
-      const plan = response.json()
-      expect(plan.createdByUserId).toBeNull()
-
-      const ownerParticipant = plan.participants.find(
-        (p: { role: string }) => p.role === 'owner'
-      )
-      expect(ownerParticipant.userId).toBeNull()
+      expect(response.statusCode).toBe(401)
     })
 
     it('only sets userId on owner, not on other participants', async () => {
@@ -97,7 +89,7 @@ describe('Opportunistic User Tracking', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         headers: { authorization: `Bearer ${token}` },
         payload: {
           title: 'Group Plan',
@@ -138,7 +130,7 @@ describe('Opportunistic User Tracking', () => {
 
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         headers: { authorization: `Bearer ${token}` },
         payload: {
           title: 'Persistent Tracking Plan',
