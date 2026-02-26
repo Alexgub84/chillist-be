@@ -1,3 +1,9 @@
+import {
+  UNIT_VALUES,
+  ITEM_CATEGORY_VALUES,
+  ITEM_STATUS_VALUES,
+} from '../db/schema.js'
+
 export const itemSchema = {
   $id: 'Item',
   type: 'object',
@@ -5,15 +11,15 @@ export const itemSchema = {
     itemId: { type: 'string', format: 'uuid' },
     planId: { type: 'string', format: 'uuid' },
     name: { type: 'string' },
-    category: { type: 'string', enum: ['equipment', 'food'] },
+    category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
     quantity: { type: 'integer' },
     unit: {
       type: 'string',
-      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'm', 'cm', 'pack', 'set'],
+      enum: [...UNIT_VALUES],
     },
     status: {
       type: 'string',
-      enum: ['pending', 'purchased', 'packed', 'canceled'],
+      enum: [...ITEM_STATUS_VALUES],
     },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
@@ -44,15 +50,15 @@ export const createItemBodySchema = {
   type: 'object',
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },
-    category: { type: 'string', enum: ['equipment', 'food'] },
+    category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
     quantity: { type: 'integer', minimum: 1 },
     unit: {
       type: 'string',
-      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'm', 'cm', 'pack', 'set'],
+      enum: [...UNIT_VALUES],
     },
     status: {
       type: 'string',
-      enum: ['pending', 'purchased', 'packed', 'canceled'],
+      enum: [...ITEM_STATUS_VALUES],
     },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
@@ -65,15 +71,15 @@ export const updateItemBodySchema = {
   type: 'object',
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },
-    category: { type: 'string', enum: ['equipment', 'food'] },
+    category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
     quantity: { type: 'integer', minimum: 1 },
     unit: {
       type: 'string',
-      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'm', 'cm', 'pack', 'set'],
+      enum: [...UNIT_VALUES],
     },
     status: {
       type: 'string',
-      enum: ['pending', 'purchased', 'packed', 'canceled'],
+      enum: [...ITEM_STATUS_VALUES],
     },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },

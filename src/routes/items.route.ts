@@ -1,46 +1,31 @@
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
-import { items, plans, participants } from '../db/schema.js'
+import {
+  items,
+  plans,
+  participants,
+  Unit,
+  ItemCategory,
+  ItemStatus,
+} from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 
 interface CreateItemBody {
   name: string
-  category: 'equipment' | 'food'
+  category: ItemCategory
   quantity: number
-  status: 'pending' | 'purchased' | 'packed' | 'canceled'
-  unit?:
-    | 'pcs'
-    | 'kg'
-    | 'g'
-    | 'lb'
-    | 'oz'
-    | 'l'
-    | 'ml'
-    | 'm'
-    | 'cm'
-    | 'pack'
-    | 'set'
+  status: ItemStatus
+  unit?: Unit
   notes?: string | null
   assignedParticipantId?: string | null
 }
 
 interface UpdateItemBody {
   name?: string
-  category?: 'equipment' | 'food'
+  category?: ItemCategory
   quantity?: number
-  unit?:
-    | 'pcs'
-    | 'kg'
-    | 'g'
-    | 'lb'
-    | 'oz'
-    | 'l'
-    | 'ml'
-    | 'm'
-    | 'cm'
-    | 'pack'
-    | 'set'
-  status?: 'pending' | 'purchased' | 'packed' | 'canceled'
+  unit?: Unit
+  status?: ItemStatus
   notes?: string | null
   assignedParticipantId?: string | null
 }

@@ -68,12 +68,18 @@ export const rsvpStatusEnum = pgEnum('rsvp_status', [
   'not_sure',
 ])
 export const itemCategoryEnum = pgEnum('item_category', ['equipment', 'food'])
+export const ITEM_CATEGORY_VALUES = itemCategoryEnum.enumValues
+export type ItemCategory = (typeof ITEM_CATEGORY_VALUES)[number]
+
 export const itemStatusEnum = pgEnum('item_status', [
   'pending',
   'purchased',
   'packed',
   'canceled',
 ])
+export const ITEM_STATUS_VALUES = itemStatusEnum.enumValues
+export type ItemStatus = (typeof ITEM_STATUS_VALUES)[number]
+
 export const unitEnum = pgEnum('unit', [
   'pcs',
   'kg',
@@ -87,6 +93,8 @@ export const unitEnum = pgEnum('unit', [
   'pack',
   'set',
 ])
+export const UNIT_VALUES = unitEnum.enumValues
+export type Unit = (typeof UNIT_VALUES)[number]
 
 export type Location = {
   locationId: string
