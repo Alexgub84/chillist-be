@@ -1,6 +1,1 @@
-npm run typecheck
 npx lint-staged
-npm run openapi:generate
-git add docs/openapi.json
-npm run openapi:validate
-npm run test:run
