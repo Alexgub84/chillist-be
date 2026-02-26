@@ -3,6 +3,13 @@ import Fastify from 'fastify'
 import { plansRoutes } from '../../src/routes/plans.route.js'
 import { registerSchemas } from '../../src/schemas/index.js'
 
+const FAKE_USER = {
+  id: 'aaaaaaaa-1111-2222-3333-444444444444',
+  email: 'test@test.com',
+  role: 'authenticated' as const,
+}
+const AUTH_HEADERS = { authorization: 'Bearer fake-jwt-token' }
+
 function createMockDb() {
   return {
     select: vi.fn(),
@@ -25,6 +32,12 @@ describe('Plans Route - Error Scenarios', () => {
 
     app = Fastify({ logger: false })
     app.decorate('db', mockDb)
+    app.decorateRequest('user', null)
+    app.addHook('onRequest', async (request) => {
+      if (request.headers.authorization?.startsWith('Bearer ')) {
+        request.user = FAKE_USER
+      }
+    })
     registerSchemas(app)
     await app.register(plansRoutes)
   })
@@ -50,6 +63,7 @@ describe('Plans Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
+        headers: AUTH_HEADERS,
       })
 
       expect(response.statusCode).toBe(503)
@@ -64,6 +78,7 @@ describe('Plans Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
+        headers: AUTH_HEADERS,
       })
 
       expect(response.statusCode).toBe(500)
@@ -78,6 +93,7 @@ describe('Plans Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
+        headers: AUTH_HEADERS,
       })
 
       expect(response.statusCode).toBe(500)
@@ -92,6 +108,7 @@ describe('Plans Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
+        headers: AUTH_HEADERS,
       })
 
       expect(response.statusCode).toBe(503)
@@ -116,6 +133,7 @@ describe('Plans Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans/00000000-0000-0000-0000-000000000000',
+        headers: AUTH_HEADERS,
       })
 
       expect(response.statusCode).toBe(503)
@@ -130,6 +148,7 @@ describe('Plans Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans/00000000-0000-0000-0000-000000000000',
+        headers: AUTH_HEADERS,
       })
 
       expect(response.statusCode).toBe(500)
@@ -144,6 +163,7 @@ describe('Plans Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans/00000000-0000-0000-0000-000000000000',
+        headers: AUTH_HEADERS,
       })
 
       expect(response.statusCode).toBe(500)
@@ -158,6 +178,7 @@ describe('Plans Route - Error Scenarios', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans/00000000-0000-0000-0000-000000000000',
+        headers: AUTH_HEADERS,
       })
 
       expect(response.statusCode).toBe(503)
@@ -167,13 +188,14 @@ describe('Plans Route - Error Scenarios', () => {
     })
   })
 
-  describe('POST /plans/with-owner - Database Errors', () => {
+  describe('POST /plans - Database Errors', () => {
     it('returns 503 when database connection fails during plan creation', async () => {
       mockDb.transaction.mockRejectedValue(new Error('connect ECONNREFUSED'))
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: AUTH_HEADERS,
         payload: {
           title: 'Test Plan',
           owner: {
@@ -195,7 +217,8 @@ describe('Plans Route - Error Scenarios', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: AUTH_HEADERS,
         payload: {
           title: 'Test Plan',
           owner: {

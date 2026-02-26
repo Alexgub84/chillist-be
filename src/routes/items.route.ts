@@ -31,6 +31,19 @@ interface UpdateItemBody {
 }
 
 export async function itemsRoutes(fastify: FastifyInstance) {
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'OPTIONS') return
+    const hasJwt = request.headers.authorization?.startsWith('Bearer ')
+    if (!hasJwt) {
+      return reply.status(401).send({ message: 'Authentication required' })
+    }
+    if (!request.user) {
+      return reply
+        .status(401)
+        .send({ message: 'JWT token present but verification failed' })
+    }
+  })
+
   fastify.post<{ Params: { planId: string }; Body: CreateItemBody }>(
     '/plans/:planId/items',
     {

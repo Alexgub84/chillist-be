@@ -7,11 +7,6 @@
   },
   "components": {
     "securitySchemes": {
-      "apiKey": {
-        "type": "apiKey",
-        "name": "x-api-key",
-        "in": "header"
-      },
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
@@ -1544,7 +1539,7 @@
         "tags": [
           "plans"
         ],
-        "description": "Creates a plan and its owner participant in a single transaction. Returns the plan with participants[] and items[].",
+        "description": "Creates a plan and its owner participant in a single transaction. Requires JWT. Returns the plan with participants[] and items[].",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1566,6 +1561,16 @@
             }
           },
           "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
             "description": "Default Response",
             "content": {
               "application/json": {

@@ -104,65 +104,34 @@ describe('Docker Production E2E Tests', () => {
     })
   })
 
-  describe('Plans Endpoint - Database Integration', () => {
-    it('should return empty array when no plans exist', async () => {
+  describe('Plans Endpoint - JWT Required', () => {
+    it('should return 401 when accessing plans without JWT', async () => {
       const response = await fetch(`${API_URL}/plans`)
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(401)
       expect(response.headers.get('content-type')).toContain('application/json')
 
       const body = await response.json()
-      expect(Array.isArray(body)).toBe(true)
+      expect(body.message).toBe('Authentication required')
     })
 
-    it('should create and retrieve a plan', async () => {
+    it('should return 401 when creating plan without JWT', async () => {
       const newPlan = {
         title: 'E2E Test Plan',
-        description: 'Created during e2e test',
-        status: 'active',
+        owner: {
+          name: 'E2E',
+          lastName: 'Tester',
+          contactPhone: '+1-555-000-0000',
+        },
       }
 
-      const createResponse = await fetch(`${API_URL}/plans`, {
+      const response = await fetch(`${API_URL}/plans`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newPlan),
       })
 
-      if (createResponse.status === 404) {
-        console.log('POST /plans not implemented yet, skipping create test')
-        return
-      }
-
-      expect(createResponse.status).toBe(201)
-
-      const createdPlan = await createResponse.json()
-      expect(createdPlan.title).toBe(newPlan.title)
-      expect(createdPlan.planId).toBeDefined()
-
-      const getResponse = await fetch(`${API_URL}/plans`)
-      expect(getResponse.status).toBe(200)
-
-      const plans = await getResponse.json()
-      expect(plans.length).toBeGreaterThan(0)
-      expect(
-        plans.some((p: { title: string }) => p.title === 'E2E Test Plan')
-      ).toBe(true)
-    })
-
-    it('should return plans with correct structure', async () => {
-      const response = await fetch(`${API_URL}/plans`)
-      expect(response.status).toBe(200)
-
-      const plans = await response.json()
-
-      if (plans.length > 0) {
-        const plan = plans[0]
-        expect(plan).toHaveProperty('planId')
-        expect(plan).toHaveProperty('title')
-        expect(plan).toHaveProperty('status')
-        expect(plan).toHaveProperty('createdAt')
-        expect(plan).toHaveProperty('updatedAt')
-      }
+      expect(response.status).toBe(401)
     })
   })
 })

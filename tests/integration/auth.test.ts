@@ -130,21 +130,21 @@ describe('JWT Auth (injected JWKS)', () => {
     })
   })
 
-  describe('Plans routes remain accessible without auth', () => {
-    it('GET /plans works without JWT', async () => {
+  describe('Plans routes require JWT', () => {
+    it('GET /plans returns 401 without JWT', async () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
         headers: {},
       })
 
-      expect(response.statusCode).toBe(200)
+      expect(response.statusCode).toBe(401)
     })
 
-    it('POST /plans/with-owner works without JWT', async () => {
+    it('POST /plans returns 401 without JWT', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         payload: {
           title: 'Test Plan',
           owner: {
@@ -155,7 +155,7 @@ describe('JWT Auth (injected JWKS)', () => {
         },
       })
 
-      expect(response.statusCode).toBe(201)
+      expect(response.statusCode).toBe(401)
     })
   })
 

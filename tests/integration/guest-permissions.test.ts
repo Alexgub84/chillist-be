@@ -9,15 +9,30 @@ import {
   seedTestItems,
   setupTestDatabase,
 } from '../helpers/db.js'
+import {
+  setupTestKeys,
+  getTestJWKS,
+  getTestIssuer,
+  signTestJwt,
+} from '../helpers/auth.js'
 
-const API_KEY = 'test-boundary-key'
+const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
 
-describe('Guest Permission Boundaries (API key enforced)', () => {
+describe('Guest Permission Boundaries', () => {
   let app: FastifyInstance
+  let jwtToken: string
 
   beforeAll(async () => {
     const db = await setupTestDatabase()
-    app = await buildApp({ db }, { logger: false, apiKey: API_KEY })
+    await setupTestKeys()
+    jwtToken = await signTestJwt({ sub: TEST_USER_ID })
+    app = await buildApp(
+      { db },
+      {
+        logger: false,
+        auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
+      }
+    )
   })
 
   afterAll(async () => {
@@ -41,10 +56,10 @@ describe('Guest Permission Boundaries (API key enforced)', () => {
   }
 
   function ownerHeaders() {
-    return { 'x-api-key': API_KEY }
+    return { authorization: `Bearer ${jwtToken}` }
   }
 
-  describe('baseline: owner with API key can access protected routes', () => {
+  describe('baseline: authenticated owner can access protected routes', () => {
     it('owner can list plans', async () => {
       await seedTestPlans(1)
       const response = await app.inject({
@@ -74,7 +89,7 @@ describe('Guest Permission Boundaries (API key enforced)', () => {
   describe('guest with only X-Invite-Token cannot access plan endpoints', () => {
     it.each([
       ['GET', '/plans'],
-      ['POST', '/plans/with-owner'],
+      ['POST', '/plans'],
     ])('%s %s returns 401 for guest-only auth', async (method, url) => {
       await seedTestPlans(1)
       const response = await app.inject({
@@ -129,103 +144,6 @@ describe('Guest Permission Boundaries (API key enforced)', () => {
     })
   })
 
-  describe('guest with only X-Invite-Token cannot access participant endpoints', () => {
-    it('cannot list participants', async () => {
-      const { plan, participants } = await seedPlanWithParticipants()
-      const response = await app.inject({
-        method: 'GET',
-        url: `/plans/${plan.planId}/participants`,
-        headers: guestHeaders(participants[1].inviteToken!),
-      })
-      expect(response.statusCode).toBe(401)
-    })
-
-    it('cannot create a participant', async () => {
-      const { plan, participants } = await seedPlanWithParticipants()
-      const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/participants`,
-        headers: guestHeaders(participants[1].inviteToken!),
-        payload: {
-          name: 'Injected',
-          lastName: 'Person',
-          contactPhone: '+1-555-000-9999',
-        },
-      })
-      expect(response.statusCode).toBe(401)
-    })
-
-    it('cannot get a participant by ID', async () => {
-      const { participants } = await seedPlanWithParticipants()
-      const response = await app.inject({
-        method: 'GET',
-        url: `/participants/${participants[0].participantId}`,
-        headers: guestHeaders(participants[1].inviteToken!),
-      })
-      expect(response.statusCode).toBe(401)
-    })
-
-    it('cannot update a participant', async () => {
-      const { participants } = await seedPlanWithParticipants()
-      const response = await app.inject({
-        method: 'PATCH',
-        url: `/participants/${participants[0].participantId}`,
-        headers: guestHeaders(participants[1].inviteToken!),
-        payload: { displayName: 'Hacked Name' },
-      })
-      expect(response.statusCode).toBe(401)
-    })
-
-    it('cannot delete a participant', async () => {
-      const { participants } = await seedPlanWithParticipants()
-      const response = await app.inject({
-        method: 'DELETE',
-        url: `/participants/${participants[1].participantId}`,
-        headers: guestHeaders(participants[1].inviteToken!),
-      })
-      expect(response.statusCode).toBe(401)
-    })
-  })
-
-  describe('guest with only X-Invite-Token cannot access item endpoints', () => {
-    it('cannot list items', async () => {
-      const { plan, participants } = await seedPlanWithParticipants()
-      const response = await app.inject({
-        method: 'GET',
-        url: `/plans/${plan.planId}/items`,
-        headers: guestHeaders(participants[1].inviteToken!),
-      })
-      expect(response.statusCode).toBe(401)
-    })
-
-    it('cannot create an item', async () => {
-      const { plan, participants } = await seedPlanWithParticipants()
-      const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/items`,
-        headers: guestHeaders(participants[1].inviteToken!),
-        payload: {
-          name: 'Injected Item',
-          category: 'equipment',
-          quantity: 1,
-          status: 'pending',
-        },
-      })
-      expect(response.statusCode).toBe(401)
-    })
-
-    it('cannot update an item', async () => {
-      const { participants, items } = await seedPlanWithParticipants()
-      const response = await app.inject({
-        method: 'PATCH',
-        url: `/items/${items[0].itemId}`,
-        headers: guestHeaders(participants[1].inviteToken!),
-        payload: { name: 'Hacked Item Name' },
-      })
-      expect(response.statusCode).toBe(401)
-    })
-  })
-
   describe('guest with only X-Invite-Token cannot access auth endpoints', () => {
     it.each([
       ['GET', '/auth/me'],
@@ -264,7 +182,7 @@ describe('Guest Permission Boundaries (API key enforced)', () => {
       expect(response.statusCode).toBe(200)
     })
 
-    it('/guest/ routes return 404 not 401 (bypasses API key check)', async () => {
+    it('/guest/ routes return 404', async () => {
       const { participants } = await seedPlanWithParticipants()
       const response = await app.inject({
         method: 'GET',
@@ -274,7 +192,7 @@ describe('Guest Permission Boundaries (API key enforced)', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('/invite/ routes return 404 not 401 (bypasses API key check)', async () => {
+    it('/invite/ routes return 404', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/invite/fake-token/start-session',
@@ -283,18 +201,16 @@ describe('Guest Permission Boundaries (API key enforced)', () => {
     })
   })
 
-  describe('no auth at all is rejected on protected routes', () => {
+  describe('no auth at all is rejected on plans routes', () => {
     it.each([
       ['GET', '/plans'],
       ['GET', '/plans/00000000-0000-0000-0000-000000000000'],
-      ['POST', '/plans/with-owner'],
-      ['POST', '/plans/00000000-0000-0000-0000-000000000000/participants'],
-      ['POST', '/plans/00000000-0000-0000-0000-000000000000/items'],
-      ['GET', '/participants/00000000-0000-0000-0000-000000000000'],
-      ['PATCH', '/items/00000000-0000-0000-0000-000000000000'],
+      ['POST', '/plans'],
+      ['PATCH', '/plans/00000000-0000-0000-0000-000000000000'],
+      ['DELETE', '/plans/00000000-0000-0000-0000-000000000000'],
     ])('%s %s returns 401 with no auth headers', async (method, url) => {
       const response = await app.inject({
-        method: method as 'GET' | 'POST' | 'PATCH',
+        method: method as 'GET' | 'POST' | 'PATCH' | 'DELETE',
         url,
         headers: {},
       })

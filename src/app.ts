@@ -25,15 +25,13 @@ export interface BuildAppOptions {
   enableDocs?: boolean
   logger?: false
   auth?: AuthPluginOptions
-  apiKey?: string
 }
 
 export async function buildApp(
   deps: AppDependencies,
   options: BuildAppOptions = {}
 ) {
-  const { enableDocs = config.isDev, logger, auth, apiKey } = options
-  const effectiveApiKey = apiKey ?? config.apiKey
+  const { enableDocs = config.isDev, logger, auth } = options
 
   const fastify = Fastify({
     logger:
@@ -77,11 +75,6 @@ export async function buildApp(
         ],
         components: {
           securitySchemes: {
-            apiKey: {
-              type: 'apiKey',
-              name: 'x-api-key',
-              in: 'header',
-            },
             bearerAuth: {
               type: 'http',
               scheme: 'bearer',
@@ -129,41 +122,11 @@ export async function buildApp(
         method: request.method,
         url: request.url,
         origin: request.headers.origin ?? null,
-        hasApiKey: !!request.headers['x-api-key'],
         hasJwt: !!request.headers.authorization?.startsWith('Bearer '),
         hasInviteToken: !!request.headers['x-invite-token'],
       },
       'Incoming request'
     )
-  })
-
-  fastify.addHook('onRequest', async (request, reply) => {
-    if (request.method === 'OPTIONS' || request.url.startsWith('/health')) {
-      return
-    }
-
-    const invitePattern = /^\/plans\/[^/]+\/invite\/[^/]+/
-    if (invitePattern.test(request.url)) {
-      return
-    }
-
-    if (request.url.startsWith('/auth/')) {
-      return
-    }
-
-    if (request.url.startsWith('/guest/')) {
-      return
-    }
-
-    if (request.url.startsWith('/invite/')) {
-      return
-    }
-
-    if (effectiveApiKey && request.headers['x-api-key'] !== effectiveApiKey) {
-      if (!request.user) {
-        return reply.status(401).send({ message: 'Unauthorized' })
-      }
-    }
   })
 
   fastify.addHook('onResponse', async (request, reply) => {

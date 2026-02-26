@@ -204,7 +204,7 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
     const response = await app.inject({
       method: 'POST',
       url: `/plans/${plan.planId}/claim/${inviteToken}`,
-      headers: { 'x-api-key': 'test-key' },
+      headers: {},
     })
 
     expect(response.statusCode).toBe(401)

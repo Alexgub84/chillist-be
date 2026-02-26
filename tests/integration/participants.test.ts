@@ -8,13 +8,30 @@ import {
   seedTestPlans,
   setupTestDatabase,
 } from '../helpers/db.js'
+import {
+  setupTestKeys,
+  getTestJWKS,
+  getTestIssuer,
+  signTestJwt,
+} from '../helpers/auth.js'
+
+const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
 
 describe('Participants Route', () => {
   let app: FastifyInstance
+  let token: string
 
   beforeAll(async () => {
     const db = await setupTestDatabase()
-    app = await buildApp({ db }, { logger: false })
+    await setupTestKeys()
+    token = await signTestJwt({ sub: TEST_USER_ID })
+    app = await buildApp(
+      { db },
+      {
+        logger: false,
+        auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
+      }
+    )
   })
 
   afterAll(async () => {
@@ -33,6 +50,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -46,6 +64,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -72,6 +91,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan1.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -89,6 +109,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${nonExistentId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -99,6 +120,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans/invalid-uuid/participants',
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -112,6 +134,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Alex',
           lastName: 'Guberman',
@@ -141,6 +164,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Alexander',
           lastName: 'Smith',
@@ -170,6 +194,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${nonExistentId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Alex',
           lastName: 'Guberman',
@@ -191,6 +216,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload,
       })
 
@@ -203,6 +229,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { name: '', lastName: 'Smith', contactPhone: '+1234567890' },
       })
 
@@ -215,6 +242,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { displayName: 'Alex' },
       })
 
@@ -227,6 +255,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Alex',
           lastName: 'Smith',
@@ -244,6 +273,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Alex',
           lastName: 'Smith',
@@ -261,6 +291,7 @@ describe('Participants Route', () => {
       const createResponse = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Alex',
           lastName: 'Guberman',
@@ -273,6 +304,7 @@ describe('Participants Route', () => {
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(getResponse.statusCode).toBe(200)
@@ -290,6 +322,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -308,6 +341,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/participants/${nonExistentId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -318,6 +352,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/participants/invalid-uuid',
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -332,6 +367,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { name: 'Updated' },
       })
 
@@ -353,6 +389,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'NewFirst',
           lastName: 'NewLast',
@@ -380,6 +417,7 @@ describe('Participants Route', () => {
       const createResponse = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Alexander',
           lastName: 'Smith',
@@ -393,6 +431,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${created.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { displayName: null, contactEmail: null },
       })
 
@@ -407,6 +446,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${nonExistentId}`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { name: 'Ghost' },
       })
 
@@ -418,6 +458,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: '/participants/invalid-uuid',
+        headers: { authorization: `Bearer ${token}` },
         payload: { name: 'Test' },
       })
 
@@ -431,6 +472,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { role: 'admin' },
       })
 
@@ -445,6 +487,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${owner.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { role: 'viewer' },
       })
 
@@ -462,6 +505,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${owner.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { name: 'UpdatedOwnerName' },
       })
 
@@ -477,6 +521,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { name: '' },
       })
 
@@ -493,6 +538,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'DELETE',
         url: `/participants/${nonOwner.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -501,6 +547,7 @@ describe('Participants Route', () => {
       const getResponse = await app.inject({
         method: 'GET',
         url: `/participants/${nonOwner.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
       expect(getResponse.statusCode).toBe(404)
     })
@@ -513,6 +560,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'DELETE',
         url: `/participants/${owner.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -527,6 +575,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'DELETE',
         url: `/participants/${nonExistentId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -537,6 +586,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'DELETE',
         url: '/participants/invalid-uuid',
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -550,6 +600,7 @@ describe('Participants Route', () => {
       const createItemResponse = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Tent',
           category: 'equipment',
@@ -564,11 +615,13 @@ describe('Participants Route', () => {
       await app.inject({
         method: 'DELETE',
         url: `/participants/${nonOwner.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       const getItemsResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
       })
       const items = getItemsResponse.json()
       const updatedItem = items.find(
@@ -588,6 +641,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants/${participant.participantId}/regenerate-token`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -607,18 +661,21 @@ describe('Participants Route', () => {
       const regenResponse = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants/${participants[0].participantId}/regenerate-token`,
+        headers: { authorization: `Bearer ${token}` },
       })
       const newToken = regenResponse.json().inviteToken
 
       const oldTokenResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/invite/${oldToken}`,
+        headers: { authorization: `Bearer ${token}` },
       })
       expect(oldTokenResponse.statusCode).toBe(404)
 
       const newTokenResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/invite/${newToken}`,
+        headers: { authorization: `Bearer ${token}` },
       })
       expect(newTokenResponse.statusCode).toBe(200)
     })
@@ -630,6 +687,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants/${nonExistentId}/regenerate-token`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -645,6 +703,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan2.planId}/participants/${participants1[0].participantId}/regenerate-token`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -657,6 +716,7 @@ describe('Participants Route', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/plans/bad-uuid/participants/also-bad/regenerate-token',
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)

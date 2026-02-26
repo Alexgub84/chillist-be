@@ -117,13 +117,13 @@ describe('Plan Access Control', () => {
     await cleanupTestDatabase()
   })
 
-  describe('POST /plans/with-owner — visibility defaults', () => {
+  describe('POST /plans — visibility defaults', () => {
     it('defaults to invite_only when JWT is present', async () => {
       const token = await signTestJwt({ sub: OWNER_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         headers: { authorization: `Bearer ${token}` },
         payload: { title: 'Auth Plan', owner: validOwner },
       })
@@ -132,15 +132,14 @@ describe('Plan Access Control', () => {
       expect(response.json().visibility).toBe('invite_only')
     })
 
-    it('defaults to public when no JWT is present', async () => {
+    it('returns 401 when no JWT is present', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         payload: { title: 'Public Plan', owner: validOwner },
       })
 
-      expect(response.statusCode).toBe(201)
-      expect(response.json().visibility).toBe('public')
+      expect(response.statusCode).toBe(401)
     })
 
     it('allows signed-in user to set visibility to private', async () => {
@@ -148,7 +147,7 @@ describe('Plan Access Control', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         headers: { authorization: `Bearer ${token}` },
         payload: {
           title: 'Private Plan',
@@ -166,7 +165,7 @@ describe('Plan Access Control', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         headers: { authorization: `Bearer ${token}` },
         payload: {
           title: 'Explicit Public',
@@ -184,7 +183,7 @@ describe('Plan Access Control', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         headers: { authorization: `Bearer ${token}` },
         payload: {
           title: 'Admin Public Plan',
@@ -197,23 +196,19 @@ describe('Plan Access Control', () => {
       expect(response.json().visibility).toBe('public')
     })
 
-    it.each(['invite_only', 'private'] as const)(
-      'returns 400 when anonymous user sets visibility to %s',
-      async (visibility) => {
-        const response = await app.inject({
-          method: 'POST',
-          url: '/plans/with-owner',
-          payload: {
-            title: 'Restricted Plan',
-            visibility,
-            owner: validOwner,
-          },
-        })
+    it('returns 401 when anonymous user tries to create plan', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        payload: {
+          title: 'Restricted Plan',
+          visibility: 'invite_only',
+          owner: validOwner,
+        },
+      })
 
-        expect(response.statusCode).toBe(400)
-        expect(response.json().message).toMatch(/anonymous users/i)
-      }
-    )
+      expect(response.statusCode).toBe(401)
+    })
   })
 
   describe('PATCH /plans/:planId — visibility enforcement', () => {
@@ -255,27 +250,37 @@ describe('Plan Access Control', () => {
       expect(response.json().visibility).toBe('public')
     })
 
-    it.each(['invite_only', 'private'] as const)(
-      'returns 400 when anonymous user updates visibility to %s',
-      async (visibility) => {
-        const { plan } = await createPlanDirectly(db, {
-          visibility: 'public',
-        })
+    it('returns 401 when anonymous user tries to update plan', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'public',
+      })
 
-        const response = await app.inject({
-          method: 'PATCH',
-          url: `/plans/${plan.planId}`,
-          payload: { visibility },
-        })
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        payload: { visibility: 'invite_only' },
+      })
 
-        expect(response.statusCode).toBe(400)
-        expect(response.json().message).toMatch(/anonymous users/i)
-      }
-    )
+      expect(response.statusCode).toBe(401)
+    })
   })
 
   describe('GET /plans/:planId — access control', () => {
-    it('returns public plan to anyone', async () => {
+    it('returns public plan to authenticated user', async () => {
+      const { plan } = await createPlanDirectly(db, { visibility: 'public' })
+      const token = await signTestJwt({ sub: UNRELATED_USER_ID })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().planId).toBe(plan.planId)
+    })
+
+    it('returns 401 for any plan without JWT', async () => {
       const { plan } = await createPlanDirectly(db, { visibility: 'public' })
 
       const response = await app.inject({
@@ -283,8 +288,7 @@ describe('Plan Access Control', () => {
         url: `/plans/${plan.planId}`,
       })
 
-      expect(response.statusCode).toBe(200)
-      expect(response.json().planId).toBe(plan.planId)
+      expect(response.statusCode).toBe(401)
     })
 
     it('returns invite_only plan to owner', async () => {
@@ -342,7 +346,7 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('returns 404 for invite_only plan without JWT', async () => {
+    it('returns 401 for invite_only plan without JWT', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -353,7 +357,7 @@ describe('Plan Access Control', () => {
         url: `/plans/${plan.planId}`,
       })
 
-      expect(response.statusCode).toBe(404)
+      expect(response.statusCode).toBe(401)
     })
 
     it('returns 404 for private plan with unrelated JWT user', async () => {
@@ -373,10 +377,13 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('returns 404 for nonexistent plan', async () => {
+    it('returns 404 for nonexistent plan with JWT', async () => {
+      const token = await signTestJwt({ sub: OWNER_USER_ID })
+
       const response = await app.inject({
         method: 'GET',
         url: '/plans/00000000-0000-0000-0000-000000000000',
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -420,7 +427,7 @@ describe('Plan Access Control', () => {
       expect(response.json().planId).toBe(plan.planId)
     })
 
-    it('returns 404 for invite_only plan with expired JWT', async () => {
+    it('returns 401 for invite_only plan with expired JWT', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -434,7 +441,7 @@ describe('Plan Access Control', () => {
         headers: { authorization: `Bearer ${expiredToken}` },
       })
 
-      expect(response.statusCode).toBe(404)
+      expect(response.statusCode).toBe(401)
     })
 
     it('returns 404 for invite_only plan with null createdByUserId', async () => {
@@ -552,26 +559,15 @@ describe('Plan Access Control', () => {
   })
 
   describe('GET /plans — list filtering', () => {
-    it('returns only public plans when no JWT', async () => {
+    it('returns 401 when listing plans without JWT', async () => {
       await createPlanDirectly(db, { visibility: 'public' })
-      await createPlanDirectly(db, {
-        visibility: 'invite_only',
-        createdByUserId: OWNER_USER_ID,
-      })
-      await createPlanDirectly(db, {
-        visibility: 'private',
-        createdByUserId: OWNER_USER_ID,
-      })
 
       const response = await app.inject({
         method: 'GET',
         url: '/plans',
       })
 
-      expect(response.statusCode).toBe(200)
-      const result = response.json()
-      expect(result).toHaveLength(1)
-      expect(result[0].visibility).toBe('public')
+      expect(response.statusCode).toBe(401)
     })
 
     it('returns own plans + public plans with JWT', async () => {
@@ -676,12 +672,14 @@ describe('Plan Access Control', () => {
   })
 
   describe('GET /plans/:planId/participants — access control', () => {
-    it('returns participants for public plan', async () => {
+    it('returns participants for public plan to authenticated user', async () => {
       const { plan } = await createPlanDirectly(db, { visibility: 'public' })
+      const token = await signTestJwt({ sub: UNRELATED_USER_ID })
 
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -723,7 +721,7 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('returns 404 for invite_only plan participants without JWT', async () => {
+    it('returns 401 for participants without JWT', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -734,7 +732,7 @@ describe('Plan Access Control', () => {
         url: `/plans/${plan.planId}/participants`,
       })
 
-      expect(response.statusCode).toBe(404)
+      expect(response.statusCode).toBe(401)
     })
 
     it('returns participants for invite_only plan to admin', async () => {
@@ -757,7 +755,7 @@ describe('Plan Access Control', () => {
   })
 
   describe('GET /plans/:planId/items — access control', () => {
-    it('returns items for public plan', async () => {
+    it('returns items for public plan to authenticated user', async () => {
       const { plan } = await createPlanDirectly(db, { visibility: 'public' })
 
       await db.insert(items).values({
@@ -769,9 +767,12 @@ describe('Plan Access Control', () => {
         status: 'pending',
       })
 
+      const token = await signTestJwt({ sub: UNRELATED_USER_ID })
+
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -822,7 +823,7 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('returns 404 for invite_only plan items without JWT', async () => {
+    it('returns 401 for items without JWT', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -833,7 +834,7 @@ describe('Plan Access Control', () => {
         url: `/plans/${plan.planId}/items`,
       })
 
-      expect(response.statusCode).toBe(404)
+      expect(response.statusCode).toBe(401)
     })
 
     it('returns items for invite_only plan to admin', async () => {
@@ -865,12 +866,12 @@ describe('Plan Access Control', () => {
   })
 
   describe('JWT fail-fast — invalid JWT returns 401 on write endpoints', () => {
-    it('POST /plans/with-owner returns 401 with invalid JWT', async () => {
+    it('POST /plans returns 401 with invalid JWT', async () => {
       const badToken = await signJwtWithWrongKey()
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         headers: { authorization: `Bearer ${badToken}` },
         payload: { title: 'Should Fail', owner: validOwner },
       })
@@ -881,24 +882,22 @@ describe('Plan Access Control', () => {
       )
     })
 
-    it('POST /plans/with-owner creates plan without JWT (public, no guard)', async () => {
+    it('POST /plans returns 401 without JWT', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         payload: { title: 'No JWT Plan', owner: validOwner },
       })
 
-      expect(response.statusCode).toBe(201)
-      expect(response.json().createdByUserId).toBeNull()
-      expect(response.json().visibility).toBe('public')
+      expect(response.statusCode).toBe(401)
     })
 
-    it('POST /plans/with-owner creates plan with valid JWT (invite_only, owner set)', async () => {
+    it('POST /plans creates plan with valid JWT (invite_only, owner set)', async () => {
       const token = await signTestJwt({ sub: OWNER_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
         headers: { authorization: `Bearer ${token}` },
         payload: { title: 'Valid JWT Plan', owner: validOwner },
       })

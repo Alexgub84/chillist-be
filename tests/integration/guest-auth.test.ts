@@ -11,13 +11,30 @@ import {
   getTestDb,
 } from '../helpers/db.js'
 import { participants } from '../../src/db/schema.js'
+import {
+  setupTestKeys,
+  getTestJWKS,
+  getTestIssuer,
+  signTestJwt,
+} from '../helpers/auth.js'
+
+const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
 
 describe('Guest Auth Plugin', () => {
   let app: FastifyInstance
+  let token: string
 
   beforeAll(async () => {
     const db = await setupTestDatabase()
-    app = await buildApp({ db }, { logger: false })
+    await setupTestKeys()
+    token = await signTestJwt({ sub: TEST_USER_ID })
+    app = await buildApp(
+      { db },
+      {
+        logger: false,
+        auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
+      }
+    )
   })
 
   afterAll(async () => {
@@ -267,6 +284,7 @@ describe('Guest Auth Plugin', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Test',
           lastName: 'Guest',
@@ -278,10 +296,11 @@ describe('Guest Auth Plugin', () => {
       expect(response.json().rsvpStatus).toBe('pending')
     })
 
-    it('defaults to pending when creating via POST /plans/with-owner', async () => {
+    it('defaults to pending when creating via POST /plans', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/plans/with-owner',
+        url: '/plans',
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           title: 'Test Plan',
           owner: {
@@ -313,6 +332,7 @@ describe('Guest Auth Plugin', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -328,6 +348,7 @@ describe('Guest Auth Plugin', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/participants/${participantList[0].participantId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -341,6 +362,7 @@ describe('Guest Auth Plugin', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${participantList[0].participantId}`,
+        headers: { authorization: `Bearer ${token}` },
         payload: { displayName: 'Updated Name' },
       })
 
@@ -356,6 +378,7 @@ describe('Guest Auth Plugin', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'New',
           lastName: 'Person',
@@ -374,6 +397,7 @@ describe('Guest Auth Plugin', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/participants`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -385,17 +409,18 @@ describe('Guest Auth Plugin', () => {
     it('is a valid timestamp after guest accesses via invite token', async () => {
       const [plan] = await seedTestPlans(1)
       const participantList = await seedTestParticipants(plan.planId, 1)
-      const token = participantList[0].inviteToken!
+      const inviteToken = participantList[0].inviteToken!
 
       await app.inject({
         method: 'GET',
-        url: `/plans/${plan.planId}/invite/${token}`,
-        headers: { 'x-invite-token': token },
+        url: `/plans/${plan.planId}/invite/${inviteToken}`,
+        headers: { 'x-invite-token': inviteToken },
       })
 
       const response = await app.inject({
         method: 'GET',
         url: `/participants/${participantList[0].participantId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)

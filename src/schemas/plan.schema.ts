@@ -64,23 +64,6 @@ export const ownerBodySchema = {
   required: ['name', 'lastName', 'contactPhone'],
 } as const
 
-export const createPlanBodyLegacySchema = {
-  $id: 'CreatePlanBodyLegacy',
-  type: 'object',
-  properties: {
-    title: { type: 'string', minLength: 1, maxLength: 255 },
-    description: { type: 'string', nullable: true },
-    visibility: { type: 'string', enum: ['public', 'invite_only', 'private'] },
-    location: {
-      oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
-    },
-    startDate: { type: 'string', format: 'date-time', nullable: true },
-    endDate: { type: 'string', format: 'date-time', nullable: true },
-    tags: { type: 'array', items: { type: 'string' }, nullable: true },
-  },
-  required: ['title'],
-} as const
-
 export const createPlanBodySchema = {
   $id: 'CreatePlanBody',
   type: 'object',

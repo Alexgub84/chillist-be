@@ -11,12 +11,10 @@ vi.mock('../../src/config.js', () => ({
     isDev: false,
     databaseUrl: '',
     frontendUrl: 'https://test-frontend.example.com',
-    apiKey: 'test-api-key-123',
   },
 }))
 
 const TEST_FRONTEND_URL = 'https://test-frontend.example.com'
-const TEST_API_KEY = 'test-api-key-123'
 
 describe('CORS Preflight', () => {
   let app: FastifyInstance
@@ -38,25 +36,22 @@ describe('CORS Preflight', () => {
     '/plans/test-id/participants',
   ]
 
-  it.each(routes)(
-    'OPTIONS %s returns 204 with CORS headers without x-api-key',
-    async (route) => {
-      const response = await app.inject({
-        method: 'OPTIONS',
-        url: route,
-        headers: {
-          origin: TEST_FRONTEND_URL,
-          'access-control-request-method': 'GET',
-        },
-      })
+  it.each(routes)('OPTIONS %s returns 204 with CORS headers', async (route) => {
+    const response = await app.inject({
+      method: 'OPTIONS',
+      url: route,
+      headers: {
+        origin: TEST_FRONTEND_URL,
+        'access-control-request-method': 'GET',
+      },
+    })
 
-      expect(response.statusCode).toBe(204)
-      expect(response.headers['access-control-allow-origin']).toBe(
-        TEST_FRONTEND_URL
-      )
-      expect(response.headers['access-control-allow-credentials']).toBe('true')
-    }
-  )
+    expect(response.statusCode).toBe(204)
+    expect(response.headers['access-control-allow-origin']).toBe(
+      TEST_FRONTEND_URL
+    )
+    expect(response.headers['access-control-allow-credentials']).toBe('true')
+  })
 
   it.each(routes)(
     'OPTIONS %s includes PATCH and DELETE in allowed methods',
@@ -79,7 +74,7 @@ describe('CORS Preflight', () => {
     }
   )
 
-  it('rejects non-preflight requests without x-api-key with 401', async () => {
+  it('rejects unauthenticated non-preflight requests with 401', async () => {
     const response = await app.inject({
       method: 'GET',
       url: '/plans',
@@ -94,10 +89,9 @@ describe('CORS Preflight', () => {
   it('returns CORS headers on authenticated non-preflight requests', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/plans',
+      url: '/health',
       headers: {
         origin: TEST_FRONTEND_URL,
-        'x-api-key': TEST_API_KEY,
       },
     })
 

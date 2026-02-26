@@ -9,13 +9,30 @@ import {
   seedTestPlans,
   setupTestDatabase,
 } from '../helpers/db.js'
+import {
+  setupTestKeys,
+  getTestJWKS,
+  getTestIssuer,
+  signTestJwt,
+} from '../helpers/auth.js'
+
+const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
 
 describe('Items Route', () => {
   let app: FastifyInstance
+  let token: string
 
   beforeAll(async () => {
     const db = await setupTestDatabase()
-    app = await buildApp({ db }, { logger: false })
+    await setupTestKeys()
+    token = await signTestJwt({ sub: TEST_USER_ID })
+    app = await buildApp(
+      { db },
+      {
+        logger: false,
+        auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
+      }
+    )
   })
 
   afterAll(async () => {
@@ -40,6 +57,7 @@ describe('Items Route', () => {
           quantity: 2,
           status: 'pending',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(201)
@@ -71,6 +89,7 @@ describe('Items Route', () => {
           status: 'pending',
           notes: 'Bring the warm one',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(201)
@@ -94,6 +113,7 @@ describe('Items Route', () => {
           unit: 'kg',
           status: 'pending',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(201)
@@ -120,6 +140,7 @@ describe('Items Route', () => {
           status: 'purchased',
           notes: 'Spring water preferred',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(201)
@@ -156,6 +177,7 @@ describe('Items Route', () => {
             unit,
             status: 'pending',
           },
+          headers: { authorization: `Bearer ${token}` },
         })
 
         expect(response.statusCode).toBe(201)
@@ -175,6 +197,7 @@ describe('Items Route', () => {
           quantity: 2,
           status: 'pending',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -192,6 +215,7 @@ describe('Items Route', () => {
           quantity: 1,
           status: 'pending',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -212,6 +236,7 @@ describe('Items Route', () => {
         method: 'POST',
         url: `/plans/${plan.planId}/items`,
         payload,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -243,6 +268,7 @@ describe('Items Route', () => {
         method: 'POST',
         url: `/plans/${plan.planId}/items`,
         payload,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -260,6 +286,7 @@ describe('Items Route', () => {
           quantity,
           status: 'pending',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -277,6 +304,7 @@ describe('Items Route', () => {
           quantity: 1,
           status: 'pending',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -292,6 +320,7 @@ describe('Items Route', () => {
           quantity: 1,
           status: 'pending',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -309,6 +338,7 @@ describe('Items Route', () => {
           quantity: 1,
           status: 'pending',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       const createdItem = createResponse.json()
@@ -316,6 +346,7 @@ describe('Items Route', () => {
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(getResponse.statusCode).toBe(200)
@@ -335,6 +366,7 @@ describe('Items Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -348,6 +380,7 @@ describe('Items Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -375,6 +408,7 @@ describe('Items Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan1.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -392,6 +426,7 @@ describe('Items Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/plans/${nonExistentId}/items`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -404,6 +439,7 @@ describe('Items Route', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/plans/invalid-uuid/items',
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -419,6 +455,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { name: 'Updated Tent' },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -450,6 +487,7 @@ describe('Items Route', () => {
           status: 'purchased',
           notes: 'Chocolate flavor',
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -471,6 +509,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { status: 'packed' },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -485,12 +524,14 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { notes: 'Some note' },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { notes: null },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -504,6 +545,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${nonExistentId}`,
         payload: { name: 'Ghost Item' },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(404)
@@ -517,6 +559,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: '/items/invalid-uuid',
         payload: { name: 'Test' },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -534,6 +577,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -547,6 +591,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { quantity },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -560,6 +605,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { name: '' },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -573,11 +619,13 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { name: 'Persisted Name', status: 'purchased' },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       const getResponse = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(getResponse.statusCode).toBe(200)
@@ -605,6 +653,7 @@ describe('Items Route', () => {
           status: 'pending',
           assignedParticipantId: participant.participantId,
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(201)
@@ -622,6 +671,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { assignedParticipantId: participant.participantId },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -644,6 +694,7 @@ describe('Items Route', () => {
           status: 'pending',
           assignedParticipantId: participant.participantId,
         },
+        headers: { authorization: `Bearer ${token}` },
       })
       const item = createResponse.json()
 
@@ -651,6 +702,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { assignedParticipantId: null },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
@@ -671,6 +723,7 @@ describe('Items Route', () => {
           status: 'pending',
           assignedParticipantId: nonExistentId,
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -686,6 +739,7 @@ describe('Items Route', () => {
         method: 'PATCH',
         url: `/items/${item.itemId}`,
         payload: { assignedParticipantId: nonExistentId },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -703,6 +757,7 @@ describe('Items Route', () => {
         payload: {
           assignedParticipantId: participantFromPlan2.participantId,
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
@@ -725,6 +780,7 @@ describe('Items Route', () => {
           status: 'pending',
           assignedParticipantId: participantFromPlan2.participantId,
         },
+        headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
