@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 import {
   participants,
   items,
@@ -9,6 +9,11 @@ import {
   ItemStatus,
 } from '../db/schema.js'
 import * as schema from '../db/schema.js'
+
+interface BulkItemError {
+  name: string
+  message: string
+}
 
 export async function inviteRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { planId: string; inviteToken: string } }>(
@@ -273,6 +278,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
       category: ItemCategory
       quantity: number
       unit?: Unit
+      subcategory?: string | null
       notes?: string | null
     }
   }>(
@@ -386,6 +392,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
       quantity?: number
       unit?: Unit
       status?: ItemStatus
+      subcategory?: string | null
       notes?: string | null
     }
   }>(
@@ -395,7 +402,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         tags: ['invite'],
         summary: 'Update an item as a guest via invite token',
         description:
-          'Updates an existing item. Only allowed if the item is assigned to the participant matched by the invite token. Returns 403 if the item belongs to another participant.',
+          'Updates an existing item. Allowed if the item is assigned to the participant matched by the invite token OR unassigned. Returns 403 if the item belongs to another participant.',
         params: { $ref: 'InviteItemParams#' },
         body: { $ref: 'UpdateInviteItemBody#' },
         response: {
@@ -453,7 +460,10 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Item not found' })
         }
 
-        if (existingItem.assignedParticipantId !== participant.participantId) {
+        if (
+          existingItem.assignedParticipantId !== null &&
+          existingItem.assignedParticipantId !== participant.participantId
+        ) {
           return reply
             .status(403)
             .send({ message: 'You can only edit items assigned to you' })
@@ -493,6 +503,302 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         }
 
         return reply.status(500).send({ message: 'Failed to update item' })
+      }
+    }
+  )
+
+  fastify.post<{
+    Params: { planId: string; inviteToken: string }
+    Body: {
+      items: Array<{
+        name: string
+        category: ItemCategory
+        quantity: number
+        unit?: Unit
+        subcategory?: string | null
+        notes?: string | null
+      }>
+    }
+  }>(
+    '/plans/:planId/invite/:inviteToken/items/bulk',
+    {
+      schema: {
+        tags: ['invite'],
+        summary: 'Bulk create items as a guest via invite token',
+        description:
+          'Creates multiple items auto-assigned to the participant matched by the invite token. Each item is validated independently — valid items are created, invalid items are reported in the errors array.',
+        params: { $ref: 'InviteParams#' },
+        body: { $ref: 'BulkCreateInviteItemBody#' },
+        response: {
+          200: { $ref: 'BulkItemResponse#' },
+          207: { $ref: 'BulkItemResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId, inviteToken } = request.params
+      const { items: itemsToCreate } = request.body
+
+      try {
+        const [participant] = await fastify.db
+          .select({
+            participantId: participants.participantId,
+            planId: participants.planId,
+          })
+          .from(participants)
+          .where(
+            and(
+              eq(participants.planId, planId),
+              eq(participants.inviteToken, inviteToken)
+            )
+          )
+
+        if (!participant) {
+          request.log.warn(
+            { planId, inviteToken: inviteToken.slice(0, 8) + '...' },
+            'Guest bulk item creation rejected — invalid token'
+          )
+          return reply
+            .status(404)
+            .send({ message: 'Invalid invite token or plan not found' })
+        }
+
+        const [existingPlan] = await fastify.db
+          .select({ planId: plans.planId })
+          .from(plans)
+          .where(eq(plans.planId, planId))
+
+        if (!existingPlan) {
+          return reply.status(404).send({ message: 'Plan not found' })
+        }
+
+        const validValues: Array<{
+          planId: string
+          name: string
+          category: ItemCategory
+          quantity: number
+          unit: Unit
+          subcategory?: string | null
+          notes?: string | null
+          assignedParticipantId: string
+        }> = []
+        const errors: BulkItemError[] = []
+
+        for (const item of itemsToCreate) {
+          const { category, unit, ...rest } = item
+
+          if (category === 'food' && !unit) {
+            errors.push({
+              name: item.name,
+              message: 'Unit is required for food items',
+            })
+            continue
+          }
+
+          const resolvedUnit = category === 'equipment' ? 'pcs' : unit!
+          validValues.push({
+            planId,
+            category,
+            unit: resolvedUnit,
+            assignedParticipantId: participant.participantId,
+            ...rest,
+          })
+        }
+
+        let createdItems: (typeof items.$inferSelect)[] = []
+        if (validValues.length > 0) {
+          createdItems = await fastify.db
+            .insert(items)
+            .values(validValues)
+            .returning()
+        }
+
+        const statusCode = errors.length === 0 ? 200 : 207
+        request.log.info(
+          {
+            planId,
+            participantId: participant.participantId,
+            created: createdItems.length,
+            failed: errors.length,
+          },
+          'Guest bulk items created via invite token'
+        )
+        return reply.status(statusCode).send({ items: createdItems, errors })
+      } catch (error) {
+        request.log.error(
+          { err: error, planId },
+          'Failed to bulk create guest items'
+        )
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply
+            .status(503)
+            .send({ message: 'Database connection error' })
+        }
+
+        return reply
+          .status(500)
+          .send({ message: 'Failed to bulk create items' })
+      }
+    }
+  )
+
+  fastify.patch<{
+    Params: { planId: string; inviteToken: string }
+    Body: {
+      items: Array<{
+        itemId: string
+        name?: string
+        category?: ItemCategory
+        quantity?: number
+        unit?: Unit
+        status?: ItemStatus
+        subcategory?: string | null
+        notes?: string | null
+      }>
+    }
+  }>(
+    '/plans/:planId/invite/:inviteToken/items/bulk',
+    {
+      schema: {
+        tags: ['invite'],
+        summary: 'Bulk update items as a guest via invite token',
+        description:
+          'Updates multiple items. Only allowed for items assigned to the participant matched by the invite token or unassigned items. Items assigned to other participants are reported in errors.',
+        params: { $ref: 'InviteParams#' },
+        body: { $ref: 'BulkUpdateInviteItemBody#' },
+        response: {
+          200: { $ref: 'BulkItemResponse#' },
+          207: { $ref: 'BulkItemResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId, inviteToken } = request.params
+      const { items: itemUpdates } = request.body
+
+      try {
+        const [participant] = await fastify.db
+          .select({
+            participantId: participants.participantId,
+            planId: participants.planId,
+          })
+          .from(participants)
+          .where(
+            and(
+              eq(participants.planId, planId),
+              eq(participants.inviteToken, inviteToken)
+            )
+          )
+
+        if (!participant) {
+          request.log.warn(
+            { planId, inviteToken: inviteToken.slice(0, 8) + '...' },
+            'Guest bulk item update rejected — invalid token'
+          )
+          return reply
+            .status(404)
+            .send({ message: 'Invalid invite token or plan not found' })
+        }
+
+        const itemIds = itemUpdates.map((entry) => entry.itemId)
+        const existingItems = await fastify.db
+          .select({
+            itemId: items.itemId,
+            planId: items.planId,
+            name: items.name,
+            assignedParticipantId: items.assignedParticipantId,
+          })
+          .from(items)
+          .where(inArray(items.itemId, itemIds))
+
+        const itemMap = new Map(existingItems.map((i) => [i.itemId, i]))
+
+        const updatedItems: (typeof items.$inferSelect)[] = []
+        const errors: BulkItemError[] = []
+
+        for (const entry of itemUpdates) {
+          const { itemId, ...updates } = entry
+          const existing = itemMap.get(itemId)
+
+          if (!existing || existing.planId !== planId) {
+            errors.push({
+              name: entry.name || itemId,
+              message: 'Item not found',
+            })
+            continue
+          }
+
+          if (Object.keys(updates).length === 0) {
+            errors.push({
+              name: existing.name,
+              message: 'No fields to update',
+            })
+            continue
+          }
+
+          if (
+            existing.assignedParticipantId !== null &&
+            existing.assignedParticipantId !== participant.participantId
+          ) {
+            errors.push({
+              name: existing.name,
+              message: 'You can only edit items assigned to you',
+            })
+            continue
+          }
+
+          const [updatedItem] = await fastify.db
+            .update(items)
+            .set({ ...updates, updatedAt: new Date() })
+            .where(eq(items.itemId, itemId))
+            .returning()
+
+          updatedItems.push(updatedItem)
+        }
+
+        const statusCode = errors.length === 0 ? 200 : 207
+        request.log.info(
+          {
+            planId,
+            participantId: participant.participantId,
+            updated: updatedItems.length,
+            failed: errors.length,
+          },
+          'Guest bulk items updated via invite token'
+        )
+        return reply.status(statusCode).send({ items: updatedItems, errors })
+      } catch (error) {
+        request.log.error(
+          { err: error, planId },
+          'Failed to bulk update guest items'
+        )
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply
+            .status(503)
+            .send({ message: 'Database connection error' })
+        }
+
+        return reply
+          .status(500)
+          .send({ message: 'Failed to bulk update items' })
       }
     }
   )

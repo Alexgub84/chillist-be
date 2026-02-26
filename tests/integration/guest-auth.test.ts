@@ -356,7 +356,9 @@ describe('Guest Auth Plugin', () => {
     })
 
     it('is included in participant PATCH response', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
       const participantList = await seedTestParticipants(plan.planId, 1)
 
       const response = await app.inject({

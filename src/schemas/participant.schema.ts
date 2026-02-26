@@ -37,6 +37,7 @@ export const participantSchema = {
     'lastName',
     'contactPhone',
     'role',
+    'inviteStatus',
     'rsvpStatus',
     'createdAt',
     'updatedAt',
@@ -85,6 +86,10 @@ export const updateParticipantBodySchema = {
     foodPreferences: { type: 'string', nullable: true },
     allergies: { type: 'string', nullable: true },
     notes: { type: 'string', nullable: true },
+    rsvpStatus: {
+      type: 'string',
+      enum: ['pending', 'confirmed', 'not_sure'],
+    },
   },
 } as const
 

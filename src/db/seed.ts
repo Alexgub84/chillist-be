@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { plans, participants, items, type Location } from './schema.js'
@@ -21,160 +22,10 @@ async function seed() {
   console.log('Seeding database...')
 
   try {
-    const location: Location = {
-      locationId: crypto.randomUUID(),
-      name: 'Yosemite National Park',
-      country: 'United States',
-      region: 'California',
-      city: 'Mariposa',
-      latitude: 37.8651,
-      longitude: -119.5383,
-      timezone: 'America/Los_Angeles',
-    }
-
-    const [plan] = await db
-      .insert(plans)
-      .values({
-        title: 'Weekend Camping Trip',
-        description:
-          'A fun weekend camping trip to Yosemite National Park with friends. We will hike, camp, and enjoy nature.',
-        status: 'active',
-        visibility: 'public',
-        location,
-        startDate: new Date('2026-03-15T09:00:00Z'),
-        endDate: new Date('2026-03-17T18:00:00Z'),
-        tags: ['camping', 'hiking', 'nature', 'friends'],
-      })
-      .returning()
-
-    console.log('Created plan:', plan.planId)
-
-    const [owner] = await db
-      .insert(participants)
-      .values({
-        planId: plan.planId,
-        name: 'Alex',
-        lastName: 'Guberman',
-        contactPhone: '+1-555-123-4567',
-        displayName: 'Alex G.',
-        role: 'owner',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex',
-        contactEmail: 'alex@example.com',
-        inviteToken: generateInviteToken(),
-      })
-      .returning()
-
-    console.log('Created owner participant:', owner.participantId)
-
-    await db.update(plans).set({ ownerParticipantId: owner.participantId })
-
-    const [participant1] = await db
-      .insert(participants)
-      .values({
-        planId: plan.planId,
-        name: 'Sarah',
-        lastName: 'Johnson',
-        contactPhone: '+1-555-234-5678',
-        displayName: 'Sarah J.',
-        role: 'participant',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
-        contactEmail: 'sarah@example.com',
-        inviteToken: generateInviteToken(),
-      })
-      .returning()
-
-    const [participant2] = await db
-      .insert(participants)
-      .values({
-        planId: plan.planId,
-        name: 'Michael',
-        lastName: 'Chen',
-        contactPhone: '+1-555-345-6789',
-        displayName: 'Mike',
-        role: 'participant',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike',
-        contactEmail: 'mike@example.com',
-        inviteToken: generateInviteToken(),
-      })
-      .returning()
-
-    console.log(
-      'Created participants:',
-      participant1.participantId,
-      participant2.participantId
+    await db.execute(
+      sql`TRUNCATE plans, participants, items, plan_invites, guest_profiles, user_details CASCADE`
     )
-
-    await db.insert(items).values([
-      {
-        planId: plan.planId,
-        name: '4-Person Tent',
-        category: 'equipment',
-        quantity: 1,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Waterproof tent with rainfly',
-        assignedParticipantId: owner.participantId,
-      },
-      {
-        planId: plan.planId,
-        name: 'Sleeping Bags',
-        category: 'equipment',
-        quantity: 3,
-        unit: 'pcs',
-        status: 'purchased',
-        notes: 'Rated for 30°F',
-      },
-      {
-        planId: plan.planId,
-        name: 'Cooler',
-        category: 'equipment',
-        quantity: 1,
-        unit: 'pcs',
-        status: 'packed',
-        notes: '50 quart capacity',
-        assignedParticipantId: participant1.participantId,
-      },
-      {
-        planId: plan.planId,
-        name: 'Water Bottles',
-        category: 'food',
-        quantity: 12,
-        unit: 'pcs',
-        status: 'pending',
-        notes: '16oz bottles',
-        assignedParticipantId: participant2.participantId,
-      },
-      {
-        planId: plan.planId,
-        name: 'Trail Mix',
-        category: 'food',
-        quantity: 2,
-        unit: 'kg',
-        status: 'pending',
-        notes: 'Mixed nuts and dried fruit',
-        assignedParticipantId: participant1.participantId,
-      },
-      {
-        planId: plan.planId,
-        name: 'Hot Dogs',
-        category: 'food',
-        quantity: 12,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'For campfire cooking',
-        assignedParticipantId: owner.participantId,
-      },
-    ])
-
-    console.log('Created 6 items with assignments')
-
-    console.log('\n--- Sample Plan Created ---')
-    console.log('Plan ID:', plan.planId)
-    console.log('Title:', plan.title)
-    console.log('Owner:', owner.name, owner.lastName)
-    console.log('Participants: 3')
-    console.log('Items: 6')
-    console.log('---------------------------\n')
+    console.log('Cleared all tables')
 
     const negevLocation: Location = {
       locationId: crypto.randomUUID(),
@@ -204,7 +55,7 @@ async function seed() {
       })
       .returning()
 
-    console.log('Created Negev plan:', negevPlan.planId)
+    console.log('Created plan:', negevPlan.planId)
 
     const [negevOwner] = await db
       .insert(participants)
@@ -284,7 +135,7 @@ async function seed() {
       .returning()
 
     console.log(
-      'Created Negev participants:',
+      'Created participants:',
       negevOwner.participantId,
       negevP1.participantId,
       negevP2.participantId,
@@ -554,15 +405,15 @@ async function seed() {
       },
     ])
 
-    console.log('Created 27 items for Negev plan')
+    console.log('Created 27 items')
 
-    console.log('\n--- Negev Camping Plan Created ---')
+    console.log('\n--- Seed Summary ---')
     console.log('Plan ID:', negevPlan.planId)
     console.log('Title:', negevPlan.title)
     console.log('Owner:', negevOwner.name, negevOwner.lastName)
     console.log('Participants: 5')
     console.log('Items: 27 (19 equipment + 8 food)')
-    console.log('----------------------------------\n')
+    console.log('--------------------\n')
 
     console.log('Seeding completed successfully')
   } catch (error) {

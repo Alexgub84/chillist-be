@@ -1,0 +1,6 @@
+npm run typecheck
+npm run lint
+npm run openapi:generate
+git diff --quiet docs/openapi.json || { echo "OpenAPI spec changed — commit docs/openapi.json before pushing" && exit 1; }
+npm run openapi:validate
+npm run test:run

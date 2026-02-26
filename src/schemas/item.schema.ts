@@ -21,6 +21,7 @@ export const itemSchema = {
       type: 'string',
       enum: [...ITEM_STATUS_VALUES],
     },
+    subcategory: { type: 'string', nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
     createdAt: { type: 'string', format: 'date-time' },
@@ -60,6 +61,7 @@ export const createItemBodySchema = {
       type: 'string',
       enum: [...ITEM_STATUS_VALUES],
     },
+    subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
   },
@@ -81,6 +83,7 @@ export const updateItemBodySchema = {
       type: 'string',
       enum: [...ITEM_STATUS_VALUES],
     },
+    subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
   },
@@ -93,4 +96,76 @@ export const itemIdParamSchema = {
     itemId: { type: 'string', format: 'uuid' },
   },
   required: ['itemId'],
+} as const
+
+export const bulkCreateItemBodySchema = {
+  $id: 'BulkCreateItemBody',
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: { $ref: 'CreateItemBody#' },
+      minItems: 1,
+    },
+  },
+  required: ['items'],
+} as const
+
+export const bulkUpdateItemEntrySchema = {
+  $id: 'BulkUpdateItemEntry',
+  type: 'object',
+  properties: {
+    itemId: { type: 'string', format: 'uuid' },
+    name: { type: 'string', minLength: 1, maxLength: 255 },
+    category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
+    quantity: { type: 'integer', minimum: 1 },
+    unit: {
+      type: 'string',
+      enum: [...UNIT_VALUES],
+    },
+    status: {
+      type: 'string',
+      enum: [...ITEM_STATUS_VALUES],
+    },
+    subcategory: { type: 'string', maxLength: 255, nullable: true },
+    notes: { type: 'string', nullable: true },
+    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
+  },
+  required: ['itemId'],
+} as const
+
+export const bulkUpdateItemBodySchema = {
+  $id: 'BulkUpdateItemBody',
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: { $ref: 'BulkUpdateItemEntry#' },
+      minItems: 1,
+    },
+  },
+  required: ['items'],
+} as const
+
+export const bulkItemErrorSchema = {
+  $id: 'BulkItemError',
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    message: { type: 'string' },
+  },
+  required: ['name', 'message'],
+} as const
+
+export const bulkItemResponseSchema = {
+  $id: 'BulkItemResponse',
+  type: 'object',
+  properties: {
+    items: { $ref: 'ItemList#' },
+    errors: {
+      type: 'array',
+      items: { $ref: 'BulkItemError#' },
+    },
+  },
+  required: ['items', 'errors'],
 } as const

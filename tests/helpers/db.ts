@@ -60,7 +60,10 @@ export async function closeTestDatabase() {
   }
 }
 
-export async function seedTestPlans(count: number = 3) {
+export async function seedTestPlans(
+  count: number = 3,
+  options?: { createdByUserId?: string }
+) {
   const testDb = await getTestDb()
 
   const testPlans = Array.from({ length: count }, (_, i) => ({
@@ -68,6 +71,9 @@ export async function seedTestPlans(count: number = 3) {
     description: `Description for test plan ${i + 1}`,
     status: 'active' as const,
     visibility: 'public' as const,
+    ...(options?.createdByUserId && {
+      createdByUserId: options.createdByUserId,
+    }),
   }))
 
   const inserted = await testDb

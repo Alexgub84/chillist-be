@@ -3,6 +3,7 @@ import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { participants, plans } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
+import { isAdmin } from '../utils/admin.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -36,6 +37,7 @@ interface UpdateParticipantBody {
   foodPreferences?: string | null
   allergies?: string | null
   notes?: string | null
+  rsvpStatus?: 'pending' | 'confirmed' | 'not_sure'
 }
 
 export async function participantsRoutes(fastify: FastifyInstance) {
@@ -72,13 +74,13 @@ export async function participantsRoutes(fastify: FastifyInstance) {
       const { planId } = request.params
 
       try {
-        const { allowed } = await checkPlanAccess(
+        const { allowed, plan } = await checkPlanAccess(
           fastify.db,
           planId,
           request.user
         )
 
-        if (!allowed) {
+        if (!allowed || !plan) {
           return reply.status(404).send({
             message: 'Plan not found',
           })
@@ -90,11 +92,18 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           .where(eq(participants.planId, planId))
           .orderBy(participants.createdAt)
 
+        const isOwnerOrAdmin =
+          isAdmin(request.user) || plan.createdByUserId === request.user!.id
+
+        const result = isOwnerOrAdmin
+          ? planParticipants
+          : planParticipants.map((p) => ({ ...p, inviteToken: null }))
+
         request.log.info(
           { planId, count: planParticipants.length },
           'Plan participants retrieved'
         )
-        return planParticipants
+        return result
       } catch (error) {
         request.log.error(
           { err: error, planId },
@@ -222,8 +231,20 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           })
         }
 
+        const [plan] = await fastify.db
+          .select({ createdByUserId: plans.createdByUserId })
+          .from(plans)
+          .where(eq(plans.planId, participant.planId))
+
+        const isOwnerOrAdmin =
+          isAdmin(request.user) || plan?.createdByUserId === request.user!.id
+
+        const result = isOwnerOrAdmin
+          ? participant
+          : { ...participant, inviteToken: null }
+
         request.log.info({ participantId }, 'Participant retrieved')
-        return participant
+        return result
       } catch (error) {
         request.log.error(
           { err: error, participantId },
@@ -257,12 +278,14 @@ export async function participantsRoutes(fastify: FastifyInstance) {
       schema: {
         tags: ['participants'],
         summary: 'Update a participant',
-        description: 'Update an existing participant by its ID',
+        description:
+          'Update an existing participant by its ID. Owner/admin can update any participant; linked participants can only update their own record.',
         params: { $ref: 'ParticipantIdParam#' },
         body: { $ref: 'UpdateParticipantBody#' },
         response: {
           200: { $ref: 'Participant#' },
           400: { $ref: 'ErrorResponse#' },
+          403: { $ref: 'ErrorResponse#' },
           404: { $ref: 'ErrorResponse#' },
           500: { $ref: 'ErrorResponse#' },
           503: { $ref: 'ErrorResponse#' },
@@ -283,6 +306,8 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         const [existingParticipant] = await fastify.db
           .select({
             participantId: participants.participantId,
+            planId: participants.planId,
+            userId: participants.userId,
             role: participants.role,
           })
           .from(participants)
@@ -291,6 +316,24 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         if (!existingParticipant) {
           return reply.status(404).send({
             message: 'Participant not found',
+          })
+        }
+
+        const [plan] = await fastify.db
+          .select({ createdByUserId: plans.createdByUserId })
+          .from(plans)
+          .where(eq(plans.planId, existingParticipant.planId))
+
+        const userId = request.user!.id
+        const isOwnerOrAdmin =
+          isAdmin(request.user) || plan?.createdByUserId === userId
+        const isSelf =
+          existingParticipant.userId !== null &&
+          existingParticipant.userId === userId
+
+        if (!isOwnerOrAdmin && !isSelf) {
+          return reply.status(403).send({
+            message: 'You can only edit your own preferences',
           })
         }
 
@@ -306,11 +349,15 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           .where(eq(participants.participantId, participantId))
           .returning()
 
+        const result = isOwnerOrAdmin
+          ? updatedParticipant
+          : { ...updatedParticipant, inviteToken: null }
+
         request.log.info(
           { participantId, changes: Object.keys(updates) },
           'Participant updated'
         )
-        return updatedParticipant
+        return result
       } catch (error) {
         request.log.error(
           { err: error, participantId },
