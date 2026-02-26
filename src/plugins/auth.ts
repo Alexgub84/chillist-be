@@ -13,6 +13,10 @@ export interface JwtUser {
   id: string
   email: string
   role: string
+  firstName?: string
+  lastName?: string
+  phone?: string
+  avatarUrl?: string
 }
 
 export type JWKSResolver = (
@@ -20,19 +24,60 @@ export type JWKSResolver = (
   token?: FlattenedJWSInput
 ) => Promise<CryptoKey>
 
+interface SupabaseUserMetadata {
+  first_name?: string
+  last_name?: string
+  full_name?: string
+  name?: string
+  phone?: string
+  avatar_url?: string
+}
+
 interface SupabaseJwtPayload extends JWTPayload {
   email?: string
   role?: string
   app_metadata?: { role?: string }
+  user_metadata?: SupabaseUserMetadata
+}
+
+function parseNameFromMetadata(metadata: SupabaseUserMetadata): {
+  firstName?: string
+  lastName?: string
+} {
+  if (metadata.first_name || metadata.last_name) {
+    return {
+      ...(metadata.first_name && { firstName: metadata.first_name }),
+      ...(metadata.last_name && { lastName: metadata.last_name }),
+    }
+  }
+
+  const fullName = metadata.full_name || metadata.name
+  if (!fullName) return {}
+
+  const spaceIndex = fullName.indexOf(' ')
+  if (spaceIndex > 0) {
+    return {
+      firstName: fullName.slice(0, spaceIndex),
+      lastName: fullName.slice(spaceIndex + 1),
+    }
+  }
+
+  return { firstName: fullName }
 }
 
 function extractUser(payload: SupabaseJwtPayload): JwtUser | null {
   if (!payload.sub) return null
 
+  const meta = payload.user_metadata
+  const names = meta ? parseNameFromMetadata(meta) : {}
+
   return {
     id: payload.sub,
     email: payload.email ?? '',
     role: payload.app_metadata?.role ?? payload.role ?? 'authenticated',
+    ...names,
+    ...(meta?.phone && { phone: meta.phone }),
+    ...(meta?.avatar_url && { avatarUrl: meta.avatar_url }),
   }
 }
 

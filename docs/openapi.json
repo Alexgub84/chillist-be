@@ -3569,6 +3569,55 @@
         }
       }
     },
+    "/auth/sync-profile": {
+      "post": {
+        "summary": "Sync JWT identity to all participant records",
+        "tags": [
+          "auth"
+        ],
+        "description": "Updates all participant records linked to the authenticated user with identity fields from the JWT (name, email, phone, avatar). Call this after updating the user profile in Supabase so all plans reflect the latest data.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "synced": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "synced"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/plans/{planId}/claim/{inviteToken}": {
       "post": {
         "summary": "Claim a participant spot via invite token",

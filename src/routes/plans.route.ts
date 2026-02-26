@@ -5,6 +5,7 @@ import { plans, participants, NewPlan } from '../db/schema.js'
 import * as schema from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
+import { syncParticipantFromJwt } from '../services/profile-sync.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -304,9 +305,25 @@ export async function plansRoutes(fastify: FastifyInstance) {
         const isOwnerOrAdmin =
           isAdmin(request.user) || plan.createdByUserId === userId
 
+        const syncedParticipant = await syncParticipantFromJwt(
+          fastify.db,
+          planId,
+          request.user!,
+          request.log
+        )
+
+        let finalParticipants = plan.participants
+        if (syncedParticipant) {
+          finalParticipants = plan.participants.map((p) =>
+            p.participantId === syncedParticipant.participantId
+              ? syncedParticipant
+              : p
+          )
+        }
+
         const safeParticipants = isOwnerOrAdmin
-          ? plan.participants
-          : plan.participants.map((p) => ({ ...p, inviteToken: null }))
+          ? finalParticipants
+          : finalParticipants.map((p) => ({ ...p, inviteToken: null }))
 
         request.log.info({ planId, userId }, 'Plan retrieved')
         return { ...plan, participants: safeParticipants }

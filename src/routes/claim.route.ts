@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { eq, and } from 'drizzle-orm'
 import { participants, userDetails } from '../db/schema.js'
+import { buildIdentityFields } from '../services/profile-sync.js'
 
 export async function claimRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { planId: string; inviteToken: string } }>(
@@ -95,6 +96,7 @@ export async function claimRoutes(fastify: FastifyInstance) {
           inviteStatus: 'accepted' as const,
           inviteToken: null,
           updatedAt: new Date(),
+          ...buildIdentityFields(request.user),
         }
 
         if (!participant.foodPreferences || !participant.allergies) {

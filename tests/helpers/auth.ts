@@ -21,11 +21,21 @@ export function getTestIssuer(): string {
   return TEST_ISSUER
 }
 
+interface TestUserMetadata {
+  first_name?: string
+  last_name?: string
+  full_name?: string
+  name?: string
+  phone?: string
+  avatar_url?: string
+}
+
 interface TestTokenClaims {
   sub?: string
   email?: string | null
   role?: string | null
   app_metadata?: { role?: string } | null
+  user_metadata?: TestUserMetadata | null
   exp?: number
 }
 
@@ -46,6 +56,10 @@ export async function signTestJwt(
 
   if (claims.app_metadata !== null && claims.app_metadata !== undefined) {
     payload.app_metadata = claims.app_metadata
+  }
+
+  if (claims.user_metadata !== null && claims.user_metadata !== undefined) {
+    payload.user_metadata = claims.user_metadata
   }
 
   return new SignJWT(payload)

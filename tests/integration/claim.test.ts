@@ -88,9 +88,18 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
     await cleanupTestDatabase()
   })
 
-  it('links authenticated user to participant record', async () => {
+  it('links authenticated user and syncs identity from user_metadata', async () => {
     const { plan, inviteToken } = await createPlanWithParticipant(db)
-    const jwt = await signTestJwt({ sub: USER_A_ID })
+    const jwt = await signTestJwt({
+      sub: USER_A_ID,
+      email: 'bob@example.com',
+      user_metadata: {
+        first_name: 'Bob',
+        last_name: 'Smith',
+        phone: '+1-555-999-0000',
+        avatar_url: 'https://example.com/avatar.jpg',
+      },
+    })
 
     const response = await app.inject({
       method: 'POST',
@@ -103,8 +112,64 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
     expect(body.userId).toBe(USER_A_ID)
     expect(body.inviteStatus).toBe('accepted')
     expect(body.planId).toBe(plan.planId)
+    expect(body.name).toBe('Bob')
+    expect(body.lastName).toBe('Smith')
+    expect(body.contactEmail).toBe('bob@example.com')
+    expect(body.contactPhone).toBe('+1-555-999-0000')
+    expect(body.avatarUrl).toBe('https://example.com/avatar.jpg')
+  })
+
+  it('parses full_name from Google OAuth into firstName and lastName', async () => {
+    const { plan, inviteToken } = await createPlanWithParticipant(db)
+    const jwt = await signTestJwt({
+      sub: USER_A_ID,
+      user_metadata: { full_name: 'Alice Johnson' },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/plans/${plan.planId}/claim/${inviteToken}`,
+      headers: { authorization: `Bearer ${jwt}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    expect(body.name).toBe('Alice')
+    expect(body.lastName).toBe('Johnson')
+  })
+
+  it('keeps existing participant values when user_metadata lacks fields', async () => {
+    const { plan, inviteToken } = await createPlanWithParticipant(db)
+    const jwt = await signTestJwt({ sub: USER_A_ID })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/plans/${plan.planId}/claim/${inviteToken}`,
+      headers: { authorization: `Bearer ${jwt}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
     expect(body.name).toBe('Guest')
     expect(body.lastName).toBe('User')
+    expect(body.contactPhone).toBe('+1-555-000-0001')
+  })
+
+  it('syncs email even without user_metadata', async () => {
+    const { plan, inviteToken } = await createPlanWithParticipant(db)
+    const jwt = await signTestJwt({
+      sub: USER_A_ID,
+      email: 'claimer@example.com',
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/plans/${plan.planId}/claim/${inviteToken}`,
+      headers: { authorization: `Bearer ${jwt}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().contactEmail).toBe('claimer@example.com')
   })
 
   it('plan appears in user plan list after claiming', async () => {

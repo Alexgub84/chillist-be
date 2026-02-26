@@ -9,6 +9,7 @@ function generateInviteToken(): string {
 }
 
 const connectionString = process.env.DATABASE_URL
+const seedOwnerUserId = process.env.SEED_OWNER_USER_ID ?? null
 
 if (!connectionString) {
   console.error('DATABASE_URL environment variable is required')
@@ -52,10 +53,14 @@ async function seed() {
         startDate: new Date('2026-04-03T08:00:00+03:00'),
         endDate: new Date('2026-04-04T16:00:00+03:00'),
         tags: ['camping', 'desert', 'negev', 'family', 'toddlers'],
+        ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
       })
       .returning()
 
     console.log('Created plan:', negevPlan.planId)
+    if (seedOwnerUserId) {
+      console.log('Seed owner linked to Supabase user:', seedOwnerUserId)
+    }
 
     const [negevOwner] = await db
       .insert(participants)
@@ -69,6 +74,10 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dan',
         contactEmail: 'dan@example.com',
         inviteToken: generateInviteToken(),
+        rsvpStatus: 'confirmed',
+        adultsCount: 2,
+        kidsCount: 3,
+        ...(seedOwnerUserId && { userId: seedOwnerUserId }),
       })
       .returning()
 
@@ -86,6 +95,11 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=yael',
         contactEmail: 'yael@example.com',
         inviteToken: generateInviteToken(),
+        rsvpStatus: 'confirmed',
+        foodPreferences: 'vegetarian',
+        allergies: 'nuts',
+        adultsCount: 2,
+        kidsCount: 1,
       })
       .returning()
 
@@ -101,6 +115,7 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=omer',
         contactEmail: 'omer@example.com',
         inviteToken: generateInviteToken(),
+        rsvpStatus: 'confirmed',
       })
       .returning()
 
@@ -116,6 +131,10 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=noa',
         contactEmail: 'noa@example.com',
         inviteToken: generateInviteToken(),
+        foodPreferences: 'kosher',
+        allergies: null,
+        adultsCount: 1,
+        kidsCount: 2,
       })
       .returning()
 
@@ -131,6 +150,9 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=eitan',
         contactEmail: 'eitan@example.com',
         inviteToken: generateInviteToken(),
+        rsvpStatus: 'not_sure',
+        adultsCount: 2,
+        kidsCount: 0,
       })
       .returning()
 
@@ -143,276 +165,178 @@ async function seed() {
       negevP4.participantId
     )
 
-    await db.insert(items).values([
+    const seedItems = [
       {
-        planId: negevPlan.planId,
-        name: 'Family Tent (6-person)',
-        category: 'equipment',
+        name: 'Tent',
+        category: 'equipment' as const,
+        subcategory: 'Venue Setup and Layout',
         quantity: 3,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'UV-resistant with good ventilation for desert heat',
-        assignedParticipantId: negevOwner.participantId,
+        unit: 'pcs' as const,
       },
       {
-        planId: negevPlan.planId,
-        name: 'Pop-up Shade Canopy',
-        category: 'equipment',
-        quantity: 2,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Essential shade for toddlers during daytime',
-        assignedParticipantId: negevP1.participantId,
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Sleeping Bags (Adult)',
-        category: 'equipment',
+        name: 'Sleeping Bag',
+        category: 'equipment' as const,
+        subcategory: 'Comfort and Climate Control',
         quantity: 5,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Desert nights get cold — rated for 5°C',
-        assignedParticipantId: negevP2.participantId,
+        unit: 'pcs' as const,
       },
       {
-        planId: negevPlan.planId,
-        name: 'Toddler Sleeping Bags',
-        category: 'equipment',
-        quantity: 5,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Small-size sleeping bags for the kids',
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Camping Mattresses / Pads',
-        category: 'equipment',
-        quantity: 10,
-        unit: 'pcs',
-        status: 'pending',
-        notes: '5 adult + 5 toddler pads',
-        assignedParticipantId: negevP3.participantId,
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Portable Camping Stove',
-        category: 'equipment',
+        name: 'Camping Stove',
+        category: 'equipment' as const,
+        subcategory: 'Cooking and Heating Equipment',
         quantity: 2,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Gas burner with wind guard',
-        assignedParticipantId: negevOwner.participantId,
+        unit: 'pcs' as const,
       },
       {
-        planId: negevPlan.planId,
-        name: 'Headlamps / Flashlights',
-        category: 'equipment',
-        quantity: 7,
-        unit: 'pcs',
-        status: 'pending',
-        notes: '5 for adults + 2 extra kid-safe lanterns',
-        assignedParticipantId: negevP4.participantId,
-      },
-      {
-        planId: negevPlan.planId,
         name: 'First Aid Kit',
-        category: 'equipment',
+        category: 'equipment' as const,
+        subcategory: 'First Aid and Safety',
         quantity: 2,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Include child-safe meds, sunburn cream, insect repellent',
-        assignedParticipantId: negevP1.participantId,
+        unit: 'pcs' as const,
       },
       {
-        planId: negevPlan.planId,
-        name: 'Portable High Chairs',
-        category: 'equipment',
-        quantity: 3,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Collapsible camping high chairs for toddlers',
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Cooler Box (Large)',
-        category: 'equipment',
-        quantity: 2,
-        unit: 'pcs',
-        status: 'pending',
-        notes: '60L coolers — one for food, one for drinks',
-        assignedParticipantId: negevP2.participantId,
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Folding Camping Table',
-        category: 'equipment',
-        quantity: 2,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'For cooking and eating',
-        assignedParticipantId: negevP3.participantId,
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Camping Chairs',
-        category: 'equipment',
+        name: 'Sunscreen',
+        category: 'equipment' as const,
+        subcategory: 'Games and Activities',
         quantity: 5,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Foldable chairs for adults',
-        assignedParticipantId: negevP4.participantId,
+        unit: 'pcs' as const,
       },
       {
-        planId: negevPlan.planId,
-        name: 'Sunscreen SPF 50+',
-        category: 'equipment',
-        quantity: 5,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Baby-safe sunscreen for toddlers, regular for adults',
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Wide-brim Sun Hats',
-        category: 'equipment',
-        quantity: 10,
-        unit: 'pcs',
-        status: 'pending',
-        notes: '5 adult + 5 toddler hats — mandatory for desert',
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Portable Toilet / Potty',
-        category: 'equipment',
-        quantity: 1,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'For the toddlers',
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Trash Bags',
-        category: 'equipment',
-        quantity: 1,
-        unit: 'pack',
-        status: 'pending',
-        notes: 'Leave no trace — pack out all waste',
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Jerry Can (Water)',
-        category: 'equipment',
+        name: 'Insect Repellent',
+        category: 'equipment' as const,
+        subcategory: 'Other',
         quantity: 3,
-        unit: 'pcs',
-        status: 'pending',
-        notes: '20L each — total 60L for drinking/cooking/washing',
-        assignedParticipantId: negevOwner.participantId,
+        unit: 'pcs' as const,
       },
       {
-        planId: negevPlan.planId,
+        name: 'Cooler',
+        category: 'equipment' as const,
+        subcategory: 'Food Storage and Cooling',
+        quantity: 2,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Headlamp',
+        category: 'equipment' as const,
+        subcategory: 'Lighting and Visibility',
+        quantity: 7,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Folding Chair',
+        category: 'equipment' as const,
+        subcategory: 'Comfort and Climate Control',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
         name: 'Baby Wipes',
-        category: 'equipment',
+        category: 'equipment' as const,
+        subcategory: 'Kids and Baby Gear',
         quantity: 5,
-        unit: 'pack',
-        status: 'pending',
-        notes: 'Essential with toddlers in the desert',
+        unit: 'pack' as const,
       },
       {
-        planId: negevPlan.planId,
         name: 'Diapers',
-        category: 'equipment',
+        category: 'equipment' as const,
+        subcategory: 'Kids and Baby Gear',
         quantity: 2,
-        unit: 'pack',
-        status: 'pending',
-        notes: 'For the younger toddlers if needed',
+        unit: 'pack' as const,
       },
       {
-        planId: negevPlan.planId,
-        name: 'Drinking Water (Bottles)',
-        category: 'food',
+        name: 'Trash Bags',
+        category: 'equipment' as const,
+        subcategory: 'Food Storage and Cooling',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Water',
+        category: 'food' as const,
+        subcategory: 'Beverages (non-alcoholic)',
         quantity: 30,
-        unit: 'l',
-        status: 'pending',
-        notes: 'Extra water supply — desert hydration is critical',
-        assignedParticipantId: negevP2.participantId,
+        unit: 'l' as const,
       },
       {
-        planId: negevPlan.planId,
-        name: 'Snack Packs for Kids',
-        category: 'food',
-        quantity: 15,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Crackers, fruit pouches, cheese sticks',
-        assignedParticipantId: negevP1.participantId,
-      },
-      {
-        planId: negevPlan.planId,
         name: 'Pita Bread',
-        category: 'food',
+        category: 'food' as const,
+        subcategory: 'Grains and Pasta',
         quantity: 3,
-        unit: 'pack',
-        status: 'pending',
-        notes: 'For hummus and campfire meals',
+        unit: 'pack' as const,
       },
       {
-        planId: negevPlan.planId,
         name: 'Hummus',
-        category: 'food',
+        category: 'food' as const,
+        subcategory: 'Snacks and Chips',
         quantity: 4,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Keep in cooler',
+        unit: 'pcs' as const,
       },
       {
-        planId: negevPlan.planId,
-        name: 'Canned Beans & Corn',
-        category: 'food',
-        quantity: 6,
-        unit: 'pcs',
-        status: 'pending',
-        notes: 'Easy campfire sides',
-      },
-      {
-        planId: negevPlan.planId,
-        name: 'Fruit (Apples, Bananas)',
-        category: 'food',
-        quantity: 3,
-        unit: 'kg',
-        status: 'pending',
-        notes: 'Toddler-friendly snacks',
-        assignedParticipantId: negevP3.participantId,
-      },
-      {
-        planId: negevPlan.planId,
         name: 'Eggs',
-        category: 'food',
-        quantity: 2,
-        unit: 'pack',
-        status: 'pending',
-        notes: '30-count packs for breakfast',
-        assignedParticipantId: negevP4.participantId,
+        category: 'food' as const,
+        subcategory: 'Breakfast Staples',
+        quantity: 30,
+        unit: 'pcs' as const,
       },
       {
-        planId: negevPlan.planId,
-        name: 'Sausages / Hot Dogs',
-        category: 'food',
-        quantity: 2,
-        unit: 'pack',
-        status: 'pending',
-        notes: 'Campfire dinner',
-        assignedParticipantId: negevOwner.participantId,
+        name: 'Crackers',
+        category: 'food' as const,
+        subcategory: 'Snacks and Chips',
+        quantity: 3,
+        unit: 'pack' as const,
       },
-    ])
+      {
+        name: 'Water Bottle',
+        category: 'equipment' as const,
+        subcategory: 'Drink and Beverage Equipment',
+        quantity: 10,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Portable Toilet',
+        category: 'equipment' as const,
+        subcategory: 'Venue Setup and Layout',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Water Jug',
+        category: 'equipment' as const,
+        subcategory: 'Drink and Beverage Equipment',
+        quantity: 3,
+        unit: 'pcs' as const,
+      },
+    ]
 
-    console.log('Created 27 items')
+    const participantsForAssignment = [
+      negevOwner.participantId,
+      negevP1.participantId,
+      negevP2.participantId,
+      negevP3.participantId,
+      negevP4.participantId,
+    ]
+
+    await db.insert(items).values(
+      seedItems.map((item, i) => ({
+        planId: negevPlan.planId,
+        name: item.name,
+        category: item.category,
+        subcategory: item.subcategory,
+        quantity: item.quantity,
+        unit: item.unit,
+        status: 'pending' as const,
+        assignedParticipantId: participantsForAssignment[i % 5],
+      }))
+    )
+
+    console.log('Created 20 items')
 
     console.log('\n--- Seed Summary ---')
     console.log('Plan ID:', negevPlan.planId)
     console.log('Title:', negevPlan.title)
     console.log('Owner:', negevOwner.name, negevOwner.lastName)
     console.log('Participants: 5')
-    console.log('Items: 27 (19 equipment + 8 food)')
+    console.log('Items: 20 (from common-items.json)')
     console.log('--------------------\n')
 
     console.log('Seeding completed successfully')
