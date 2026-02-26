@@ -64,6 +64,13 @@
       "when": 1771960780305,
       "tag": "0008_unknown_sue_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772092763180,
+      "tag": "0009_volatile_nick_fury",
+      "breakpoints": true
     }
   ]
 }

@@ -70,6 +70,7 @@ describe('Items Route', () => {
       expect(item.quantity).toBe(2)
       expect(item.unit).toBe('pcs')
       expect(item.status).toBe('pending')
+      expect(item.subcategory).toBeNull()
       expect(item.notes).toBeNull()
       expect(item.assignedParticipantId).toBeNull()
       expect(item.createdAt).toBeDefined()
@@ -138,6 +139,7 @@ describe('Items Route', () => {
           quantity: 5,
           unit: 'l',
           status: 'purchased',
+          subcategory: 'beverages',
           notes: 'Spring water preferred',
         },
         headers: { authorization: `Bearer ${token}` },
@@ -149,6 +151,7 @@ describe('Items Route', () => {
       expect(item.name).toBe('Water')
       expect(item.unit).toBe('l')
       expect(item.status).toBe('purchased')
+      expect(item.subcategory).toBe('beverages')
       expect(item.notes).toBe('Spring water preferred')
     })
 
@@ -485,6 +488,7 @@ describe('Items Route', () => {
           quantity: 5,
           unit: 'pack',
           status: 'purchased',
+          subcategory: 'snacks',
           notes: 'Chocolate flavor',
         },
         headers: { authorization: `Bearer ${token}` },
@@ -498,6 +502,7 @@ describe('Items Route', () => {
       expect(updated.quantity).toBe(5)
       expect(updated.unit).toBe('pack')
       expect(updated.status).toBe('purchased')
+      expect(updated.subcategory).toBe('snacks')
       expect(updated.notes).toBe('Chocolate flavor')
     })
 
@@ -536,6 +541,31 @@ describe('Items Route', () => {
 
       expect(response.statusCode).toBe(200)
       expect(response.json().notes).toBeNull()
+    })
+
+    it('sets subcategory and clears it with null', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const setResponse = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { subcategory: 'cooking' },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(setResponse.statusCode).toBe(200)
+      expect(setResponse.json().subcategory).toBe('cooking')
+
+      const clearResponse = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { subcategory: null },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(clearResponse.statusCode).toBe(200)
+      expect(clearResponse.json().subcategory).toBeNull()
     })
 
     it('returns 404 when item does not exist', async () => {
@@ -787,6 +817,232 @@ describe('Items Route', () => {
       expect(response.json()).toEqual({
         message: 'Participant does not belong to this plan',
       })
+    })
+  })
+
+  describe('POST /plans/:planId/items/bulk', () => {
+    it('creates multiple items and returns 200 with all items', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              name: 'Tent',
+              category: 'equipment',
+              quantity: 2,
+              status: 'pending',
+            },
+            {
+              name: 'Water',
+              category: 'food',
+              quantity: 5,
+              unit: 'l',
+              status: 'pending',
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(2)
+      expect(body.errors).toHaveLength(0)
+      expect(body.items[0].name).toBe('Tent')
+      expect(body.items[0].unit).toBe('pcs')
+      expect(body.items[1].name).toBe('Water')
+      expect(body.items[1].unit).toBe('l')
+    })
+
+    it('returns 207 with partial success when some items fail validation', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              name: 'Tent',
+              category: 'equipment',
+              quantity: 1,
+              status: 'pending',
+            },
+            { name: 'Rice', category: 'food', quantity: 2, status: 'pending' },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(207)
+      const body = response.json()
+      expect(body.items).toHaveLength(1)
+      expect(body.items[0].name).toBe('Tent')
+      expect(body.errors).toHaveLength(1)
+      expect(body.errors[0]).toEqual({
+        name: 'Rice',
+        message: 'Unit is required for food items',
+      })
+    })
+
+    it('returns 404 when plan does not exist', async () => {
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${nonExistentId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              name: 'Tent',
+              category: 'equipment',
+              quantity: 1,
+              status: 'pending',
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('returns 400 when items array is empty', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: { items: [] },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('reports participant not found in errors', async () => {
+      const [plan] = await seedTestPlans(1)
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              name: 'Tent',
+              category: 'equipment',
+              quantity: 1,
+              status: 'pending',
+              assignedParticipantId: nonExistentId,
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(207)
+      const body = response.json()
+      expect(body.items).toHaveLength(0)
+      expect(body.errors).toHaveLength(1)
+      expect(body.errors[0]).toEqual({
+        name: 'Tent',
+        message: 'Participant not found',
+      })
+    })
+  })
+
+  describe('PATCH /plans/:planId/items/bulk', () => {
+    it('updates multiple items and returns 200', async () => {
+      const [plan] = await seedTestPlans(1)
+      const seededItems = await seedTestItems(plan.planId, 2)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            { itemId: seededItems[0].itemId, status: 'purchased' },
+            { itemId: seededItems[1].itemId, name: 'Updated Name' },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(2)
+      expect(body.errors).toHaveLength(0)
+      expect(body.items[0].status).toBe('purchased')
+      expect(body.items[1].name).toBe('Updated Name')
+    })
+
+    it('returns 207 when some items are not found', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+      const fakeId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            { itemId: item.itemId, status: 'packed' },
+            { itemId: fakeId, name: 'Ghost', status: 'pending' },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(207)
+      const body = response.json()
+      expect(body.items).toHaveLength(1)
+      expect(body.items[0].status).toBe('packed')
+      expect(body.errors).toHaveLength(1)
+      expect(body.errors[0]).toEqual({
+        name: 'Ghost',
+        message: 'Item not found',
+      })
+    })
+
+    it('reports items from another plan in errors', async () => {
+      const [plan1, plan2] = await seedTestPlans(2)
+      const [itemPlan1] = await seedTestItems(plan1.planId, 1)
+      const [itemPlan2] = await seedTestItems(plan2.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan1.planId}/items/bulk`,
+        payload: {
+          items: [
+            { itemId: itemPlan1.itemId, status: 'purchased' },
+            { itemId: itemPlan2.itemId, status: 'purchased' },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(207)
+      const body = response.json()
+      expect(body.items).toHaveLength(1)
+      expect(body.errors).toHaveLength(1)
+      expect(body.errors[0].message).toBe('Item does not belong to this plan')
+    })
+
+    it('returns 400 when items array is empty', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: { items: [] },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(400)
     })
   })
 })

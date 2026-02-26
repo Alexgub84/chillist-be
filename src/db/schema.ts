@@ -171,6 +171,7 @@ export const items = pgTable('items', {
   quantity: integer('quantity').default(1).notNull(),
   unit: unitEnum('unit').default('pcs').notNull(),
   status: itemStatusEnum('status').default('pending').notNull(),
+  subcategory: varchar('subcategory', { length: 255 }),
   notes: text('notes'),
   assignedParticipantId: uuid('assigned_participant_id').references(
     () => participants.participantId,

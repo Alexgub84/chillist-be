@@ -22,6 +22,11 @@ import {
   createItemBodySchema,
   updateItemBodySchema,
   itemIdParamSchema,
+  bulkCreateItemBodySchema,
+  bulkUpdateItemEntrySchema,
+  bulkUpdateItemBodySchema,
+  bulkItemErrorSchema,
+  bulkItemResponseSchema,
 } from './item.schema.js'
 import {
   participantSchema,
@@ -44,6 +49,9 @@ import {
   inviteItemParamsSchema,
   createInviteItemBodySchema,
   updateInviteItemBodySchema,
+  bulkCreateInviteItemBodySchema,
+  bulkUpdateInviteItemEntrySchema,
+  bulkUpdateInviteItemBodySchema,
 } from './invite.schema.js'
 import {
   userPreferencesSchema,
@@ -89,6 +97,14 @@ const schemas = [
   inviteItemParamsSchema,
   createInviteItemBodySchema,
   updateInviteItemBodySchema,
+  bulkCreateItemBodySchema,
+  bulkUpdateItemEntrySchema,
+  bulkUpdateItemBodySchema,
+  bulkItemErrorSchema,
+  bulkItemResponseSchema,
+  bulkCreateInviteItemBodySchema,
+  bulkUpdateInviteItemEntrySchema,
+  bulkUpdateInviteItemBodySchema,
   userPreferencesSchema,
   profileResponseSchema,
   updateProfileBodySchema,

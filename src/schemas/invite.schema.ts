@@ -157,6 +157,7 @@ export const createInviteItemBodySchema = {
       type: 'string',
       enum: [...UNIT_VALUES],
     },
+    subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
   },
   required: ['name', 'category', 'quantity'],
@@ -177,6 +178,55 @@ export const updateInviteItemBodySchema = {
       type: 'string',
       enum: [...ITEM_STATUS_VALUES],
     },
+    subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
   },
+} as const
+
+export const bulkCreateInviteItemBodySchema = {
+  $id: 'BulkCreateInviteItemBody',
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: { $ref: 'CreateInviteItemBody#' },
+      minItems: 1,
+    },
+  },
+  required: ['items'],
+} as const
+
+export const bulkUpdateInviteItemEntrySchema = {
+  $id: 'BulkUpdateInviteItemEntry',
+  type: 'object',
+  properties: {
+    itemId: { type: 'string', format: 'uuid' },
+    name: { type: 'string', minLength: 1, maxLength: 255 },
+    category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
+    quantity: { type: 'integer', minimum: 1 },
+    unit: {
+      type: 'string',
+      enum: [...UNIT_VALUES],
+    },
+    status: {
+      type: 'string',
+      enum: [...ITEM_STATUS_VALUES],
+    },
+    subcategory: { type: 'string', maxLength: 255, nullable: true },
+    notes: { type: 'string', nullable: true },
+  },
+  required: ['itemId'],
+} as const
+
+export const bulkUpdateInviteItemBodySchema = {
+  $id: 'BulkUpdateInviteItemBody',
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: { $ref: 'BulkUpdateInviteItemEntry#' },
+      minItems: 1,
+    },
+  },
+  required: ['items'],
 } as const

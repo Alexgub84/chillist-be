@@ -458,6 +458,10 @@
               "canceled"
             ]
           },
+          "subcategory": {
+            "type": "string",
+            "nullable": true
+          },
           "notes": {
             "type": "string",
             "nullable": true
@@ -540,6 +544,11 @@
               "canceled"
             ]
           },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
           "notes": {
             "type": "string",
             "nullable": true
@@ -601,6 +610,11 @@
               "packed",
               "canceled"
             ]
+          },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
           },
           "notes": {
             "type": "string",
@@ -1346,6 +1360,11 @@
               "set"
             ]
           },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
           "notes": {
             "type": "string",
             "nullable": true
@@ -1402,6 +1421,11 @@
               "canceled"
             ]
           },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
           "notes": {
             "type": "string",
             "nullable": true
@@ -1410,6 +1434,236 @@
         "title": "UpdateInviteItemBody"
       },
       "def-36": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-14"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "BulkCreateItemBody"
+      },
+      "def-37": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "equipment",
+              "food"
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "pcs",
+              "kg",
+              "g",
+              "lb",
+              "oz",
+              "l",
+              "ml",
+              "m",
+              "cm",
+              "pack",
+              "set"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "purchased",
+              "packed",
+              "canceled"
+            ]
+          },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "assignedParticipantId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "itemId"
+        ],
+        "title": "BulkUpdateItemEntry"
+      },
+      "def-38": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-37"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "BulkUpdateItemBody"
+      },
+      "def-39": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "message"
+        ],
+        "title": "BulkItemError"
+      },
+      "def-40": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "$ref": "#/components/schemas/def-13"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-39"
+            }
+          }
+        },
+        "required": [
+          "items",
+          "errors"
+        ],
+        "title": "BulkItemResponse"
+      },
+      "def-41": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-34"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "BulkCreateInviteItemBody"
+      },
+      "def-42": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "equipment",
+              "food"
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "pcs",
+              "kg",
+              "g",
+              "lb",
+              "oz",
+              "l",
+              "ml",
+              "m",
+              "cm",
+              "pack",
+              "set"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "purchased",
+              "packed",
+              "canceled"
+            ]
+          },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "itemId"
+        ],
+        "title": "BulkUpdateInviteItemEntry"
+      },
+      "def-43": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-42"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "BulkUpdateInviteItemBody"
+      },
+      "def-44": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -1433,7 +1687,7 @@
         },
         "title": "UserPreferences"
       },
-      "def-37": {
+      "def-45": {
         "type": "object",
         "properties": {
           "user": {
@@ -1458,7 +1712,7 @@
           "preferences": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-36"
+                "$ref": "#/components/schemas/def-44"
               },
               {
                 "type": "null"
@@ -1473,7 +1727,7 @@
         ],
         "title": "ProfileResponse"
       },
-      "def-38": {
+      "def-46": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -1497,11 +1751,11 @@
         },
         "title": "UpdateProfileBody"
       },
-      "def-39": {
+      "def-47": {
         "type": "object",
         "properties": {
           "preferences": {
-            "$ref": "#/components/schemas/def-36"
+            "$ref": "#/components/schemas/def-44"
           }
         },
         "required": [
@@ -2508,6 +2762,156 @@
         }
       }
     },
+    "/plans/{planId}/items/bulk": {
+      "post": {
+        "summary": "Bulk create items in a plan",
+        "tags": [
+          "items"
+        ],
+        "description": "Create multiple items at once. Each item is validated independently — valid items are created, invalid items are reported in the errors array with their name.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-36"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-40"
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-40"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Bulk update items in a plan",
+        "tags": [
+          "items"
+        ],
+        "description": "Update multiple items at once. Each item is validated independently — valid items are updated, invalid items are reported in the errors array with their name.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-38"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-40"
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-40"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/plans/{planId}/invite/{inviteToken}": {
       "get": {
         "summary": "Access a plan via invite link",
@@ -2768,7 +3172,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Updates an existing item. Only allowed if the item is assigned to the participant matched by the invite token. Returns 403 if the item belongs to another participant.",
+        "description": "Updates an existing item. Allowed if the item is assigned to the participant matched by the invite token OR unassigned. Returns 403 if the item belongs to another participant.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2872,6 +3276,186 @@
         }
       }
     },
+    "/plans/{planId}/invite/{inviteToken}/items/bulk": {
+      "post": {
+        "summary": "Bulk create items as a guest via invite token",
+        "tags": [
+          "invite"
+        ],
+        "description": "Creates multiple items auto-assigned to the participant matched by the invite token. Each item is validated independently — valid items are created, invalid items are reported in the errors array.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-41"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-40"
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-40"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Bulk update items as a guest via invite token",
+        "tags": [
+          "invite"
+        ],
+        "description": "Updates multiple items. Only allowed for items assigned to the participant matched by the invite token or unassigned items. Items assigned to other participants are reported in errors.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-43"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-40"
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-40"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/me": {
       "get": {
         "summary": "Get current user from JWT",
@@ -2930,7 +3514,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-37"
+                  "$ref": "#/components/schemas/def-45"
                 }
               }
             }
@@ -2947,7 +3531,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-38"
+                "$ref": "#/components/schemas/def-46"
               }
             }
           }
@@ -2958,7 +3542,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-39"
+                  "$ref": "#/components/schemas/def-47"
                 }
               }
             }

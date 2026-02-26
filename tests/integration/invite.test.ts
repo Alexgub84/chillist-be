@@ -628,6 +628,26 @@ describe('Invite Route', () => {
       expect(response.json().category).toBe('food')
     })
 
+    it('creates item with subcategory', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items`,
+        payload: {
+          name: 'Stove',
+          category: 'equipment',
+          quantity: 1,
+          subcategory: 'cooking',
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().subcategory).toBe('cooking')
+    })
+
     it('returns 404 for invalid invite token', async () => {
       const [plan] = await seedTestPlans(1)
 
@@ -707,13 +727,14 @@ describe('Invite Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/plans/${plan.planId}/invite/${token}/items/${item.itemId}`,
-        payload: { name: 'New Name', quantity: 3 },
+        payload: { name: 'New Name', quantity: 3, subcategory: 'sleeping' },
       })
 
       expect(response.statusCode).toBe(200)
       const updated = response.json()
       expect(updated.name).toBe('New Name')
       expect(updated.quantity).toBe(3)
+      expect(updated.subcategory).toBe('sleeping')
       expect(updated.assignedParticipantId).toBe(
         participantList[1].participantId
       )
@@ -750,7 +771,7 @@ describe('Invite Route', () => {
       )
     })
 
-    it('returns 403 when item is unassigned', async () => {
+    it('allows editing an unassigned item', async () => {
       const [plan] = await seedTestPlans(1)
       const participantList = await seedTestParticipants(plan.planId, 1)
       const token = participantList[0].inviteToken!
@@ -771,10 +792,13 @@ describe('Invite Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/plans/${plan.planId}/invite/${token}/items/${item.itemId}`,
-        payload: { name: 'Should Fail' },
+        payload: { name: 'Claimed Item', status: 'purchased' },
       })
 
-      expect(response.statusCode).toBe(403)
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.name).toBe('Claimed Item')
+      expect(updated.status).toBe('purchased')
     })
 
     it('returns 404 for non-existent item', async () => {
@@ -894,6 +918,246 @@ describe('Invite Route', () => {
       })
 
       expect(response.statusCode).toBe(200)
+    })
+  })
+
+  describe('POST /plans/:planId/invite/:inviteToken/items/bulk', () => {
+    it('creates multiple items auto-assigned to the guest', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 2)
+      const token = participantList[1].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
+        payload: {
+          items: [
+            { name: 'Tent', category: 'equipment', quantity: 1 },
+            { name: 'Water', category: 'food', quantity: 5, unit: 'l' },
+          ],
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(2)
+      expect(body.errors).toHaveLength(0)
+      body.items.forEach((item: { assignedParticipantId: string }) => {
+        expect(item.assignedParticipantId).toBe(
+          participantList[1].participantId
+        )
+      })
+    })
+
+    it('returns 207 with partial success when food item misses unit', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
+        payload: {
+          items: [
+            { name: 'Sleeping Bag', category: 'equipment', quantity: 1 },
+            { name: 'Rice', category: 'food', quantity: 2 },
+          ],
+        },
+      })
+
+      expect(response.statusCode).toBe(207)
+      const body = response.json()
+      expect(body.items).toHaveLength(1)
+      expect(body.items[0].name).toBe('Sleeping Bag')
+      expect(body.errors).toHaveLength(1)
+      expect(body.errors[0]).toEqual({
+        name: 'Rice',
+        message: 'Unit is required for food items',
+      })
+    })
+
+    it('returns 404 for invalid invite token', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/bad-token/items/bulk`,
+        payload: {
+          items: [{ name: 'Tent', category: 'equipment', quantity: 1 }],
+        },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('returns 400 when items array is empty', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
+        payload: { items: [] },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+  })
+
+  describe('PATCH /plans/:planId/invite/:inviteToken/items/bulk', () => {
+    it('updates multiple owned items and returns 200', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 2)
+      const token = participantList[1].inviteToken!
+
+      const db = await getTestDb()
+      const insertedItems = await db
+        .insert(items)
+        .values([
+          {
+            planId: plan.planId,
+            name: 'Item A',
+            category: 'equipment' as const,
+            quantity: 1,
+            unit: 'pcs' as const,
+            status: 'pending' as const,
+            assignedParticipantId: participantList[1].participantId,
+          },
+          {
+            planId: plan.planId,
+            name: 'Item B',
+            category: 'equipment' as const,
+            quantity: 2,
+            unit: 'pcs' as const,
+            status: 'pending' as const,
+            assignedParticipantId: participantList[1].participantId,
+          },
+        ])
+        .returning()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
+        payload: {
+          items: [
+            { itemId: insertedItems[0].itemId, status: 'purchased' },
+            { itemId: insertedItems[1].itemId, name: 'Updated B' },
+          ],
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(2)
+      expect(body.errors).toHaveLength(0)
+      expect(body.items[0].status).toBe('purchased')
+      expect(body.items[1].name).toBe('Updated B')
+    })
+
+    it('returns 207 when some items belong to another participant', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 3)
+      const token = participantList[1].inviteToken!
+
+      const db = await getTestDb()
+      const insertedItems = await db
+        .insert(items)
+        .values([
+          {
+            planId: plan.planId,
+            name: 'My Item',
+            category: 'equipment' as const,
+            quantity: 1,
+            unit: 'pcs' as const,
+            status: 'pending' as const,
+            assignedParticipantId: participantList[1].participantId,
+          },
+          {
+            planId: plan.planId,
+            name: 'Other Item',
+            category: 'equipment' as const,
+            quantity: 1,
+            unit: 'pcs' as const,
+            status: 'pending' as const,
+            assignedParticipantId: participantList[2].participantId,
+          },
+        ])
+        .returning()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
+        payload: {
+          items: [
+            { itemId: insertedItems[0].itemId, status: 'purchased' },
+            { itemId: insertedItems[1].itemId, status: 'purchased' },
+          ],
+        },
+      })
+
+      expect(response.statusCode).toBe(207)
+      const body = response.json()
+      expect(body.items).toHaveLength(1)
+      expect(body.items[0].name).toBe('My Item')
+      expect(body.errors).toHaveLength(1)
+      expect(body.errors[0]).toEqual({
+        name: 'Other Item',
+        message: 'You can only edit items assigned to you',
+      })
+    })
+
+    it('returns 404 for non-existent item in bulk', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+      const fakeId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
+        payload: {
+          items: [{ itemId: fakeId, name: 'Ghost', status: 'packed' }],
+        },
+      })
+
+      expect(response.statusCode).toBe(207)
+      const body = response.json()
+      expect(body.items).toHaveLength(0)
+      expect(body.errors).toHaveLength(1)
+      expect(body.errors[0]).toEqual({
+        name: 'Ghost',
+        message: 'Item not found',
+      })
+    })
+
+    it('returns 404 for invalid invite token', async () => {
+      const [plan] = await seedTestPlans(1)
+      const fakeItemId = '00000000-0000-0000-0000-000000000000'
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/bad-token/items/bulk`,
+        payload: {
+          items: [{ itemId: fakeItemId, status: 'packed' }],
+        },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('returns 400 when items array is empty', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
+        payload: { items: [] },
+      })
+
+      expect(response.statusCode).toBe(400)
     })
   })
 })
