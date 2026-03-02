@@ -119,16 +119,12 @@ describe('Plans Route - Error Scenarios', () => {
   })
 
   describe('GET /plans/:planId - Database Errors', () => {
-    function mockSelectChainError(error: unknown) {
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue(error),
-        }),
-      })
+    function mockFindFirstError(error: unknown) {
+      mockDb.query.plans.findFirst.mockRejectedValue(error)
     }
 
     it('returns 503 when database connection fails', async () => {
-      mockSelectChainError(new Error('connect ECONNREFUSED'))
+      mockFindFirstError(new Error('connect ECONNREFUSED'))
 
       const response = await app.inject({
         method: 'GET',
@@ -143,7 +139,7 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 500 when database query fails with unknown error', async () => {
-      mockSelectChainError(new Error('Unknown database error'))
+      mockFindFirstError(new Error('Unknown database error'))
 
       const response = await app.inject({
         method: 'GET',
@@ -158,7 +154,7 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 500 when non-Error is thrown', async () => {
-      mockSelectChainError('string error')
+      mockFindFirstError('string error')
 
       const response = await app.inject({
         method: 'GET',
@@ -173,7 +169,7 @@ describe('Plans Route - Error Scenarios', () => {
     })
 
     it('returns 503 when connection timeout occurs', async () => {
-      mockSelectChainError(new Error('connection timeout'))
+      mockFindFirstError(new Error('connection timeout'))
 
       const response = await app.inject({
         method: 'GET',

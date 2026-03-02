@@ -142,6 +142,7 @@ export const planWithDetailsSchema = {
     updatedAt: { type: 'string', format: 'date-time' },
     items: { $ref: 'ItemList#' },
     participants: { $ref: 'ParticipantList#' },
+    joinRequests: { $ref: 'JoinRequestList#' },
   },
   required: [
     'planId',
@@ -153,4 +154,41 @@ export const planWithDetailsSchema = {
     'items',
     'participants',
   ],
+} as const
+
+export const planNotLoggedInResponseSchema = {
+  $id: 'PlanNotLoggedInResponse',
+  type: 'object',
+  properties: {
+    status: { type: 'string', enum: ['not_logged_in'] },
+  },
+  required: ['status'],
+} as const
+
+export const planPreviewFieldsSchema = {
+  $id: 'PlanPreviewFields',
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    description: { type: 'string', nullable: true },
+    location: {
+      oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
+    },
+    startDate: { type: 'string', format: 'date-time', nullable: true },
+    endDate: { type: 'string', format: 'date-time', nullable: true },
+  },
+  required: ['title'],
+} as const
+
+export const planNotParticipantResponseSchema = {
+  $id: 'PlanNotParticipantResponse',
+  type: 'object',
+  properties: {
+    status: { type: 'string', enum: ['not_participant'] },
+    preview: { $ref: 'PlanPreviewFields#' },
+    joinRequest: {
+      oneOf: [{ $ref: 'JoinRequest#' }, { type: 'null' }],
+    },
+  },
+  required: ['status', 'preview', 'joinRequest'],
 } as const

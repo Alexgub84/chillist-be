@@ -13,6 +13,7 @@ import { participantsRoutes } from './routes/participants.route.js'
 import { inviteRoutes } from './routes/invite.route.js'
 import { authRoutes } from './routes/auth.route.js'
 import { claimRoutes } from './routes/claim.route.js'
+import { joinRequestRoutes } from './routes/join-request.route.js'
 import { Database } from './db/index.js'
 import authPlugin, { AuthPluginOptions } from './plugins/auth.js'
 import guestAuthPlugin from './plugins/guest-auth.js'
@@ -155,6 +156,7 @@ export async function buildApp(
   await fastify.register(inviteRoutes)
   await fastify.register(authRoutes)
   await fastify.register(claimRoutes)
+  await fastify.register(joinRequestRoutes)
 
   return fastify
 }

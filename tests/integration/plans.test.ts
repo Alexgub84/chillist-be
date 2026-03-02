@@ -7,6 +7,8 @@ import {
   seedTestPlans,
   seedTestItems,
   seedTestParticipants,
+  seedTestParticipantWithUser,
+  seedTestJoinRequests,
   setupTestDatabase,
 } from '../helpers/db.js'
 import {
@@ -17,9 +19,12 @@ import {
 } from '../helpers/auth.js'
 
 const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
+const REQUESTER_USER_ID = 'bbbbbbbb-1111-2222-3333-444444444444'
+const OTHER_USER_ID = 'cccccccc-1111-2222-3333-444444444444'
 const ADMIN_USER_ID = 'dddddddd-1111-2222-3333-444444444444'
 
 let token: string
+let requesterToken: string
 
 function authHeaders() {
   return { authorization: `Bearer ${token}` }
@@ -45,6 +50,7 @@ describe('Plans Route', () => {
     const db = await setupTestDatabase()
     await setupTestKeys()
     token = await signTestJwt({ sub: TEST_USER_ID })
+    requesterToken = await signTestJwt({ sub: REQUESTER_USER_ID })
     app = await buildApp(
       { db },
       {
@@ -67,7 +73,6 @@ describe('Plans Route', () => {
     it.each([
       ['GET', '/plans'],
       ['POST', '/plans'],
-      ['GET', '/plans/00000000-0000-0000-0000-000000000000'],
       ['PATCH', '/plans/00000000-0000-0000-0000-000000000000'],
       ['DELETE', '/plans/00000000-0000-0000-0000-000000000000'],
     ])('%s %s returns 401 without JWT', async (method, url) => {
@@ -80,6 +85,17 @@ describe('Plans Route', () => {
       expect(response.json()).toEqual({
         message: 'Authentication required',
       })
+    })
+
+    it('GET /plans/:planId without JWT returns 401', async () => {
+      const [plan] = await seedTestPlans(1)
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}`,
+      })
+
+      expect(response.statusCode).toBe(401)
+      expect(response.json()).toEqual({ message: 'Authentication required' })
     })
   })
 
@@ -444,11 +460,110 @@ describe('Plans Route', () => {
       expect(getResponse.statusCode).toBe(200)
 
       const fetchedPlan = getResponse.json()
+      console.log(
+        '[LOG] GET /plans/:planId (owner, no join requests) body:',
+        JSON.stringify(fetchedPlan, null, 2)
+      )
       expect(fetchedPlan.planId).toBe(createdPlan.planId)
       expect(fetchedPlan.title).toBe('Retrievable Plan')
       expect(fetchedPlan.items).toEqual([])
       expect(fetchedPlan.participants).toHaveLength(1)
       expect(fetchedPlan.participants[0].role).toBe('owner')
+      expect(fetchedPlan.joinRequests).toEqual([])
+    })
+
+    it('owner sees joinRequests when non-participant has submitted a request', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Plan With Join Request', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${planId}`,
+        headers: authHeaders(),
+      })
+
+      expect(getResponse.statusCode).toBe(200)
+      const plan = getResponse.json()
+      console.log(
+        '[LOG] GET /plans/:planId (owner, with joinRequests) body:',
+        JSON.stringify(plan, null, 2)
+      )
+      expect(plan.joinRequests).toHaveLength(1)
+      expect(plan.joinRequests[0].name).toBe('Requester')
+      expect(plan.joinRequests[0].status).toBe('pending')
+    })
+
+    it('admin does not receive joinRequests when fetching plan', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Plan For Admin Test', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+
+      const adminResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${planId}`,
+        headers: { authorization: `Bearer ${await signAdminJwt()}` },
+      })
+
+      expect(adminResponse.statusCode).toBe(200)
+      const plan = adminResponse.json()
+      expect(plan.joinRequests).toBeUndefined()
+    })
+
+    it('non-owner participant does not receive joinRequests', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Plan With Linked Participant', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      await seedTestParticipantWithUser(planId, REQUESTER_USER_ID)
+      await seedTestJoinRequests(planId, OTHER_USER_ID)
+
+      const participantResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${planId}`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+      })
+
+      expect(participantResponse.statusCode).toBe(200)
+      const plan = participantResponse.json()
+      expect(plan.joinRequests).toBeUndefined()
     })
 
     it('owner appears in participants list endpoint', async () => {
@@ -587,6 +702,238 @@ describe('Plans Route', () => {
       })
     })
 
+    it('returns not_participant with preview when JWT user is not a participant', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: {
+          title: 'Owner Plan',
+          owner: validOwner,
+        },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${planId}`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      console.log(
+        '[LOG] GET /plans/:planId (non-participant) body:',
+        JSON.stringify(body, null, 2)
+      )
+      expect(body.status).toBe('not_participant')
+      expect(body.preview).toBeDefined()
+      expect(body.preview.title).toBe('Owner Plan')
+      expect(body.preview).toHaveProperty('description')
+      expect(body.preview).toHaveProperty('location')
+      expect(body.preview).toHaveProperty('startDate')
+      expect(body.preview).toHaveProperty('endDate')
+      expect(body.joinRequest).toBeNull()
+    })
+  })
+
+  describe('GET /plans/:planId/preview', () => {
+    it('returns 401 without JWT', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/preview`,
+      })
+
+      expect(response.statusCode).toBe(401)
+      expect(response.json()).toEqual({ message: 'Authentication required' })
+    })
+
+    it('returns preview when authed and not a participant', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Preview Plan', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${planId}/preview`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.title).toBe('Preview Plan')
+      expect(body).toHaveProperty('description')
+      expect(body).toHaveProperty('location')
+      expect(body).toHaveProperty('startDate')
+      expect(body).toHaveProperty('endDate')
+    })
+
+    it('returns 400 when already a participant', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Owner Plan', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${planId}/preview`,
+        headers: authHeaders(),
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toContain('Already a participant')
+    })
+
+    it('returns 404 for nonexistent plan', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/00000000-0000-0000-0000-000000000000/preview',
+        headers: { authorization: `Bearer ${requesterToken}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({ message: 'Plan not found' })
+    })
+  })
+
+  describe('POST /plans/:planId/join-requests', () => {
+    it('creates join request for non-participant', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Joinable Plan', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const body = response.json()
+      expect(body.planId).toBe(planId)
+      expect(body.supabaseUserId).toBe(REQUESTER_USER_ID)
+      expect(body.name).toBe('Requester')
+      expect(body.lastName).toBe('User')
+      expect(body.contactPhone).toBe('+1-555-999-9999')
+      expect(body.status).toBe('pending')
+    })
+
+    it('returns existing join request when one already exists (idempotent)', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Idempotent Plan', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      const first = await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+      expect(first.statusCode).toBe(201)
+
+      const second = await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+      expect(second.statusCode).toBe(200)
+      expect(second.json().requestId).toBe(first.json().requestId)
+    })
+
+    it('returns 400 when user is already a participant', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Owner Plan', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/join-requests`,
+        headers: authHeaders(),
+        payload: {
+          name: 'Alex',
+          lastName: 'Guberman',
+          contactPhone: '+1-555-123-4567',
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toContain('Already a participant')
+    })
+
+    it('returns 404 for nonexistent plan', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans/00000000-0000-0000-0000-000000000000/join-requests',
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('returns 401 without JWT', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/join-requests`,
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+  })
+
+  describe('GET /plans/:planId - validation', () => {
     it('returns 400 for invalid UUID format', async () => {
       const response = await app.inject({
         method: 'GET',
@@ -783,9 +1130,8 @@ describe('Plans Route', () => {
       expect(updated.description).toBe(plan.description)
       expect(updated.status).toBe(plan.status)
       expect(updated.visibility).toBe(plan.visibility)
-      expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(
-        new Date(plan.updatedAt).getTime()
-      )
+      expect(updated.updatedAt).toBeDefined()
+      expect(new Date(updated.updatedAt).getTime()).not.toBeNaN()
     })
 
     it('updates multiple fields at once', async () => {

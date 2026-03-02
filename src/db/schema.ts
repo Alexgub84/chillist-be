@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  unique,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -66,6 +67,11 @@ export const rsvpStatusEnum = pgEnum('rsvp_status', [
   'pending',
   'confirmed',
   'not_sure',
+])
+export const joinRequestStatusEnum = pgEnum('join_request_status', [
+  'pending',
+  'approved',
+  'rejected',
 ])
 export const itemCategoryEnum = pgEnum('item_category', ['equipment', 'food'])
 export const ITEM_CATEGORY_VALUES = itemCategoryEnum.enumValues
@@ -211,6 +217,40 @@ export const planInvites = pgTable('plan_invites', {
     .notNull(),
 })
 
+export const participantJoinRequests = pgTable(
+  'participant_join_requests',
+  {
+    requestId: uuid('request_id').primaryKey().defaultRandom(),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => plans.planId, { onDelete: 'cascade' }),
+    supabaseUserId: uuid('supabase_user_id').notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    lastName: varchar('last_name', { length: 255 }).notNull(),
+    contactPhone: varchar('contact_phone', { length: 50 }).notNull(),
+    contactEmail: varchar('contact_email', { length: 255 }),
+    displayName: varchar('display_name', { length: 255 }),
+    adultsCount: integer('adults_count'),
+    kidsCount: integer('kids_count'),
+    foodPreferences: text('food_preferences'),
+    allergies: text('allergies'),
+    notes: text('notes'),
+    status: joinRequestStatusEnum('status').default('pending').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique('join_request_plan_user_unique').on(
+      table.planId,
+      table.supabaseUserId
+    ),
+  ]
+)
+
 export const guestProfilesRelations = relations(guestProfiles, ({ many }) => ({
   participants: many(participants),
 }))
@@ -219,6 +259,7 @@ export const plansRelations = relations(plans, ({ many }) => ({
   items: many(items),
   participants: many(participants),
   invites: many(planInvites),
+  joinRequests: many(participantJoinRequests),
 }))
 
 export const itemsRelations = relations(items, ({ one }) => ({
@@ -255,6 +296,16 @@ export const planInvitesRelations = relations(planInvites, ({ one }) => ({
   }),
 }))
 
+export const participantJoinRequestsRelations = relations(
+  participantJoinRequests,
+  ({ one }) => ({
+    plan: one(plans, {
+      fields: [participantJoinRequests.planId],
+      references: [plans.planId],
+    }),
+  })
+)
+
 export type GuestProfile = typeof guestProfiles.$inferSelect
 export type NewGuestProfile = typeof guestProfiles.$inferInsert
 export type UserDetail = typeof userDetails.$inferSelect
@@ -267,3 +318,6 @@ export type Item = typeof items.$inferSelect
 export type NewItem = typeof items.$inferInsert
 export type PlanInvite = typeof planInvites.$inferSelect
 export type NewPlanInvite = typeof planInvites.$inferInsert
+export type ParticipantJoinRequest = typeof participantJoinRequests.$inferSelect
+export type NewParticipantJoinRequest =
+  typeof participantJoinRequests.$inferInsert
