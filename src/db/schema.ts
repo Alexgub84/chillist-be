@@ -86,6 +86,10 @@ export const itemStatusEnum = pgEnum('item_status', [
 export const ITEM_STATUS_VALUES = itemStatusEnum.enumValues
 export type ItemStatus = (typeof ITEM_STATUS_VALUES)[number]
 
+export const itemChangeTypeEnum = pgEnum('item_change_type', [
+  'created',
+  'updated',
+])
 export const unitEnum = pgEnum('unit', [
   'pcs',
   'kg',
@@ -191,6 +195,21 @@ export const items = pgTable('items', {
     .notNull(),
 })
 
+export const itemChanges = pgTable('item_changes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  itemId: uuid('item_id')
+    .notNull()
+    .references(() => items.itemId, { onDelete: 'cascade' }),
+  planId: uuid('plan_id').notNull(),
+  changeType: itemChangeTypeEnum('change_type').notNull(),
+  changes: jsonb('changes').notNull(),
+  changedByUserId: uuid('changed_by_user_id'),
+  changedByParticipantId: uuid('changed_by_participant_id'),
+  changedAt: timestamp('changed_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+})
+
 export const inviteSendStatusEnum = pgEnum('invite_send_status', [
   'pending',
   'sent',
@@ -262,7 +281,7 @@ export const plansRelations = relations(plans, ({ many }) => ({
   joinRequests: many(participantJoinRequests),
 }))
 
-export const itemsRelations = relations(items, ({ one }) => ({
+export const itemsRelations = relations(items, ({ one, many }) => ({
   plan: one(plans, {
     fields: [items.planId],
     references: [plans.planId],
@@ -270,6 +289,14 @@ export const itemsRelations = relations(items, ({ one }) => ({
   assignedParticipant: one(participants, {
     fields: [items.assignedParticipantId],
     references: [participants.participantId],
+  }),
+  changes: many(itemChanges),
+}))
+
+export const itemChangesRelations = relations(itemChanges, ({ one }) => ({
+  item: one(items, {
+    fields: [itemChanges.itemId],
+    references: [items.itemId],
   }),
 }))
 
@@ -321,3 +348,5 @@ export type NewPlanInvite = typeof planInvites.$inferInsert
 export type ParticipantJoinRequest = typeof participantJoinRequests.$inferSelect
 export type NewParticipantJoinRequest =
   typeof participantJoinRequests.$inferInsert
+export type ItemChange = typeof itemChanges.$inferSelect
+export type NewItemChange = typeof itemChanges.$inferInsert

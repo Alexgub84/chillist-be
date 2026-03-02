@@ -9,6 +9,7 @@ import {
   ItemStatus,
 } from '../db/schema.js'
 import * as schema from '../db/schema.js'
+import { recordItemCreated, recordItemUpdated } from '../utils/item-changes.js'
 
 interface BulkItemError {
   name: string
@@ -364,6 +365,12 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           },
           'Guest created item via invite token'
         )
+        recordItemCreated(fastify.db, {
+          itemId: createdItem.itemId,
+          planId,
+          snapshot: createdItem as unknown as Record<string, unknown>,
+          changedByParticipantId: participant.participantId,
+        })
         return reply.status(201).send(createdItem)
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to create guest item')
@@ -448,11 +455,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         }
 
         const [existingItem] = await fastify.db
-          .select({
-            itemId: items.itemId,
-            planId: items.planId,
-            assignedParticipantId: items.assignedParticipantId,
-          })
+          .select()
           .from(items)
           .where(eq(items.itemId, itemId))
 
@@ -484,6 +487,13 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           },
           'Guest updated item via invite token'
         )
+        recordItemUpdated(fastify.db, {
+          itemId,
+          planId,
+          existing: existingItem,
+          updates,
+          changedByParticipantId: participant.participantId,
+        })
         return updatedItem
       } catch (error) {
         request.log.error(
@@ -616,6 +626,14 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             .returning()
         }
 
+        for (const created of createdItems) {
+          recordItemCreated(fastify.db, {
+            itemId: created.itemId,
+            planId,
+            snapshot: created as unknown as Record<string, unknown>,
+            changedByParticipantId: participant.participantId,
+          })
+        }
         const statusCode = errors.length === 0 ? 200 : 207
         request.log.info(
           {
@@ -714,12 +732,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
 
         const itemIds = itemUpdates.map((entry) => entry.itemId)
         const existingItems = await fastify.db
-          .select({
-            itemId: items.itemId,
-            planId: items.planId,
-            name: items.name,
-            assignedParticipantId: items.assignedParticipantId,
-          })
+          .select()
           .from(items)
           .where(inArray(items.itemId, itemIds))
 
@@ -766,6 +779,13 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             .returning()
 
           updatedItems.push(updatedItem)
+          recordItemUpdated(fastify.db, {
+            itemId,
+            planId: existing.planId,
+            existing,
+            updates,
+            changedByParticipantId: participant.participantId,
+          })
         }
 
         const statusCode = errors.length === 0 ? 200 : 207

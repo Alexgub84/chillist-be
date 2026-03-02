@@ -93,6 +93,7 @@ Server runs at `http://localhost:3333`. Swagger UI at `http://localhost:3333/doc
 - Routes: `src/routes/items.route.ts`
 - Schemas: `src/schemas/item.schema.ts`
 - Invite item routes: `src/routes/invite.route.ts`
+- Change tracking: `src/utils/item-changes.ts` (records creates/updates to `item_changes` table)
 
 ### OpenAPI
 
