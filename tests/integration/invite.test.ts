@@ -10,7 +10,8 @@ import {
   seedTestItems,
   getTestDb,
 } from '../helpers/db.js'
-import { items } from '../../src/db/schema.js'
+import { items, itemChanges } from '../../src/db/schema.js'
+import { eq } from 'drizzle-orm'
 
 describe('Invite Route', () => {
   let app: FastifyInstance
@@ -1158,6 +1159,47 @@ describe('Invite Route', () => {
       })
 
       expect(response.statusCode).toBe(400)
+    })
+  })
+
+  describe('Item change tracking (invite)', () => {
+    it('records created row with changedByParticipantId when guest creates item', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items`,
+        payload: {
+          name: 'Camp Chair',
+          category: 'equipment',
+          quantity: 2,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const item = response.json()
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.itemId, item.itemId))
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0].changeType).toBe('created')
+      expect(changes[0].changedByUserId).toBeNull()
+      expect(changes[0].changedByParticipantId).toBe(
+        participantList[0].participantId
+      )
+      expect(changes[0].changes).toMatchObject({
+        snapshot: expect.objectContaining({
+          name: 'Camp Chair',
+          category: 'equipment',
+          quantity: 2,
+        }),
+      })
     })
   })
 })

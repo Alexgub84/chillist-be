@@ -4,11 +4,14 @@ import { FastifyInstance } from 'fastify'
 import {
   cleanupTestDatabase,
   closeTestDatabase,
+  getTestDb,
   seedTestItems,
   seedTestParticipants,
   seedTestPlans,
   setupTestDatabase,
 } from '../helpers/db.js'
+import { itemChanges } from '../../src/db/schema.js'
+import { eq } from 'drizzle-orm'
 import {
   setupTestKeys,
   getTestJWKS,
@@ -1043,6 +1046,168 @@ describe('Items Route', () => {
       })
 
       expect(response.statusCode).toBe(400)
+    })
+  })
+
+  describe('Item change tracking', () => {
+    it('records created row when creating item', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 2,
+          status: 'pending',
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const item = response.json()
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.itemId, item.itemId))
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0].changeType).toBe('created')
+      expect(changes[0].changedByUserId).toBe(TEST_USER_ID)
+      expect(changes[0].changedByParticipantId).toBeNull()
+      expect(changes[0].changes).toMatchObject({
+        snapshot: expect.objectContaining({
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 2,
+          status: 'pending',
+        }),
+      })
+    })
+
+    it('records updated row when changing item status', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { status: 'purchased' },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.itemId, item.itemId))
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0].changeType).toBe('updated')
+      expect(changes[0].changes).toMatchObject({
+        fields: [{ field: 'status', from: 'pending', to: 'purchased' }],
+      })
+    })
+
+    it('records multiple field changes in single updated row', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: {
+          status: 'packed',
+          quantity: 3,
+          notes: 'Ready to go',
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.itemId, item.itemId))
+
+      expect(changes).toHaveLength(1)
+      const fields = (
+        changes[0].changes as { fields: Array<{ field: string }> }
+      ).fields
+      expect(fields).toHaveLength(3)
+      expect(fields.map((f) => f.field).sort()).toEqual(
+        ['notes', 'quantity', 'status'].sort()
+      )
+    })
+
+    it('does not record change when update has no actual diff', async () => {
+      const [plan] = await seedTestPlans(1)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { status: item.status },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.itemId, item.itemId))
+
+      expect(changes).toHaveLength(0)
+    })
+
+    it('records one row per item on bulk create', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              name: 'Item A',
+              category: 'equipment',
+              quantity: 1,
+              status: 'pending',
+            },
+            {
+              name: 'Item B',
+              category: 'equipment',
+              quantity: 1,
+              status: 'pending',
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(2)
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.planId, plan.planId))
+
+      expect(changes).toHaveLength(2)
+      expect(changes.every((c) => c.changeType === 'created')).toBe(true)
     })
   })
 })

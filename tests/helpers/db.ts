@@ -39,6 +39,7 @@ export async function getTestDb(): Promise<Database> {
 export async function cleanupTestDatabase() {
   const testDb = await getTestDb()
 
+  await testDb.delete(schema.itemChanges)
   await testDb.delete(schema.items)
   await testDb.delete(schema.planInvites)
   await testDb.delete(schema.participantJoinRequests)
