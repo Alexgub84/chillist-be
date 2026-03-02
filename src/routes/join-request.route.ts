@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify'
 import { eq, and } from 'drizzle-orm'
 import { plans, participantJoinRequests } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
+import { isAdmin } from '../utils/admin.js'
+import { addParticipantToPlan } from '../services/participant.service.js'
 
 interface CreateJoinRequestBody {
   name: string
@@ -179,6 +181,167 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
 
         return reply.status(500).send({
           message: 'Failed to create join request',
+        })
+      }
+    }
+  )
+
+  fastify.patch<{
+    Params: { planId: string; requestId: string }
+    Body: { status: 'approved' | 'rejected' }
+  }>(
+    '/plans/:planId/join-requests/:requestId',
+    {
+      schema: {
+        tags: ['plans'],
+        summary: 'Approve or reject a join request',
+        description:
+          'Owner or admin updates a pending join request. Approved requests create a new participant linked to the requester. Rejected requests update status only.',
+        params: { $ref: 'JoinRequestActionParams#' },
+        body: { $ref: 'UpdateJoinRequestStatusBody#' },
+        response: {
+          200: {},
+          400: { $ref: 'ErrorResponse#' },
+          401: { $ref: 'ErrorResponse#' },
+          403: { $ref: 'ErrorResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          409: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId, requestId } = request.params
+      const { status: newStatus } = request.body
+      const userId = request.user!.id
+
+      try {
+        const [plan] = await fastify.db
+          .select()
+          .from(plans)
+          .where(eq(plans.planId, planId))
+          .limit(1)
+
+        if (!plan) {
+          return reply.status(404).send({ message: 'Plan not found' })
+        }
+
+        if (plan.createdByUserId !== userId && !isAdmin(request.user)) {
+          request.log.warn(
+            { planId, userId, requestId },
+            'Join request action rejected — not owner or admin'
+          )
+          return reply
+            .status(403)
+            .send({ message: 'Only the plan owner can manage join requests' })
+        }
+
+        const [joinRequest] = await fastify.db
+          .select()
+          .from(participantJoinRequests)
+          .where(
+            and(
+              eq(participantJoinRequests.requestId, requestId),
+              eq(participantJoinRequests.planId, planId)
+            )
+          )
+          .limit(1)
+
+        if (!joinRequest) {
+          return reply.status(404).send({ message: 'Join request not found' })
+        }
+
+        if (joinRequest.status !== 'pending') {
+          return reply.status(409).send({
+            message: `Join request has already been ${joinRequest.status}`,
+          })
+        }
+
+        if (newStatus === 'approved') {
+          const participant = await addParticipantToPlan(fastify.db, {
+            planId,
+            userId: joinRequest.supabaseUserId,
+            name: joinRequest.name,
+            lastName: joinRequest.lastName,
+            contactPhone: joinRequest.contactPhone,
+            contactEmail: joinRequest.contactEmail,
+            displayName: joinRequest.displayName,
+            adultsCount: joinRequest.adultsCount,
+            kidsCount: joinRequest.kidsCount,
+            foodPreferences: joinRequest.foodPreferences,
+            allergies: joinRequest.allergies,
+            notes: joinRequest.notes,
+          })
+
+          await fastify.db
+            .update(participantJoinRequests)
+            .set({ status: 'approved', updatedAt: new Date() })
+            .where(eq(participantJoinRequests.requestId, requestId))
+
+          const result = participant
+
+          request.log.info(
+            {
+              planId,
+              requestId,
+              participantId: result.participantId,
+              approvedUserId: joinRequest.supabaseUserId,
+            },
+            'Join request approved — participant created'
+          )
+
+          return reply.status(200).send(result)
+        }
+
+        const [updated] = await fastify.db
+          .update(participantJoinRequests)
+          .set({ status: 'rejected', updatedAt: new Date() })
+          .where(eq(participantJoinRequests.requestId, requestId))
+          .returning()
+
+        request.log.info(
+          { planId, requestId, rejectedUserId: joinRequest.supabaseUserId },
+          'Join request rejected'
+        )
+
+        return reply.status(200).send({
+          requestId: updated.requestId,
+          planId: updated.planId,
+          supabaseUserId: updated.supabaseUserId,
+          name: updated.name,
+          lastName: updated.lastName,
+          contactPhone: updated.contactPhone,
+          contactEmail: updated.contactEmail,
+          displayName: updated.displayName,
+          adultsCount: updated.adultsCount,
+          kidsCount: updated.kidsCount,
+          foodPreferences: updated.foodPreferences,
+          allergies: updated.allergies,
+          notes: updated.notes,
+          status: updated.status,
+          createdAt: updated.createdAt,
+          updatedAt: updated.updatedAt,
+        })
+      } catch (error) {
+        request.log.error(
+          { err: error, planId, requestId, userId },
+          'Failed to update join request'
+        )
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to update join request',
         })
       }
     }

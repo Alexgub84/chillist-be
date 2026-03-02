@@ -11,6 +11,10 @@ If a task requires frontend changes, stop and tell the user to switch to the fro
 
 The ONE exception: you MAY read and write files in ../chillist-docs/ (the shared docs repo) to read rules/docs and update dev-lessons, guides, specs, or rules when needed.
 
+# Issue Creation
+
+When asked to create GitHub issues: see `../chillist-docs/guides/issue-management.md`.
+
 # How to Start Every Task
 
 Before writing any code, FIRST use the Read tool on ALL of these files:

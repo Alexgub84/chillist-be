@@ -22,6 +22,8 @@ import {
 import {
   joinRequestSchema,
   joinRequestListSchema,
+  joinRequestActionParamsSchema,
+  updateJoinRequestStatusBodySchema,
   createJoinRequestBodySchema,
 } from './join-request.schema.js'
 import {
@@ -96,6 +98,8 @@ const schemas = [
   planNotLoggedInResponseSchema,
   planPreviewFieldsSchema,
   joinRequestSchema,
+  joinRequestActionParamsSchema,
+  updateJoinRequestStatusBodySchema,
   planNotParticipantResponseSchema,
   joinRequestListSchema,
   createJoinRequestBodySchema,
