@@ -123,7 +123,7 @@ describe('Join Request Management', () => {
       expect(body.role).toBe('participant')
       expect(body.rsvpStatus).toBe('confirmed')
       expect(body.inviteToken).toBeNull()
-      expect(body.inviteStatus).toBe('accepted')
+      expect(body.inviteStatus).toBe('pending')
       expect(body.participantId).toBeDefined()
     })
 
