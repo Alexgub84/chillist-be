@@ -15,7 +15,15 @@ import {
   planIdParamSchema,
   deletePlanResponseSchema,
   planWithDetailsSchema,
+  planNotLoggedInResponseSchema,
+  planPreviewFieldsSchema,
+  planNotParticipantResponseSchema,
 } from './plan.schema.js'
+import {
+  joinRequestSchema,
+  joinRequestListSchema,
+  createJoinRequestBodySchema,
+} from './join-request.schema.js'
 import {
   itemSchema,
   itemListSchema,
@@ -85,6 +93,12 @@ const schemas = [
   participantIdParamSchema,
   deleteParticipantResponseSchema,
   planWithDetailsSchema,
+  planNotLoggedInResponseSchema,
+  planPreviewFieldsSchema,
+  joinRequestSchema,
+  planNotParticipantResponseSchema,
+  joinRequestListSchema,
+  createJoinRequestBodySchema,
   inviteParamsSchema,
   inviteParticipantSchema,
   inviteParticipantListSchema,
@@ -124,3 +138,4 @@ export * from './item.schema.js'
 export * from './participant.schema.js'
 export * from './invite.schema.js'
 export * from './auth.schema.js'
+export * from './join-request.schema.js'

@@ -329,7 +329,7 @@ describe('Plan Access Control', () => {
       expect(response.json().planId).toBe(plan.planId)
     })
 
-    it('returns 404 for invite_only plan with unrelated JWT user', async () => {
+    it('returns not_participant with preview for invite_only plan with unrelated JWT user', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -343,7 +343,12 @@ describe('Plan Access Control', () => {
         headers: { authorization: `Bearer ${token}` },
       })
 
-      expect(response.statusCode).toBe(404)
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.status).toBe('not_participant')
+      expect(body.preview).toBeDefined()
+      expect(body.preview.title).toBe(plan.title)
+      expect(body.joinRequest).toBeNull()
     })
 
     it('returns 401 for invite_only plan without JWT', async () => {
@@ -360,7 +365,7 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(401)
     })
 
-    it('returns 404 for private plan with unrelated JWT user', async () => {
+    it('returns not_participant with preview for private plan with unrelated JWT user', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'private',
         createdByUserId: OWNER_USER_ID,
@@ -374,7 +379,11 @@ describe('Plan Access Control', () => {
         headers: { authorization: `Bearer ${token}` },
       })
 
-      expect(response.statusCode).toBe(404)
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.status).toBe('not_participant')
+      expect(body.preview).toBeDefined()
+      expect(body.joinRequest).toBeNull()
     })
 
     it('returns 404 for nonexistent plan with JWT', async () => {
@@ -444,7 +453,7 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(401)
     })
 
-    it('returns 404 for invite_only plan with null createdByUserId', async () => {
+    it('returns not_participant with preview for invite_only plan with null createdByUserId', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: null,
@@ -458,7 +467,11 @@ describe('Plan Access Control', () => {
         headers: { authorization: `Bearer ${token}` },
       })
 
-      expect(response.statusCode).toBe(404)
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.status).toBe('not_participant')
+      expect(body.preview).toBeDefined()
+      expect(body.joinRequest).toBeNull()
     })
 
     it('returns invite_only plan to admin (unrelated user)', async () => {
@@ -498,8 +511,21 @@ describe('Plan Access Control', () => {
     })
   })
 
-  describe('Response shape — no information leakage', () => {
-    it('unauthorized 404 is identical to nonexistent 404', async () => {
+  describe('Response shape', () => {
+    it('nonexistent plan returns 404', async () => {
+      const token = await signTestJwt({ sub: UNRELATED_USER_ID })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/00000000-0000-0000-0000-000000000000',
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toEqual({ message: 'Plan not found' })
+    })
+
+    it('unauthorized invite_only returns 200 with not_participant', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -507,21 +533,14 @@ describe('Plan Access Control', () => {
 
       const token = await signTestJwt({ sub: UNRELATED_USER_ID })
 
-      const unauthorizedResponse = await app.inject({
+      const response = await app.inject({
         method: 'GET',
         url: `/plans/${plan.planId}`,
         headers: { authorization: `Bearer ${token}` },
       })
 
-      const nonexistentResponse = await app.inject({
-        method: 'GET',
-        url: '/plans/00000000-0000-0000-0000-000000000000',
-        headers: { authorization: `Bearer ${token}` },
-      })
-
-      expect(unauthorizedResponse.statusCode).toBe(404)
-      expect(nonexistentResponse.statusCode).toBe(404)
-      expect(unauthorizedResponse.json()).toEqual(nonexistentResponse.json())
+      expect(response.statusCode).toBe(200)
+      expect(response.json().status).toBe('not_participant')
     })
   })
 

@@ -1,7 +1,12 @@
 import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
 import { eq, and, or, exists, sql } from 'drizzle-orm'
-import { plans, participants, NewPlan } from '../db/schema.js'
+import {
+  plans,
+  participants,
+  participantJoinRequests,
+  NewPlan,
+} from '../db/schema.js'
 import * as schema from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
@@ -256,17 +261,18 @@ export async function plansRoutes(fastify: FastifyInstance) {
   )
 
   fastify.get<{ Params: { planId: string } }>(
-    '/plans/:planId',
+    '/plans/:planId/preview',
     {
       schema: {
         tags: ['plans'],
-        summary: 'Get plan by ID (now includes participants)',
+        summary: 'Get plan preview',
         description:
-          'Retrieve a single plan by its ID with associated items and participants. Response now includes participants[] array alongside items[].',
+          'Returns minimal plan info when user is authed but not a participant (needs to create join request). JWT required. 400 if already a participant.',
         params: { $ref: 'PlanIdParam#' },
         response: {
-          200: { $ref: 'PlanWithDetails#' },
+          200: { $ref: 'PlanPreviewFields#' },
           400: { $ref: 'ErrorResponse#' },
+          401: { $ref: 'ErrorResponse#' },
           404: { $ref: 'ErrorResponse#' },
           500: { $ref: 'ErrorResponse#' },
           503: { $ref: 'ErrorResponse#' },
@@ -277,18 +283,93 @@ export async function plansRoutes(fastify: FastifyInstance) {
       const { planId } = request.params
 
       try {
-        const { allowed, plan: accessPlan } = await checkPlanAccess(
+        const [plan] = await fastify.db
+          .select({
+            title: plans.title,
+            description: plans.description,
+            location: plans.location,
+            startDate: plans.startDate,
+            endDate: plans.endDate,
+          })
+          .from(plans)
+          .where(eq(plans.planId, planId))
+          .limit(1)
+
+        if (!plan) {
+          return reply.status(404).send({ message: 'Plan not found' })
+        }
+
+        const { allowed } = await checkPlanAccess(
           fastify.db,
           planId,
           request.user
         )
 
-        if (!allowed || !accessPlan) {
-          return reply.status(404).send({
-            message: 'Plan not found',
+        if (allowed) {
+          return reply.status(400).send({
+            message:
+              'Already a participant. Use GET /plans/:planId for full plan.',
           })
         }
 
+        return {
+          title: plan.title,
+          description: plan.description,
+          location: plan.location,
+          startDate: plan.startDate,
+          endDate: plan.endDate,
+        }
+      } catch (error) {
+        request.log.error(
+          { err: error, planId },
+          'Failed to retrieve plan preview'
+        )
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to retrieve plan preview',
+        })
+      }
+    }
+  )
+
+  fastify.get<{ Params: { planId: string } }>(
+    '/plans/:planId',
+    {
+      schema: {
+        tags: ['plans'],
+        summary: 'Get plan by ID',
+        description:
+          'Returns full plan for participants, or preview+joinRequest for non-participants. JWT required.',
+        params: { $ref: 'PlanIdParam#' },
+        response: {
+          200: {
+            oneOf: [
+              { $ref: 'PlanWithDetails#' },
+              { $ref: 'PlanNotParticipantResponse#' },
+            ],
+          },
+          401: { $ref: 'ErrorResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { planId } = request.params
+
+      try {
         const plan = await fastify.db.query.plans.findFirst({
           where: eq(schema.plans.planId, planId),
           with: {
@@ -301,32 +382,121 @@ export async function plansRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Plan not found' })
         }
 
-        const userId = request.user!.id
-        const isOwnerOrAdmin =
-          isAdmin(request.user) || plan.createdByUserId === userId
-
-        const syncedParticipant = await syncParticipantFromJwt(
+        const { allowed } = await checkPlanAccess(
           fastify.db,
           planId,
-          request.user!,
-          request.log
+          request.user
         )
 
-        let finalParticipants = plan.participants
-        if (syncedParticipant) {
-          finalParticipants = plan.participants.map((p) =>
-            p.participantId === syncedParticipant.participantId
-              ? syncedParticipant
-              : p
+        if (allowed) {
+          const userId = request.user!.id
+          const isOwnerOrAdmin =
+            isAdmin(request.user) || plan.createdByUserId === userId
+
+          const syncedParticipant = await syncParticipantFromJwt(
+            fastify.db,
+            planId,
+            request.user!,
+            request.log
           )
+
+          let finalParticipants = plan.participants
+          if (syncedParticipant) {
+            finalParticipants = plan.participants.map((p) =>
+              p.participantId === syncedParticipant.participantId
+                ? syncedParticipant
+                : p
+            )
+          }
+
+          const safeParticipants = isOwnerOrAdmin
+            ? finalParticipants
+            : finalParticipants.map((p) => ({ ...p, inviteToken: null }))
+
+          const result: Record<string, unknown> = {
+            ...plan,
+            participants: safeParticipants,
+          }
+
+          const isOwner = plan.createdByUserId === userId
+          if (isOwner) {
+            const joinRequestsRows = await fastify.db
+              .select()
+              .from(participantJoinRequests)
+              .where(eq(participantJoinRequests.planId, planId))
+            result.joinRequests = joinRequestsRows.map((r) => ({
+              requestId: r.requestId,
+              planId: r.planId,
+              supabaseUserId: r.supabaseUserId,
+              name: r.name,
+              lastName: r.lastName,
+              contactPhone: r.contactPhone,
+              contactEmail: r.contactEmail,
+              displayName: r.displayName,
+              adultsCount: r.adultsCount,
+              kidsCount: r.kidsCount,
+              foodPreferences: r.foodPreferences,
+              allergies: r.allergies,
+              notes: r.notes,
+              status: r.status,
+              createdAt: r.createdAt,
+              updatedAt: r.updatedAt,
+            }))
+          }
+
+          request.log.info({ planId, userId }, 'Plan retrieved')
+          return result
         }
 
-        const safeParticipants = isOwnerOrAdmin
-          ? finalParticipants
-          : finalParticipants.map((p) => ({ ...p, inviteToken: null }))
+        const [joinRequestRow] = await fastify.db
+          .select()
+          .from(participantJoinRequests)
+          .where(
+            and(
+              eq(participantJoinRequests.planId, planId),
+              eq(participantJoinRequests.supabaseUserId, request.user!.id)
+            )
+          )
+          .limit(1)
 
-        request.log.info({ planId, userId }, 'Plan retrieved')
-        return { ...plan, participants: safeParticipants }
+        const preview = {
+          title: plan.title,
+          description: plan.description,
+          location: plan.location,
+          startDate: plan.startDate,
+          endDate: plan.endDate,
+        }
+
+        const joinRequest = joinRequestRow
+          ? {
+              requestId: joinRequestRow.requestId,
+              planId: joinRequestRow.planId,
+              supabaseUserId: joinRequestRow.supabaseUserId,
+              name: joinRequestRow.name,
+              lastName: joinRequestRow.lastName,
+              contactPhone: joinRequestRow.contactPhone,
+              contactEmail: joinRequestRow.contactEmail,
+              displayName: joinRequestRow.displayName,
+              adultsCount: joinRequestRow.adultsCount,
+              kidsCount: joinRequestRow.kidsCount,
+              foodPreferences: joinRequestRow.foodPreferences,
+              allergies: joinRequestRow.allergies,
+              notes: joinRequestRow.notes,
+              status: joinRequestRow.status,
+              createdAt: joinRequestRow.createdAt,
+              updatedAt: joinRequestRow.updatedAt,
+            }
+          : null
+
+        request.log.info(
+          { planId, userId: request.user!.id },
+          'Plan preview for non-participant'
+        )
+        return reply.status(200).send({
+          status: 'not_participant',
+          preview,
+          joinRequest,
+        })
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to retrieve plan')
 

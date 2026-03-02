@@ -1000,6 +1000,9 @@
           },
           "participants": {
             "$ref": "#/components/schemas/def-18"
+          },
+          "joinRequests": {
+            "$ref": "#/components/schemas/def-28"
           }
         },
         "required": [
@@ -1015,6 +1018,228 @@
         "title": "PlanWithDetails"
       },
       "def-24": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_logged_in"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PlanNotLoggedInResponse"
+      },
+      "def-25": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-4"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "PlanPreviewFields"
+      },
+      "def-26": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supabaseUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "contactPhone": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "adultsCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "kidsCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "foodPreferences": {
+            "type": "string",
+            "nullable": true
+          },
+          "allergies": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "requestId",
+          "planId",
+          "supabaseUserId",
+          "name",
+          "lastName",
+          "contactPhone",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "JoinRequest"
+      },
+      "def-27": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_participant"
+            ]
+          },
+          "preview": {
+            "$ref": "#/components/schemas/def-25"
+          },
+          "joinRequest": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-26"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "preview",
+          "joinRequest"
+        ],
+        "title": "PlanNotParticipantResponse"
+      },
+      "def-28": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-26"
+        },
+        "title": "JoinRequestList"
+      },
+      "def-29": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contactPhone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contactEmail": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "adultsCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kidsCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "foodPreferences": {
+            "type": "string"
+          },
+          "allergies": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "lastName",
+          "contactPhone"
+        ],
+        "title": "CreateJoinRequestBody"
+      },
+      "def-30": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1033,7 +1258,7 @@
         ],
         "title": "InviteParams"
       },
-      "def-25": {
+      "def-31": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -1059,14 +1284,14 @@
         ],
         "title": "InviteParticipant"
       },
-      "def-26": {
+      "def-32": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-25"
+          "$ref": "#/components/schemas/def-31"
         },
         "title": "InviteParticipantList"
       },
-      "def-27": {
+      "def-33": {
         "type": "object",
         "properties": {
           "adultsCount": {
@@ -1092,7 +1317,7 @@
         },
         "title": "InviteMyPreferences"
       },
-      "def-28": {
+      "def-34": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1153,7 +1378,7 @@
             "$ref": "#/components/schemas/def-13"
           },
           "participants": {
-            "$ref": "#/components/schemas/def-26"
+            "$ref": "#/components/schemas/def-32"
           },
           "myParticipantId": {
             "type": "string",
@@ -1168,7 +1393,7 @@
             ]
           },
           "myPreferences": {
-            "$ref": "#/components/schemas/def-27"
+            "$ref": "#/components/schemas/def-33"
           }
         },
         "required": [
@@ -1185,7 +1410,7 @@
         ],
         "title": "InvitePlanResponse"
       },
-      "def-29": {
+      "def-35": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1203,7 +1428,7 @@
         ],
         "title": "RegenerateTokenParams"
       },
-      "def-30": {
+      "def-36": {
         "type": "object",
         "properties": {
           "inviteToken": {
@@ -1215,7 +1440,7 @@
         ],
         "title": "RegenerateTokenResponse"
       },
-      "def-31": {
+      "def-37": {
         "type": "object",
         "properties": {
           "displayName": {
@@ -1255,7 +1480,7 @@
         },
         "title": "UpdateInvitePreferencesBody"
       },
-      "def-32": {
+      "def-38": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -1310,7 +1535,7 @@
         ],
         "title": "InvitePreferencesResponse"
       },
-      "def-33": {
+      "def-39": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1334,7 +1559,7 @@
         ],
         "title": "InviteItemParams"
       },
-      "def-34": {
+      "def-40": {
         "type": "object",
         "properties": {
           "name": {
@@ -1386,7 +1611,7 @@
         ],
         "title": "CreateInviteItemBody"
       },
-      "def-35": {
+      "def-41": {
         "type": "object",
         "properties": {
           "name": {
@@ -1442,7 +1667,7 @@
         },
         "title": "UpdateInviteItemBody"
       },
-      "def-36": {
+      "def-42": {
         "type": "object",
         "properties": {
           "items": {
@@ -1458,7 +1683,7 @@
         ],
         "title": "BulkCreateItemBody"
       },
-      "def-37": {
+      "def-43": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -1526,13 +1751,13 @@
         ],
         "title": "BulkUpdateItemEntry"
       },
-      "def-38": {
+      "def-44": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-37"
+              "$ref": "#/components/schemas/def-43"
             },
             "minItems": 1
           }
@@ -1542,7 +1767,7 @@
         ],
         "title": "BulkUpdateItemBody"
       },
-      "def-39": {
+      "def-45": {
         "type": "object",
         "properties": {
           "name": {
@@ -1558,7 +1783,7 @@
         ],
         "title": "BulkItemError"
       },
-      "def-40": {
+      "def-46": {
         "type": "object",
         "properties": {
           "items": {
@@ -1567,7 +1792,7 @@
           "errors": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-39"
+              "$ref": "#/components/schemas/def-45"
             }
           }
         },
@@ -1577,13 +1802,13 @@
         ],
         "title": "BulkItemResponse"
       },
-      "def-41": {
+      "def-47": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-34"
+              "$ref": "#/components/schemas/def-40"
             },
             "minItems": 1
           }
@@ -1593,7 +1818,7 @@
         ],
         "title": "BulkCreateInviteItemBody"
       },
-      "def-42": {
+      "def-48": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -1656,13 +1881,13 @@
         ],
         "title": "BulkUpdateInviteItemEntry"
       },
-      "def-43": {
+      "def-49": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-42"
+              "$ref": "#/components/schemas/def-48"
             },
             "minItems": 1
           }
@@ -1672,7 +1897,7 @@
         ],
         "title": "BulkUpdateInviteItemBody"
       },
-      "def-44": {
+      "def-50": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -1696,7 +1921,7 @@
         },
         "title": "UserPreferences"
       },
-      "def-45": {
+      "def-51": {
         "type": "object",
         "properties": {
           "user": {
@@ -1721,7 +1946,7 @@
           "preferences": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-44"
+                "$ref": "#/components/schemas/def-50"
               },
               {
                 "type": "null"
@@ -1736,7 +1961,7 @@
         ],
         "title": "ProfileResponse"
       },
-      "def-46": {
+      "def-52": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -1760,11 +1985,11 @@
         },
         "title": "UpdateProfileBody"
       },
-      "def-47": {
+      "def-53": {
         "type": "object",
         "properties": {
           "preferences": {
-            "$ref": "#/components/schemas/def-44"
+            "$ref": "#/components/schemas/def-50"
           }
         },
         "required": [
@@ -1905,13 +2130,13 @@
         }
       }
     },
-    "/plans/{planId}": {
+    "/plans/{planId}/preview": {
       "get": {
-        "summary": "Get plan by ID (now includes participants)",
+        "summary": "Get plan preview",
         "tags": [
           "plans"
         ],
-        "description": "Retrieve a single plan by its ID with associated items and participants. Response now includes participants[] array alongside items[].",
+        "description": "Returns minimal plan info when user is authed but not a participant (needs to create join request). JWT required. 400 if already a participant.",
         "parameters": [
           {
             "schema": {
@@ -1929,12 +2154,101 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-23"
+                  "$ref": "#/components/schemas/def-25"
                 }
               }
             }
           },
           "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}": {
+      "get": {
+        "summary": "Get plan by ID",
+        "tags": [
+          "plans"
+        ],
+        "description": "Returns full plan for participants, or preview+joinRequest for non-participants. JWT required.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/def-23"
+                    },
+                    {
+                      "$ref": "#/components/schemas/def-27"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -2521,7 +2835,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-30"
+                  "$ref": "#/components/schemas/def-36"
                 }
               }
             }
@@ -2792,7 +3106,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-36"
+                "$ref": "#/components/schemas/def-42"
               }
             }
           }
@@ -2814,7 +3128,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "$ref": "#/components/schemas/def-46"
                 }
               }
             }
@@ -2824,7 +3138,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "$ref": "#/components/schemas/def-46"
                 }
               }
             }
@@ -2871,7 +3185,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-38"
+                "$ref": "#/components/schemas/def-44"
               }
             }
           }
@@ -2893,7 +3207,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "$ref": "#/components/schemas/def-46"
                 }
               }
             }
@@ -2903,7 +3217,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "$ref": "#/components/schemas/def-46"
                 }
               }
             }
@@ -2965,7 +3279,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-28"
+                  "$ref": "#/components/schemas/def-34"
                 }
               }
             }
@@ -3014,7 +3328,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-31"
+                "$ref": "#/components/schemas/def-37"
               }
             }
           }
@@ -3046,7 +3360,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-32"
+                  "$ref": "#/components/schemas/def-38"
                 }
               }
             }
@@ -3105,7 +3419,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-34"
+                "$ref": "#/components/schemas/def-40"
               }
             }
           }
@@ -3196,7 +3510,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-35"
+                "$ref": "#/components/schemas/def-41"
               }
             }
           }
@@ -3306,7 +3620,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-41"
+                "$ref": "#/components/schemas/def-47"
               }
             }
           }
@@ -3338,7 +3652,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "$ref": "#/components/schemas/def-46"
                 }
               }
             }
@@ -3348,7 +3662,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "$ref": "#/components/schemas/def-46"
                 }
               }
             }
@@ -3395,7 +3709,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-43"
+                "$ref": "#/components/schemas/def-49"
               }
             }
           }
@@ -3427,7 +3741,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "$ref": "#/components/schemas/def-46"
                 }
               }
             }
@@ -3437,7 +3751,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "$ref": "#/components/schemas/def-46"
                 }
               }
             }
@@ -3533,7 +3847,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-45"
+                  "$ref": "#/components/schemas/def-51"
                 }
               }
             }
@@ -3550,7 +3864,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-46"
+                "$ref": "#/components/schemas/def-52"
               }
             }
           }
@@ -3561,7 +3875,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-47"
+                  "$ref": "#/components/schemas/def-53"
                 }
               }
             }
@@ -3678,6 +3992,117 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/join-requests": {
+      "post": {
+        "summary": "Request to join a plan",
+        "tags": [
+          "plans"
+        ],
+        "description": "Creates a join request for the authenticated user. Idempotent: returns existing request if one already exists. Plan must exist and user must not already be a participant.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-29"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-26"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-26"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {

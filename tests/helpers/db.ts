@@ -41,6 +41,7 @@ export async function cleanupTestDatabase() {
 
   await testDb.delete(schema.items)
   await testDb.delete(schema.planInvites)
+  await testDb.delete(schema.participantJoinRequests)
   await testDb.delete(schema.participants)
   await testDb.delete(schema.plans)
   await testDb.delete(schema.guestProfiles)
@@ -106,6 +107,28 @@ export async function seedTestItems(
   return inserted
 }
 
+export async function seedTestParticipantWithUser(
+  planId: string,
+  userId: string,
+  overrides?: Partial<schema.NewParticipant>
+): Promise<schema.Participant> {
+  const testDb = await getTestDb()
+  const [inserted] = await testDb
+    .insert(schema.participants)
+    .values({
+      planId,
+      userId,
+      name: 'Linked',
+      lastName: 'Participant',
+      contactPhone: '+1-555-000-0002',
+      role: 'participant',
+      inviteToken: randomBytes(32).toString('hex'),
+      ...overrides,
+    })
+    .returning()
+  return inserted
+}
+
 export async function seedTestParticipants(
   planId: string,
   count: number = 3
@@ -128,6 +151,28 @@ export async function seedTestParticipants(
   const inserted = await testDb
     .insert(schema.participants)
     .values(testParticipants)
+    .returning()
+  return inserted
+}
+
+export async function seedTestJoinRequests(
+  planId: string,
+  supabaseUserId: string,
+  overrides?: Partial<schema.NewParticipantJoinRequest>
+): Promise<schema.ParticipantJoinRequest> {
+  const testDb = await getTestDb()
+
+  const [inserted] = await testDb
+    .insert(schema.participantJoinRequests)
+    .values({
+      planId,
+      supabaseUserId,
+      name: 'TestFirst',
+      lastName: 'TestLast',
+      contactPhone: '+1-555-000-0000',
+      status: 'pending',
+      ...overrides,
+    })
     .returning()
   return inserted
 }
