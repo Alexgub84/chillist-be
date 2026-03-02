@@ -16,6 +16,25 @@ export const createJoinRequestBodySchema = {
   required: ['name', 'lastName', 'contactPhone'],
 } as const
 
+export const joinRequestActionParamsSchema = {
+  $id: 'JoinRequestActionParams',
+  type: 'object',
+  properties: {
+    planId: { type: 'string', format: 'uuid' },
+    requestId: { type: 'string', format: 'uuid' },
+  },
+  required: ['planId', 'requestId'],
+} as const
+
+export const updateJoinRequestStatusBodySchema = {
+  $id: 'UpdateJoinRequestStatusBody',
+  type: 'object',
+  properties: {
+    status: { type: 'string', enum: ['approved', 'rejected'] },
+  },
+  required: ['status'],
+} as const
+
 export const joinRequestListSchema = {
   $id: 'JoinRequestList',
   type: 'array',
