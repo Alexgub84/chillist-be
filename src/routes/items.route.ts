@@ -131,6 +131,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           { itemId: createdItem.itemId, planId, assignedParticipantId },
           'Item created'
         )
+        fastify.notifyItemChange(planId)
         return reply.status(201).send(createdItem)
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to create item')
@@ -297,6 +298,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           { itemId, changes: Object.keys(updates) },
           'Item updated'
         )
+        fastify.notifyItemChange(existingItem.planId)
         return updatedItem
       } catch (error) {
         request.log.error({ err: error, itemId }, 'Failed to update item')
@@ -442,6 +444,9 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           { planId, created: createdItems.length, failed: errors.length },
           'Bulk items created'
         )
+        if (createdItems.length > 0) {
+          fastify.notifyItemChange(planId)
+        }
         return reply.status(statusCode).send({ items: createdItems, errors })
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to bulk create items')
@@ -590,6 +595,9 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           { planId, updated: updatedItems.length, failed: errors.length },
           'Bulk items updated'
         )
+        if (updatedItems.length > 0) {
+          fastify.notifyItemChange(planId)
+        }
         return reply.status(statusCode).send({ items: updatedItems, errors })
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to bulk update items')

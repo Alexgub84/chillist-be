@@ -6,6 +6,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     db: Database
     jwtEnabled: boolean
+    notifyItemChange: (planId: string) => void
   }
 
   interface FastifyRequest {
