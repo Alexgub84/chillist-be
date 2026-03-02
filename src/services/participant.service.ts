@@ -61,7 +61,7 @@ export async function addParticipantToPlan(
       notes: data.notes ?? null,
       role: data.role ?? 'participant',
       inviteToken: data.inviteToken ?? null,
-      inviteStatus: data.inviteStatus ?? 'accepted',
+      inviteStatus: data.inviteStatus ?? 'pending',
       rsvpStatus: data.rsvpStatus ?? 'confirmed',
     })
     .returning()
