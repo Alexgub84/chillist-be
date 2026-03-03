@@ -589,7 +589,7 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(401)
     })
 
-    it('returns own plans + public plans with JWT', async () => {
+    it('returns only owned plans with JWT', async () => {
       await createPlanDirectly(db, { visibility: 'public' })
       await createPlanDirectly(db, {
         visibility: 'invite_only',
@@ -610,15 +610,12 @@ describe('Plan Access Control', () => {
 
       expect(response.statusCode).toBe(200)
       const result = response.json()
-      expect(result).toHaveLength(2)
-      const visibilities = result.map(
-        (p: { visibility: string }) => p.visibility
-      )
-      expect(visibilities).toContain('public')
-      expect(visibilities).toContain('invite_only')
+      expect(result).toHaveLength(1)
+      expect(result[0].visibility).toBe('invite_only')
+      expect(result[0].createdByUserId).toBe(OWNER_USER_ID)
     })
 
-    it('includes plans where user is a linked participant', async () => {
+    it('does not include plans where user is only a participant (not owner)', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -638,7 +635,7 @@ describe('Plan Access Control', () => {
       const result = response.json()
       expect(
         result.some((p: { planId: string }) => p.planId === plan.planId)
-      ).toBe(true)
+      ).toBe(false)
     })
 
     it('does not include other users invite_only plans', async () => {
@@ -659,7 +656,7 @@ describe('Plan Access Control', () => {
       expect(response.json()).toHaveLength(0)
     })
 
-    it('returns all plans for admin regardless of visibility', async () => {
+    it('returns all plans for admin via GET /admin/plans', async () => {
       await createPlanDirectly(db, { visibility: 'public' })
       await createPlanDirectly(db, {
         visibility: 'invite_only',
@@ -674,7 +671,7 @@ describe('Plan Access Control', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/plans',
+        url: '/admin/plans',
         headers: { authorization: `Bearer ${token}` },
       })
 

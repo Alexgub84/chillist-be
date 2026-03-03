@@ -72,6 +72,7 @@ describe('Plans Route', () => {
   describe('JWT enforcement', () => {
     it.each([
       ['GET', '/plans'],
+      ['GET', '/admin/plans'],
       ['GET', '/plans/pending-requests'],
       ['POST', '/plans'],
       ['PATCH', '/plans/00000000-0000-0000-0000-000000000000'],
@@ -113,7 +114,7 @@ describe('Plans Route', () => {
     })
 
     it('returns all plans when plans exist', async () => {
-      await seedTestPlans(3)
+      await seedTestPlans(3, { createdByUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'GET',
@@ -139,7 +140,7 @@ describe('Plans Route', () => {
     })
 
     it('returns plans ordered by createdAt', async () => {
-      await seedTestPlans(3)
+      await seedTestPlans(3, { createdByUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'GET',
@@ -158,7 +159,7 @@ describe('Plans Route', () => {
     })
 
     it('returns plans with correct structure', async () => {
-      await seedTestPlans(1)
+      await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'GET',
@@ -180,6 +181,52 @@ describe('Plans Route', () => {
       expect(plan).toHaveProperty('tags')
       expect(plan).toHaveProperty('createdAt')
       expect(plan).toHaveProperty('updatedAt')
+    })
+  })
+
+  describe('GET /admin/plans', () => {
+    it('returns 403 for non-admin user', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/admin/plans',
+        headers: authHeaders(),
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(response.json()).toEqual({
+        message: 'Admin access required',
+      })
+    })
+
+    it('returns all plans for admin including plans not owned by admin', async () => {
+      const [plan1] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestPlans(1, { createdByUserId: OTHER_USER_ID })
+
+      const adminToken = await signAdminJwt()
+      const response = await app.inject({
+        method: 'GET',
+        url: '/admin/plans',
+        headers: { authorization: `Bearer ${adminToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const plansList = response.json()
+      expect(plansList).toHaveLength(2)
+      expect(plansList.map((p: { planId: string }) => p.planId)).toContain(
+        plan1.planId
+      )
+    })
+
+    it('returns empty array when no plans exist', async () => {
+      const adminToken = await signAdminJwt()
+      const response = await app.inject({
+        method: 'GET',
+        url: '/admin/plans',
+        headers: { authorization: `Bearer ${adminToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual([])
     })
   })
 
@@ -1504,7 +1551,9 @@ describe('Plans Route', () => {
     })
 
     it('deleted plan is removed from list', async () => {
-      const [plan1, plan2] = await seedTestPlans(2)
+      const [plan1, plan2] = await seedTestPlans(2, {
+        createdByUserId: TEST_USER_ID,
+      })
       const adminToken = await signAdminJwt()
 
       await app.inject({
