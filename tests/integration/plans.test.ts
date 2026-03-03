@@ -72,6 +72,7 @@ describe('Plans Route', () => {
   describe('JWT enforcement', () => {
     it.each([
       ['GET', '/plans'],
+      ['GET', '/plans/pending-requests'],
       ['POST', '/plans'],
       ['PATCH', '/plans/00000000-0000-0000-0000-000000000000'],
       ['DELETE', '/plans/00000000-0000-0000-0000-000000000000'],
@@ -179,6 +180,158 @@ describe('Plans Route', () => {
       expect(plan).toHaveProperty('tags')
       expect(plan).toHaveProperty('createdAt')
       expect(plan).toHaveProperty('updatedAt')
+    })
+  })
+
+  describe('GET /plans/pending-requests', () => {
+    it('returns empty array when user has no pending join requests', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/pending-requests',
+        headers: authHeaders(),
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual([])
+    })
+
+    it('returns plans with pending join requests for the user', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: {
+          title: 'Beach Day',
+          owner: validOwner,
+          location: {
+            locationId: 'loc-beach',
+            name: 'Tel Aviv Beach',
+            city: 'Tel Aviv',
+          },
+          startDate: '2026-03-10T00:00:00.000Z',
+          endDate: '2026-03-11T00:00:00.000Z',
+        },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/pending-requests',
+        headers: { authorization: `Bearer ${requesterToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const list = response.json()
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({
+        planId,
+        title: 'Beach Day',
+        startDate: '2026-03-10T00:00:00.000Z',
+        endDate: '2026-03-11T00:00:00.000Z',
+        location: {
+          locationId: 'loc-beach',
+          name: 'Tel Aviv Beach',
+          city: 'Tel Aviv',
+        },
+      })
+    })
+
+    it('excludes approved and rejected join requests', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Approved Plan', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+
+      const ownerToken = await signTestJwt({ sub: TEST_USER_ID })
+      const planRes = await app.inject({
+        method: 'GET',
+        url: `/plans/${planId}`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+      })
+      const { requestId } = planRes.json().joinRequests[0]
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/plans/${planId}/join-requests/${requestId}`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { status: 'approved' },
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/pending-requests',
+        headers: { authorization: `Bearer ${requesterToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual([])
+    })
+
+    it('returns only minimal fields (planId, title, dates, location)', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Minimal Fields Plan', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'User',
+          contactPhone: '+1-555-999-9999',
+        },
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans/pending-requests',
+        headers: { authorization: `Bearer ${requesterToken}` },
+      })
+
+      const [item] = response.json()
+      expect(Object.keys(item)).toEqual([
+        'planId',
+        'title',
+        'startDate',
+        'endDate',
+        'location',
+      ])
+      expect(item.description).toBeUndefined()
+      expect(item.status).toBeUndefined()
+      expect(item.participants).toBeUndefined()
     })
   })
 

@@ -260,6 +260,71 @@ export async function plansRoutes(fastify: FastifyInstance) {
     }
   )
 
+  fastify.get(
+    '/plans/pending-requests',
+    {
+      schema: {
+        tags: ['plans'],
+        summary: 'List plans with pending join requests',
+        description:
+          'Returns minimal plan details (planId, title, dates, location) for plans where the user has a pending join request. JWT required.',
+        response: {
+          200: { $ref: 'PendingJoinRequestPreviewList#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const userId = request.user!.id
+
+        const pendingPlans = await fastify.db
+          .select({
+            planId: plans.planId,
+            title: plans.title,
+            startDate: plans.startDate,
+            endDate: plans.endDate,
+            location: plans.location,
+          })
+          .from(participantJoinRequests)
+          .innerJoin(plans, eq(participantJoinRequests.planId, plans.planId))
+          .where(
+            and(
+              eq(participantJoinRequests.supabaseUserId, userId),
+              eq(participantJoinRequests.status, 'pending')
+            )
+          )
+
+        request.log.info(
+          { count: pendingPlans.length, userId },
+          'Pending join request plans retrieved'
+        )
+        return pendingPlans
+      } catch (error) {
+        request.log.error(
+          { err: error },
+          'Failed to retrieve pending join request plans'
+        )
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to retrieve pending join request plans',
+        })
+      }
+    }
+  )
+
   fastify.get<{ Params: { planId: string } }>(
     '/plans/:planId/preview',
     {

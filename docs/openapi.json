@@ -228,6 +228,50 @@
       "def-7": {
         "type": "object",
         "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "location": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-4"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "planId",
+          "title"
+        ],
+        "title": "PendingJoinRequestPreview"
+      },
+      "def-8": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-7"
+        },
+        "title": "PendingJoinRequestPreviewList"
+      },
+      "def-9": {
+        "type": "object",
+        "properties": {
           "name": {
             "type": "string",
             "minLength": 1,
@@ -263,7 +307,7 @@
         ],
         "title": "OwnerBody"
       },
-      "def-8": {
+      "def-10": {
         "type": "object",
         "properties": {
           "title": {
@@ -311,12 +355,12 @@
             "nullable": true
           },
           "owner": {
-            "$ref": "#/components/schemas/def-7"
+            "$ref": "#/components/schemas/def-9"
           },
           "participants": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-19"
+              "$ref": "#/components/schemas/def-21"
             }
           }
         },
@@ -326,7 +370,7 @@
         ],
         "title": "CreatePlanBody"
       },
-      "def-9": {
+      "def-11": {
         "type": "object",
         "properties": {
           "title": {
@@ -384,7 +428,7 @@
         },
         "title": "UpdatePlanBody"
       },
-      "def-10": {
+      "def-12": {
         "type": "object",
         "properties": {
           "planId": {
@@ -397,7 +441,7 @@
         ],
         "title": "PlanIdParam"
       },
-      "def-11": {
+      "def-13": {
         "type": "object",
         "properties": {
           "ok": {
@@ -409,7 +453,7 @@
         ],
         "title": "DeletePlanResponse"
       },
-      "def-12": {
+      "def-14": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -493,14 +537,14 @@
         ],
         "title": "Item"
       },
-      "def-13": {
+      "def-15": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-12"
+          "$ref": "#/components/schemas/def-14"
         },
         "title": "ItemList"
       },
-      "def-14": {
+      "def-16": {
         "type": "object",
         "properties": {
           "name": {
@@ -567,7 +611,7 @@
         ],
         "title": "CreateItemBody"
       },
-      "def-15": {
+      "def-17": {
         "type": "object",
         "properties": {
           "name": {
@@ -628,7 +672,7 @@
         },
         "title": "UpdateItemBody"
       },
-      "def-16": {
+      "def-18": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -641,7 +685,7 @@
         ],
         "title": "ItemIdParam"
       },
-      "def-17": {
+      "def-19": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -754,14 +798,14 @@
         ],
         "title": "Participant"
       },
-      "def-18": {
+      "def-20": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-17"
+          "$ref": "#/components/schemas/def-19"
         },
         "title": "ParticipantList"
       },
-      "def-19": {
+      "def-21": {
         "type": "object",
         "properties": {
           "name": {
@@ -823,7 +867,7 @@
         ],
         "title": "CreateParticipantBody"
       },
-      "def-20": {
+      "def-22": {
         "type": "object",
         "properties": {
           "name": {
@@ -895,7 +939,7 @@
         },
         "title": "UpdateParticipantBody"
       },
-      "def-21": {
+      "def-23": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -908,7 +952,7 @@
         ],
         "title": "ParticipantIdParam"
       },
-      "def-22": {
+      "def-24": {
         "type": "object",
         "properties": {
           "ok": {
@@ -920,7 +964,7 @@
         ],
         "title": "DeleteParticipantResponse"
       },
-      "def-23": {
+      "def-25": {
         "type": "object",
         "properties": {
           "planId": {
@@ -996,13 +1040,13 @@
             "format": "date-time"
           },
           "items": {
-            "$ref": "#/components/schemas/def-13"
+            "$ref": "#/components/schemas/def-15"
           },
           "participants": {
-            "$ref": "#/components/schemas/def-18"
+            "$ref": "#/components/schemas/def-20"
           },
           "joinRequests": {
-            "$ref": "#/components/schemas/def-30"
+            "$ref": "#/components/schemas/def-32"
           }
         },
         "required": [
@@ -1017,7 +1061,7 @@
         ],
         "title": "PlanWithDetails"
       },
-      "def-24": {
+      "def-26": {
         "type": "object",
         "properties": {
           "status": {
@@ -1032,7 +1076,7 @@
         ],
         "title": "PlanNotLoggedInResponse"
       },
-      "def-25": {
+      "def-27": {
         "type": "object",
         "properties": {
           "title": {
@@ -1068,7 +1112,7 @@
         ],
         "title": "PlanPreviewFields"
       },
-      "def-26": {
+      "def-28": {
         "type": "object",
         "properties": {
           "requestId": {
@@ -1150,7 +1194,7 @@
         ],
         "title": "JoinRequest"
       },
-      "def-27": {
+      "def-29": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1168,7 +1212,7 @@
         ],
         "title": "JoinRequestActionParams"
       },
-      "def-28": {
+      "def-30": {
         "type": "object",
         "properties": {
           "status": {
@@ -1184,7 +1228,7 @@
         ],
         "title": "UpdateJoinRequestStatusBody"
       },
-      "def-29": {
+      "def-31": {
         "type": "object",
         "properties": {
           "status": {
@@ -1194,12 +1238,12 @@
             ]
           },
           "preview": {
-            "$ref": "#/components/schemas/def-25"
+            "$ref": "#/components/schemas/def-27"
           },
           "joinRequest": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-26"
+                "$ref": "#/components/schemas/def-28"
               },
               {
                 "type": "null"
@@ -1214,14 +1258,14 @@
         ],
         "title": "PlanNotParticipantResponse"
       },
-      "def-30": {
+      "def-32": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-26"
+          "$ref": "#/components/schemas/def-28"
         },
         "title": "JoinRequestList"
       },
-      "def-31": {
+      "def-33": {
         "type": "object",
         "properties": {
           "name": {
@@ -1273,7 +1317,7 @@
         ],
         "title": "CreateJoinRequestBody"
       },
-      "def-32": {
+      "def-34": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1292,7 +1336,7 @@
         ],
         "title": "InviteParams"
       },
-      "def-33": {
+      "def-35": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -1318,14 +1362,14 @@
         ],
         "title": "InviteParticipant"
       },
-      "def-34": {
+      "def-36": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-33"
+          "$ref": "#/components/schemas/def-35"
         },
         "title": "InviteParticipantList"
       },
-      "def-35": {
+      "def-37": {
         "type": "object",
         "properties": {
           "adultsCount": {
@@ -1351,7 +1395,7 @@
         },
         "title": "InviteMyPreferences"
       },
-      "def-36": {
+      "def-38": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1409,10 +1453,10 @@
             "format": "date-time"
           },
           "items": {
-            "$ref": "#/components/schemas/def-13"
+            "$ref": "#/components/schemas/def-15"
           },
           "participants": {
-            "$ref": "#/components/schemas/def-34"
+            "$ref": "#/components/schemas/def-36"
           },
           "myParticipantId": {
             "type": "string",
@@ -1427,7 +1471,7 @@
             ]
           },
           "myPreferences": {
-            "$ref": "#/components/schemas/def-35"
+            "$ref": "#/components/schemas/def-37"
           }
         },
         "required": [
@@ -1444,7 +1488,7 @@
         ],
         "title": "InvitePlanResponse"
       },
-      "def-37": {
+      "def-39": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1462,7 +1506,7 @@
         ],
         "title": "RegenerateTokenParams"
       },
-      "def-38": {
+      "def-40": {
         "type": "object",
         "properties": {
           "inviteToken": {
@@ -1474,7 +1518,7 @@
         ],
         "title": "RegenerateTokenResponse"
       },
-      "def-39": {
+      "def-41": {
         "type": "object",
         "properties": {
           "displayName": {
@@ -1514,7 +1558,7 @@
         },
         "title": "UpdateInvitePreferencesBody"
       },
-      "def-40": {
+      "def-42": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -1569,7 +1613,7 @@
         ],
         "title": "InvitePreferencesResponse"
       },
-      "def-41": {
+      "def-43": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1593,7 +1637,7 @@
         ],
         "title": "InviteItemParams"
       },
-      "def-42": {
+      "def-44": {
         "type": "object",
         "properties": {
           "name": {
@@ -1645,7 +1689,7 @@
         ],
         "title": "CreateInviteItemBody"
       },
-      "def-43": {
+      "def-45": {
         "type": "object",
         "properties": {
           "name": {
@@ -1701,13 +1745,13 @@
         },
         "title": "UpdateInviteItemBody"
       },
-      "def-44": {
+      "def-46": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-14"
+              "$ref": "#/components/schemas/def-16"
             },
             "minItems": 1
           }
@@ -1717,7 +1761,7 @@
         ],
         "title": "BulkCreateItemBody"
       },
-      "def-45": {
+      "def-47": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -1785,13 +1829,13 @@
         ],
         "title": "BulkUpdateItemEntry"
       },
-      "def-46": {
+      "def-48": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-45"
+              "$ref": "#/components/schemas/def-47"
             },
             "minItems": 1
           }
@@ -1801,7 +1845,7 @@
         ],
         "title": "BulkUpdateItemBody"
       },
-      "def-47": {
+      "def-49": {
         "type": "object",
         "properties": {
           "name": {
@@ -1817,16 +1861,16 @@
         ],
         "title": "BulkItemError"
       },
-      "def-48": {
+      "def-50": {
         "type": "object",
         "properties": {
           "items": {
-            "$ref": "#/components/schemas/def-13"
+            "$ref": "#/components/schemas/def-15"
           },
           "errors": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-47"
+              "$ref": "#/components/schemas/def-49"
             }
           }
         },
@@ -1836,13 +1880,13 @@
         ],
         "title": "BulkItemResponse"
       },
-      "def-49": {
+      "def-51": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-42"
+              "$ref": "#/components/schemas/def-44"
             },
             "minItems": 1
           }
@@ -1852,7 +1896,7 @@
         ],
         "title": "BulkCreateInviteItemBody"
       },
-      "def-50": {
+      "def-52": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -1915,13 +1959,13 @@
         ],
         "title": "BulkUpdateInviteItemEntry"
       },
-      "def-51": {
+      "def-53": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-50"
+              "$ref": "#/components/schemas/def-52"
             },
             "minItems": 1
           }
@@ -1931,7 +1975,7 @@
         ],
         "title": "BulkUpdateInviteItemBody"
       },
-      "def-52": {
+      "def-54": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -1955,7 +1999,7 @@
         },
         "title": "UserPreferences"
       },
-      "def-53": {
+      "def-55": {
         "type": "object",
         "properties": {
           "user": {
@@ -1980,7 +2024,7 @@
           "preferences": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-52"
+                "$ref": "#/components/schemas/def-54"
               },
               {
                 "type": "null"
@@ -1995,7 +2039,7 @@
         ],
         "title": "ProfileResponse"
       },
-      "def-54": {
+      "def-56": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -2019,11 +2063,11 @@
         },
         "title": "UpdateProfileBody"
       },
-      "def-55": {
+      "def-57": {
         "type": "object",
         "properties": {
           "preferences": {
-            "$ref": "#/components/schemas/def-52"
+            "$ref": "#/components/schemas/def-54"
           }
         },
         "required": [
@@ -2066,7 +2110,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-8"
+                "$ref": "#/components/schemas/def-10"
               }
             }
           }
@@ -2077,7 +2121,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-23"
+                  "$ref": "#/components/schemas/def-25"
                 }
               }
             }
@@ -2164,6 +2208,47 @@
         }
       }
     },
+    "/plans/pending-requests": {
+      "get": {
+        "summary": "List plans with pending join requests",
+        "tags": [
+          "plans"
+        ],
+        "description": "Returns minimal plan details (planId, title, dates, location) for plans where the user has a pending join request. JWT required.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-8"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/plans/{planId}/preview": {
       "get": {
         "summary": "Get plan preview",
@@ -2188,7 +2273,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-25"
+                  "$ref": "#/components/schemas/def-27"
                 }
               }
             }
@@ -2272,10 +2357,10 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/def-23"
+                      "$ref": "#/components/schemas/def-25"
                     },
                     {
-                      "$ref": "#/components/schemas/def-29"
+                      "$ref": "#/components/schemas/def-31"
                     }
                   ]
                 }
@@ -2334,7 +2419,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-9"
+                "$ref": "#/components/schemas/def-11"
               }
             }
           }
@@ -2426,7 +2511,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-11"
+                  "$ref": "#/components/schemas/def-13"
                 }
               }
             }
@@ -2498,7 +2583,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-18"
+                  "$ref": "#/components/schemas/def-20"
                 }
               }
             }
@@ -2545,7 +2630,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-19"
+                "$ref": "#/components/schemas/def-21"
               }
             }
           }
@@ -2567,7 +2652,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-17"
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
@@ -2639,7 +2724,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-17"
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
@@ -2686,7 +2771,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-20"
+                "$ref": "#/components/schemas/def-22"
               }
             }
           }
@@ -2708,7 +2793,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-17"
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
@@ -2788,7 +2873,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-22"
+                  "$ref": "#/components/schemas/def-24"
                 }
               }
             }
@@ -2869,7 +2954,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-38"
+                  "$ref": "#/components/schemas/def-40"
                 }
               }
             }
@@ -2918,7 +3003,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-14"
+                "$ref": "#/components/schemas/def-16"
               }
             }
           }
@@ -2940,7 +3025,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-12"
+                  "$ref": "#/components/schemas/def-14"
                 }
               }
             }
@@ -3010,7 +3095,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-13"
+                  "$ref": "#/components/schemas/def-15"
                 }
               }
             }
@@ -3059,7 +3144,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-15"
+                "$ref": "#/components/schemas/def-17"
               }
             }
           }
@@ -3081,7 +3166,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-12"
+                  "$ref": "#/components/schemas/def-14"
                 }
               }
             }
@@ -3140,7 +3225,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-44"
+                "$ref": "#/components/schemas/def-46"
               }
             }
           }
@@ -3162,7 +3247,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-48"
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
@@ -3172,7 +3257,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-48"
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
@@ -3219,7 +3304,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-46"
+                "$ref": "#/components/schemas/def-48"
               }
             }
           }
@@ -3241,7 +3326,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-48"
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
@@ -3251,7 +3336,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-48"
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
@@ -3313,7 +3398,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-36"
+                  "$ref": "#/components/schemas/def-38"
                 }
               }
             }
@@ -3362,7 +3447,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-39"
+                "$ref": "#/components/schemas/def-41"
               }
             }
           }
@@ -3394,7 +3479,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "$ref": "#/components/schemas/def-42"
                 }
               }
             }
@@ -3453,7 +3538,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-42"
+                "$ref": "#/components/schemas/def-44"
               }
             }
           }
@@ -3485,7 +3570,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-12"
+                  "$ref": "#/components/schemas/def-14"
                 }
               }
             }
@@ -3544,7 +3629,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-43"
+                "$ref": "#/components/schemas/def-45"
               }
             }
           }
@@ -3585,7 +3670,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-12"
+                  "$ref": "#/components/schemas/def-14"
                 }
               }
             }
@@ -3654,7 +3739,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-49"
+                "$ref": "#/components/schemas/def-51"
               }
             }
           }
@@ -3686,7 +3771,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-48"
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
@@ -3696,7 +3781,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-48"
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
@@ -3743,7 +3828,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-51"
+                "$ref": "#/components/schemas/def-53"
               }
             }
           }
@@ -3775,7 +3860,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-48"
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
@@ -3785,7 +3870,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-48"
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
@@ -3881,7 +3966,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-53"
+                  "$ref": "#/components/schemas/def-55"
                 }
               }
             }
@@ -3898,7 +3983,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-54"
+                "$ref": "#/components/schemas/def-56"
               }
             }
           }
@@ -3909,7 +3994,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-55"
+                  "$ref": "#/components/schemas/def-57"
                 }
               }
             }
@@ -4000,7 +4085,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-17"
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
@@ -4069,7 +4154,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-31"
+                "$ref": "#/components/schemas/def-33"
               }
             }
           }
@@ -4091,7 +4176,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-26"
+                  "$ref": "#/components/schemas/def-28"
                 }
               }
             }
@@ -4101,7 +4186,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-26"
+                  "$ref": "#/components/schemas/def-28"
                 }
               }
             }
@@ -4180,7 +4265,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-28"
+                "$ref": "#/components/schemas/def-30"
               }
             }
           }
