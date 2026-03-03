@@ -8,6 +8,7 @@ import {
   jsonb,
   pgEnum,
   unique,
+  boolean,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -187,6 +188,8 @@ export const items = pgTable('items', {
     () => participants.participantId,
     { onDelete: 'set null' }
   ),
+  isAllParticipants: boolean('is_all_participants').default(false).notNull(),
+  allParticipantsGroupId: uuid('all_participants_group_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

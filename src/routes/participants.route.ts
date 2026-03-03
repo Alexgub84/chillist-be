@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { participants, plans } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
+import { removeParticipantFromAllGroups } from '../services/all-participants-items.service.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -426,6 +427,17 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           return reply.status(400).send({
             message: 'Cannot delete participant with owner role',
           })
+        }
+
+        const deletedAllItems = await removeParticipantFromAllGroups(
+          fastify.db,
+          participantId
+        )
+        if (deletedAllItems > 0) {
+          request.log.info(
+            { participantId, deletedAllItems },
+            'Removed participant all-participants item copies'
+          )
         }
 
         await fastify.db

@@ -24,6 +24,12 @@ export const itemSchema = {
     subcategory: { type: 'string', nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
+    isAllParticipants: { type: 'boolean' },
+    allParticipantsGroupId: {
+      type: 'string',
+      format: 'uuid',
+      nullable: true,
+    },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
   },
@@ -35,6 +41,7 @@ export const itemSchema = {
     'quantity',
     'unit',
     'status',
+    'isAllParticipants',
     'createdAt',
     'updatedAt',
   ],
@@ -64,6 +71,7 @@ export const createItemBodySchema = {
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
+    assignedToAll: { type: 'boolean' },
   },
   required: ['name', 'category', 'quantity', 'status'],
 } as const
@@ -86,6 +94,7 @@ export const updateItemBodySchema = {
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
+    assignedToAll: { type: 'boolean' },
   },
 } as const
 
