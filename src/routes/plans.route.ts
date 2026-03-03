@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
-import { eq, and, or, exists, sql } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import {
   plans,
   participants,
@@ -197,8 +197,9 @@ export async function plansRoutes(fastify: FastifyInstance) {
     {
       schema: {
         tags: ['plans'],
-        summary: 'List all plans',
-        description: 'Retrieve all plans ordered by creation date',
+        summary: 'List plans owned by user',
+        description:
+          'Retrieve plans created by the authenticated user, ordered by creation date',
         response: {
           200: { $ref: 'PlanList#' },
           500: { $ref: 'ErrorResponse#' },
@@ -210,28 +211,10 @@ export async function plansRoutes(fastify: FastifyInstance) {
       try {
         const userId = request.user!.id
 
-        const conditions = isAdmin(request.user)
-          ? sql`true`
-          : or(
-              eq(plans.visibility, 'public'),
-              eq(plans.createdByUserId, userId),
-              exists(
-                fastify.db
-                  .select({ one: participants.participantId })
-                  .from(participants)
-                  .where(
-                    and(
-                      eq(participants.planId, plans.planId),
-                      eq(participants.userId, userId)
-                    )
-                  )
-              )
-            )
-
         const filteredPlans = await fastify.db
           .select()
           .from(plans)
-          .where(conditions)
+          .where(eq(plans.createdByUserId, userId))
           .orderBy(plans.createdAt)
 
         request.log.info(
@@ -241,6 +224,61 @@ export async function plansRoutes(fastify: FastifyInstance) {
         return filteredPlans
       } catch (error) {
         request.log.error({ err: error }, 'Failed to retrieve plans')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to retrieve plans',
+        })
+      }
+    }
+  )
+
+  fastify.get(
+    '/admin/plans',
+    {
+      schema: {
+        tags: ['admin', 'plans'],
+        summary: 'Admin: list all plans',
+        description:
+          'Returns all plans in the system. Admin only. JWT required.',
+        response: {
+          200: { $ref: 'PlanList#' },
+          403: { $ref: 'ErrorResponse#' },
+          500: { $ref: 'ErrorResponse#' },
+          503: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!isAdmin(request.user)) {
+        return reply.status(403).send({
+          message: 'Admin access required',
+        })
+      }
+
+      try {
+        const allPlans = await fastify.db
+          .select()
+          .from(plans)
+          .orderBy(plans.createdAt)
+
+        request.log.info(
+          { count: allPlans.length },
+          'Admin: all plans retrieved'
+        )
+        return allPlans
+      } catch (error) {
+        request.log.error({ err: error }, 'Admin: failed to retrieve plans')
 
         const isConnectionError =
           error instanceof Error &&

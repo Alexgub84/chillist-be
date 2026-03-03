@@ -172,7 +172,7 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
     expect(response.json().contactEmail).toBe('claimer@example.com')
   })
 
-  it('plan appears in user plan list after claiming', async () => {
+  it('plan is accessible via GET /plans/:planId after claiming', async () => {
     const { plan, inviteToken } = await createPlanWithParticipant(db)
     const jwt = await signTestJwt({ sub: USER_A_ID })
 
@@ -182,17 +182,16 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
       headers: { authorization: `Bearer ${jwt}` },
     })
 
-    const listResponse = await app.inject({
+    const getResponse = await app.inject({
       method: 'GET',
-      url: '/plans',
+      url: `/plans/${plan.planId}`,
       headers: { authorization: `Bearer ${jwt}` },
     })
 
-    expect(listResponse.statusCode).toBe(200)
-    const planList = listResponse.json()
-    expect(
-      planList.some((p: { planId: string }) => p.planId === plan.planId)
-    ).toBe(true)
+    expect(getResponse.statusCode).toBe(200)
+    const fetched = getResponse.json()
+    expect(fetched.planId).toBe(plan.planId)
+    expect(fetched.participants).toBeDefined()
   })
 
   it('returns 200 idempotently when participant already linked to same user', async () => {

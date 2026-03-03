@@ -2169,11 +2169,11 @@
         }
       },
       "get": {
-        "summary": "List all plans",
+        "summary": "List plans owned by user",
         "tags": [
           "plans"
         ],
-        "description": "Retrieve all plans ordered by creation date",
+        "description": "Retrieve plans created by the authenticated user, ordered by creation date",
         "responses": {
           "200": {
             "description": "Default Response",
@@ -2181,6 +2181,58 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/def-6"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/plans": {
+      "get": {
+        "summary": "Admin: list all plans",
+        "tags": [
+          "admin",
+          "plans"
+        ],
+        "description": "Returns all plans in the system. Admin only. JWT required.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-6"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }

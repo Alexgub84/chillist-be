@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
-import rateLimit from '@fastify/rate-limit'
+import rateLimitPlugin from '@fastify/rate-limit'
 import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
 import { config } from './config.js'
@@ -26,13 +26,14 @@ export interface BuildAppOptions {
   enableDocs?: boolean
   logger?: false
   auth?: AuthPluginOptions
+  rateLimit?: { max: number; timeWindow: string } | false
 }
 
 export async function buildApp(
   deps: AppDependencies,
   options: BuildAppOptions = {}
 ) {
-  const { enableDocs = config.isDev, logger, auth } = options
+  const { enableDocs = config.isDev, logger, auth, rateLimit } = options
 
   const fastify = Fastify({
     logger:
@@ -105,10 +106,16 @@ export async function buildApp(
     contentSecurityPolicy: config.isDev ? false : undefined,
   })
 
-  await fastify.register(rateLimit, {
-    max: 100,
-    timeWindow: '1 minute',
-  })
+  const rateLimitConfig =
+    rateLimit === false
+      ? false
+      : (rateLimit ?? {
+          max: logger === false ? 100_000 : 100,
+          timeWindow: '1 minute',
+        })
+  if (rateLimitConfig !== false) {
+    await fastify.register(rateLimitPlugin, rateLimitConfig)
+  }
 
   await fastify.register(authPlugin, auth ?? {})
   await fastify.register(guestAuthPlugin)
