@@ -50,6 +50,27 @@ export const planListSchema = {
   items: { $ref: 'Plan#' },
 } as const
 
+export const pendingJoinRequestPreviewSchema = {
+  $id: 'PendingJoinRequestPreview',
+  type: 'object',
+  properties: {
+    planId: { type: 'string', format: 'uuid' },
+    title: { type: 'string' },
+    startDate: { type: 'string', format: 'date-time', nullable: true },
+    endDate: { type: 'string', format: 'date-time', nullable: true },
+    location: {
+      oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
+    },
+  },
+  required: ['planId', 'title'],
+} as const
+
+export const pendingJoinRequestPreviewListSchema = {
+  $id: 'PendingJoinRequestPreviewList',
+  type: 'array',
+  items: { $ref: 'PendingJoinRequestPreview#' },
+} as const
+
 export const ownerBodySchema = {
   $id: 'OwnerBody',
   type: 'object',
