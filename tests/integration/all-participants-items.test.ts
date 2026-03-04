@@ -474,6 +474,580 @@ describe('All Participants Items — Integration', () => {
     })
   })
 
+  describe('PATCH /items/:itemId with assignedToAll', () => {
+    it('assignedToAll: true creates copies for all participants', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { assignedToAll: true },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.isAllParticipants).toBe(true)
+      expect(updated.allParticipantsGroupId).toBeTruthy()
+
+      const allItems = await db
+        .select()
+        .from(items)
+        .where(eq(items.allParticipantsGroupId, updated.allParticipantsGroupId))
+      expect(allItems).toHaveLength(3)
+      expect(allItems.every((i) => i.isAllParticipants)).toBe(true)
+
+      const assignedIds = allItems.map((i) => i.assignedParticipantId).sort()
+      const expectedIds = planParticipants.map((p) => p.participantId).sort()
+      expect(assignedIds).toEqual(expectedIds)
+    })
+
+    it('changing assignedParticipantId on "all" item reassigns to one and cancels siblings', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const target = planParticipants.find((p) => p.role === 'participant')!
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      await assignItemToAllParticipants(db, item.itemId, owner.participantId)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { assignedParticipantId: target.participantId },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.isAllParticipants).toBe(false)
+      expect(updated.assignedParticipantId).toBe(target.participantId)
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(eq(items.allParticipantsGroupId, updated.allParticipantsGroupId))
+      const canceled = allGroupItems.filter((i) => i.status === 'canceled')
+      expect(canceled).toHaveLength(2)
+    })
+
+    it('setting assignedParticipantId to null on "all" item unassigns the group', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const group = await assignItemToAllParticipants(
+        db,
+        item.itemId,
+        owner.participantId
+      )
+      const groupId = group[0].allParticipantsGroupId!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { assignedParticipantId: null },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.isAllParticipants).toBe(false)
+      expect(updated.status).toBe('canceled')
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(eq(items.allParticipantsGroupId, groupId))
+      expect(allGroupItems.every((i) => i.status === 'canceled')).toBe(true)
+      expect(allGroupItems.every((i) => !i.isAllParticipants)).toBe(true)
+    })
+
+    it('assignedToAll: false on "all" item unassigns the group', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 3)
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { assignedToAll: true },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { assignedToAll: false },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.isAllParticipants).toBe(false)
+      expect(updated.status).toBe('canceled')
+    })
+
+    it('updating core fields on "all" item cascades to all copies', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const group = await assignItemToAllParticipants(
+        db,
+        item.itemId,
+        owner.participantId
+      )
+      const groupId = group[0].allParticipantsGroupId!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { name: 'Big Tent', quantity: 5 },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().name).toBe('Big Tent')
+      expect(response.json().quantity).toBe(5)
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(eq(items.allParticipantsGroupId, groupId))
+      for (const gi of allGroupItems) {
+        expect(gi.name).toBe('Big Tent')
+        expect(gi.quantity).toBe(5)
+      }
+    })
+
+    it('status update on "all" item applies only to that copy', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const group = await assignItemToAllParticipants(
+        db,
+        item.itemId,
+        owner.participantId
+      )
+      const siblingCopy = group.find((g) => g.itemId !== item.itemId)!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { status: 'purchased' },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().status).toBe('purchased')
+
+      const [sibling] = await db
+        .select()
+        .from(items)
+        .where(eq(items.itemId, siblingCopy.itemId))
+      expect(sibling.status).toBe('pending')
+    })
+
+    it('re-toggle via assignedToAll: true after unassign revives the group', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      await assignItemToAllParticipants(db, item.itemId, owner.participantId)
+      await unassignGroup(db, item.itemId)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { assignedToAll: true },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.isAllParticipants).toBe(true)
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(eq(items.allParticipantsGroupId, updated.allParticipantsGroupId))
+      const active = allGroupItems.filter(
+        (i) => i.isAllParticipants && i.status !== 'canceled'
+      )
+      expect(active).toHaveLength(3)
+    })
+  })
+
+  describe('POST /plans/:planId/items with assignedToAll', () => {
+    it('creates item and assigns to all participants in one request', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Shared Tent',
+          category: 'equipment',
+          quantity: 1,
+          status: 'pending',
+          assignedToAll: true,
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const created = response.json()
+      expect(created.isAllParticipants).toBe(true)
+      expect(created.allParticipantsGroupId).toBeTruthy()
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(eq(items.allParticipantsGroupId, created.allParticipantsGroupId))
+      expect(allGroupItems).toHaveLength(3)
+      expect(allGroupItems.every((i) => i.name === 'Shared Tent')).toBe(true)
+
+      const assignedIds = allGroupItems
+        .map((i) => i.assignedParticipantId)
+        .sort()
+      const expectedIds = planParticipants.map((p) => p.participantId).sort()
+      expect(assignedIds).toEqual(expectedIds)
+    })
+
+    it('creates item without assignedToAll as a normal item', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 2)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Regular Item',
+          category: 'equipment',
+          quantity: 1,
+          status: 'pending',
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const created = response.json()
+      expect(created.isAllParticipants).toBe(false)
+      expect(created.allParticipantsGroupId).toBeNull()
+    })
+  })
+
+  describe('PATCH /plans/:planId/items/bulk with assignedToAll', () => {
+    it('bulk update with assignedToAll: true creates copies for all participants', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 3)
+      const planItems = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [{ itemId: planItems[0].itemId, assignedToAll: true }],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(1)
+      expect(body.errors).toHaveLength(0)
+      expect(body.items[0].isAllParticipants).toBe(true)
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(
+          eq(items.allParticipantsGroupId, body.items[0].allParticipantsGroupId)
+        )
+      expect(allGroupItems).toHaveLength(3)
+    })
+
+    it('bulk update reassigning "all" item to specific participant cancels siblings', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const target = planParticipants.find((p) => p.role === 'participant')!
+      const planItems = await seedTestItems(plan.planId, 1)
+
+      await assignItemToAllParticipants(
+        db,
+        planItems[0].itemId,
+        owner.participantId
+      )
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              itemId: planItems[0].itemId,
+              assignedParticipantId: target.participantId,
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items[0].isAllParticipants).toBe(false)
+      expect(body.items[0].assignedParticipantId).toBe(target.participantId)
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(
+          eq(items.allParticipantsGroupId, body.items[0].allParticipantsGroupId)
+        )
+      const canceled = allGroupItems.filter((i) => i.status === 'canceled')
+      expect(canceled).toHaveLength(2)
+    })
+
+    it('bulk update mixing normal and assignedToAll items in one request', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 3)
+      const planItems = await seedTestItems(plan.planId, 2)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            { itemId: planItems[0].itemId, assignedToAll: true },
+            { itemId: planItems[1].itemId, name: 'Updated Normal' },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(2)
+      expect(body.errors).toHaveLength(0)
+
+      const allItem = body.items.find(
+        (i: { itemId: string }) => i.itemId === planItems[0].itemId
+      )
+      expect(allItem.isAllParticipants).toBe(true)
+
+      const normalItem = body.items.find(
+        (i: { itemId: string }) => i.itemId === planItems[1].itemId
+      )
+      expect(normalItem.name).toBe('Updated Normal')
+      expect(normalItem.isAllParticipants).toBe(false)
+    })
+
+    it('bulk update with assignedToAll: false unassigns the group', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const planItems = await seedTestItems(plan.planId, 1)
+
+      const group = await assignItemToAllParticipants(
+        db,
+        planItems[0].itemId,
+        owner.participantId
+      )
+      const groupId = group[0].allParticipantsGroupId!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [{ itemId: planItems[0].itemId, assignedToAll: false }],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items[0].isAllParticipants).toBe(false)
+      expect(body.items[0].status).toBe('canceled')
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(eq(items.allParticipantsGroupId, groupId))
+      expect(allGroupItems.every((i) => i.status === 'canceled')).toBe(true)
+    })
+
+    it('bulk update core fields on "all" item cascades to all copies', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const planItems = await seedTestItems(plan.planId, 1)
+
+      const group = await assignItemToAllParticipants(
+        db,
+        planItems[0].itemId,
+        owner.participantId
+      )
+      const groupId = group[0].allParticipantsGroupId!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              itemId: planItems[0].itemId,
+              name: 'Bulk Renamed',
+              quantity: 10,
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().items[0].name).toBe('Bulk Renamed')
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(eq(items.allParticipantsGroupId, groupId))
+      for (const gi of allGroupItems) {
+        expect(gi.name).toBe('Bulk Renamed')
+        expect(gi.quantity).toBe(10)
+      }
+    })
+  })
+
+  describe('POST /plans/:planId/items/bulk with assignedToAll', () => {
+    it('bulk create with assignedToAll: true creates copies for all participants', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 3)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              name: 'Shared Lantern',
+              category: 'equipment',
+              quantity: 1,
+              status: 'pending',
+              assignedToAll: true,
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.errors).toHaveLength(0)
+      expect(body.items).toHaveLength(1)
+      expect(body.items[0].isAllParticipants).toBe(true)
+      expect(body.items[0].allParticipantsGroupId).toBeTruthy()
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(
+          eq(items.allParticipantsGroupId, body.items[0].allParticipantsGroupId)
+        )
+      expect(allGroupItems).toHaveLength(3)
+      expect(allGroupItems.every((i) => i.name === 'Shared Lantern')).toBe(true)
+    })
+
+    it('bulk create mixing assignedToAll and normal items', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 3)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              name: 'Shared Rope',
+              category: 'equipment',
+              quantity: 2,
+              status: 'pending',
+              assignedToAll: true,
+            },
+            {
+              name: 'My Snack',
+              category: 'food',
+              quantity: 1,
+              unit: 'pcs',
+              status: 'pending',
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(2)
+      expect(body.errors).toHaveLength(0)
+
+      const sharedItem = body.items.find(
+        (i: { name: string }) => i.name === 'Shared Rope'
+      )
+      expect(sharedItem.isAllParticipants).toBe(true)
+
+      const normalItem = body.items.find(
+        (i: { name: string }) => i.name === 'My Snack'
+      )
+      expect(normalItem.isAllParticipants).toBe(false)
+      expect(normalItem.allParticipantsGroupId).toBeNull()
+
+      const allGroupItems = await db
+        .select()
+        .from(items)
+        .where(
+          eq(items.allParticipantsGroupId, sharedItem.allParticipantsGroupId)
+        )
+      expect(allGroupItems).toHaveLength(3)
+    })
+
+    it('bulk create without assignedToAll creates normal items', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 2)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              name: 'Regular Item',
+              category: 'equipment',
+              quantity: 1,
+              status: 'pending',
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(1)
+      expect(body.items[0].isAllParticipants).toBe(false)
+      expect(body.items[0].allParticipantsGroupId).toBeNull()
+    })
+  })
+
   describe('createItemsForNewParticipant handles mixed group states', () => {
     it('only creates copies for active groups, not canceled ones', async () => {
       const [plan] = await seedTestPlans(1)

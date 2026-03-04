@@ -516,12 +516,14 @@
             "nullable": true
           },
           "isAllParticipants": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "True when this item is part of an all-participants group (one copy per participant)."
           },
           "allParticipantsGroupId": {
             "type": "string",
             "format": "uuid",
-            "nullable": true
+            "nullable": true,
+            "description": "Shared UUID linking all copies in an all-participants group. Null for regular items."
           },
           "createdAt": {
             "type": "string",
@@ -612,7 +614,8 @@
             "nullable": true
           },
           "assignedToAll": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Set true to assign this item to all participants (creates one copy per participant). Ignored if assignedParticipantId is also set."
           }
         },
         "required": [
@@ -682,7 +685,8 @@
             "nullable": true
           },
           "assignedToAll": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Set true to assign to all participants. Set false (or send assignedParticipantId/null) to switch from all to specific/unassigned."
           }
         },
         "title": "UpdateItemBody"
@@ -1837,6 +1841,10 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "assignedToAll": {
+            "type": "boolean",
+            "description": "Set true to assign to all participants. Set false (or send assignedParticipantId/null) to switch from all to specific/unassigned."
           }
         },
         "required": [
@@ -3065,7 +3073,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create a new item in the specified plan. Equipment items always use pcs as the unit. Food items require a unit.",
+        "description": "Create a new item in the specified plan. Equipment items always use pcs as the unit. Food items require a unit. Send assignedToAll=true to assign to every participant.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3206,7 +3214,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update an existing item by its ID",
+        "description": "Update an existing item by its ID. Supports all-participants assignment: send assignedToAll=true to assign to all, assignedParticipantId=<uuid> to reassign from all to one, assignedParticipantId=null or assignedToAll=false to unassign all. Core field changes on all-participants items cascade to every copy; status changes apply only to the target item.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3287,7 +3295,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create multiple items at once. Each item is validated independently — valid items are created, invalid items are reported in the errors array with their name.",
+        "description": "Create multiple items at once. Each item is validated independently — valid items are created, invalid items are reported in the errors array. Supports assignedToAll per item (same logic as single-item POST).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3366,7 +3374,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update multiple items at once. Each item is validated independently — valid items are updated, invalid items are reported in the errors array with their name.",
+        "description": "Update multiple items at once. Each item is validated independently — valid items are updated, invalid items are reported in the errors array. Supports assignedToAll per item (same logic as single-item PATCH).",
         "requestBody": {
           "content": {
             "application/json": {

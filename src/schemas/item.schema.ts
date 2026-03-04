@@ -24,11 +24,17 @@ export const itemSchema = {
     subcategory: { type: 'string', nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
-    isAllParticipants: { type: 'boolean' },
+    isAllParticipants: {
+      type: 'boolean',
+      description:
+        'True when this item is part of an all-participants group (one copy per participant).',
+    },
     allParticipantsGroupId: {
       type: 'string',
       format: 'uuid',
       nullable: true,
+      description:
+        'Shared UUID linking all copies in an all-participants group. Null for regular items.',
     },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
@@ -71,7 +77,11 @@ export const createItemBodySchema = {
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
-    assignedToAll: { type: 'boolean' },
+    assignedToAll: {
+      type: 'boolean',
+      description:
+        'Set true to assign this item to all participants (creates one copy per participant). Ignored if assignedParticipantId is also set.',
+    },
   },
   required: ['name', 'category', 'quantity', 'status'],
 } as const
@@ -94,7 +104,11 @@ export const updateItemBodySchema = {
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
-    assignedToAll: { type: 'boolean' },
+    assignedToAll: {
+      type: 'boolean',
+      description:
+        'Set true to assign to all participants. Set false (or send assignedParticipantId/null) to switch from all to specific/unassigned.',
+    },
   },
 } as const
 
@@ -139,6 +153,11 @@ export const bulkUpdateItemEntrySchema = {
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
+    assignedToAll: {
+      type: 'boolean',
+      description:
+        'Set true to assign to all participants. Set false (or send assignedParticipantId/null) to switch from all to specific/unassigned.',
+    },
   },
   required: ['itemId'],
 } as const
