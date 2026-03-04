@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import type { Database } from '../db/index.js'
 import { participants, userDetails, Participant } from '../db/schema.js'
+import { createItemsForNewParticipant } from './all-participants-items.service.js'
 
 export interface AddParticipantData {
   planId: string
@@ -65,6 +66,8 @@ export async function addParticipantToPlan(
       rsvpStatus: data.rsvpStatus ?? 'confirmed',
     })
     .returning()
+
+  await createItemsForNewParticipant(db, data.planId, created.participantId)
 
   return created
 }

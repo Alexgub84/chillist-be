@@ -515,6 +515,14 @@
             "format": "uuid",
             "nullable": true
           },
+          "isAllParticipants": {
+            "type": "boolean"
+          },
+          "allParticipantsGroupId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -532,6 +540,7 @@
           "quantity",
           "unit",
           "status",
+          "isAllParticipants",
           "createdAt",
           "updatedAt"
         ],
@@ -601,6 +610,9 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "assignedToAll": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -668,6 +680,9 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "assignedToAll": {
+            "type": "boolean"
           }
         },
         "title": "UpdateItemBody"
