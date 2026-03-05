@@ -615,7 +615,7 @@ describe('Plan Access Control', () => {
       expect(result[0].createdByUserId).toBe(OWNER_USER_ID)
     })
 
-    it('does not include plans where user is only a participant (not owner)', async () => {
+    it('includes plans where user is a participant but not the creator', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -635,7 +635,7 @@ describe('Plan Access Control', () => {
       const result = response.json()
       expect(
         result.some((p: { planId: string }) => p.planId === plan.planId)
-      ).toBe(false)
+      ).toBe(true)
     })
 
     it('does not include other users invite_only plans', async () => {

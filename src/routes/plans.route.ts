@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, getTableColumns } from 'drizzle-orm'
 import {
   plans,
   participants,
@@ -214,9 +214,9 @@ export async function plansRoutes(fastify: FastifyInstance) {
     {
       schema: {
         tags: ['plans'],
-        summary: 'List plans owned by user',
+        summary: 'List plans the user participates in',
         description:
-          'Retrieve plans created by the authenticated user, ordered by creation date',
+          'Retrieve plans where the authenticated user is a participant (owner or member), ordered by creation date',
         response: {
           200: {
             description: 'List of plans owned by the authenticated user',
@@ -243,9 +243,10 @@ export async function plansRoutes(fastify: FastifyInstance) {
         const userId = request.user!.id
 
         const filteredPlans = await fastify.db
-          .select()
+          .select(getTableColumns(plans))
           .from(plans)
-          .where(eq(plans.createdByUserId, userId))
+          .innerJoin(participants, eq(participants.planId, plans.planId))
+          .where(eq(participants.userId, userId))
           .orderBy(plans.createdAt)
 
         request.log.info(
