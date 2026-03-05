@@ -2293,11 +2293,11 @@
         }
       },
       "get": {
-        "summary": "List plans owned by user",
+        "summary": "List plans the user participates in",
         "tags": [
           "plans"
         ],
-        "description": "Retrieve plans created by the authenticated user, ordered by creation date",
+        "description": "Retrieve plans where the authenticated user is a participant (owner or member), ordered by creation date",
         "responses": {
           "200": {
             "description": "List of plans owned by the authenticated user",
