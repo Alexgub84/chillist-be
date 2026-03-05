@@ -21,49 +21,20 @@ export interface AssignmentChangeValidation {
 }
 
 export function validateParticipantAssignmentChange(
-  currentList: Assignment[],
-  currentIsAll: boolean,
   incomingList: Assignment[],
-  incomingIsAll: boolean,
+  incomingIsAll: boolean | undefined,
+  currentIsAll: boolean,
   selfParticipantId: string
 ): AssignmentChangeValidation {
-  if (incomingIsAll !== currentIsAll) {
+  if (incomingIsAll !== undefined && incomingIsAll !== currentIsAll) {
     return {
       valid: false,
       message: 'Only the plan owner can change the all-participants flag',
     }
   }
 
-  const currentMap = new Map<string, string>()
-  for (const a of currentList) {
-    currentMap.set(a.participantId, a.status)
-  }
-
-  const incomingMap = new Map<string, string>()
-  for (const a of dedupeAssignments(incomingList)) {
-    incomingMap.set(a.participantId, a.status)
-  }
-
-  for (const [pid, status] of currentMap) {
-    if (pid === selfParticipantId) continue
-    const incomingStatus = incomingMap.get(pid)
-    if (incomingStatus === undefined) {
-      return {
-        valid: false,
-        message: 'Non-owners can only update their own assignment',
-      }
-    }
-    if (incomingStatus !== status) {
-      return {
-        valid: false,
-        message: 'Non-owners can only update their own assignment',
-      }
-    }
-  }
-
-  for (const [pid] of incomingMap) {
-    if (pid === selfParticipantId) continue
-    if (!currentMap.has(pid)) {
+  for (const entry of incomingList) {
+    if (entry.participantId !== selfParticipantId) {
       return {
         valid: false,
         message: 'Non-owners can only update their own assignment',
@@ -72,6 +43,29 @@ export function validateParticipantAssignmentChange(
   }
 
   return { valid: true }
+}
+
+export function mergeParticipantAssignment(
+  currentList: Assignment[],
+  incomingEntries: Assignment[]
+): Assignment[] {
+  const incoming = dedupeAssignments(incomingEntries)
+  const incomingMap = new Map<string, Assignment>()
+  for (const entry of incoming) {
+    incomingMap.set(entry.participantId, entry)
+  }
+
+  return currentList.map((a) => {
+    const override = incomingMap.get(a.participantId)
+    return override ?? a
+  })
+}
+
+export function filterAssignmentForParticipant(
+  assignmentStatusList: Assignment[],
+  participantId: string
+): Assignment[] {
+  return assignmentStatusList.filter((a) => a.participantId === participantId)
 }
 
 export function addParticipantToAssignments(

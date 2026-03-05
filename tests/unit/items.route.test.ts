@@ -59,7 +59,6 @@ const validEquipmentPayload = {
   name: 'Tent',
   category: 'equipment',
   quantity: 1,
-  status: 'pending',
 }
 
 describe('Items Route - Error Scenarios', () => {

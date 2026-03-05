@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   resolveAssignments,
   validateParticipantAssignmentChange,
+  mergeParticipantAssignment,
+  filterAssignmentForParticipant,
   addParticipantToAssignments,
 } from '../../src/utils/assignment-helpers.js'
 import type { Assignment } from '../../src/db/schema.js'
@@ -51,67 +53,24 @@ describe('resolveAssignments', () => {
 })
 
 describe('validateParticipantAssignmentChange', () => {
-  const current: Assignment[] = [
-    { participantId: pid1, status: 'pending' },
-    { participantId: pid2, status: 'purchased' },
-  ]
-
   it('allows participant to update their own status', () => {
     const incoming: Assignment[] = [
       { participantId: pid1, status: 'purchased' },
-      { participantId: pid2, status: 'purchased' },
     ]
     const result = validateParticipantAssignmentChange(
-      current,
-      false,
       incoming,
+      undefined,
       false,
       pid1
     )
     expect(result.valid).toBe(true)
   })
 
-  it('allows participant to remove themselves (unassign)', () => {
-    const incoming: Assignment[] = [
-      { participantId: pid2, status: 'purchased' },
-    ]
+  it('rejects when participant sends another participants entry', () => {
+    const incoming: Assignment[] = [{ participantId: pid2, status: 'packed' }]
     const result = validateParticipantAssignmentChange(
-      current,
-      false,
       incoming,
-      false,
-      pid1
-    )
-    expect(result.valid).toBe(true)
-  })
-
-  it('allows participant to add themselves', () => {
-    const currentNoSelf: Assignment[] = [
-      { participantId: pid2, status: 'purchased' },
-    ]
-    const incoming: Assignment[] = [
-      { participantId: pid2, status: 'purchased' },
-      { participantId: pid1, status: 'pending' },
-    ]
-    const result = validateParticipantAssignmentChange(
-      currentNoSelf,
-      false,
-      incoming,
-      false,
-      pid1
-    )
-    expect(result.valid).toBe(true)
-  })
-
-  it('rejects when participant changes another entry status', () => {
-    const incoming: Assignment[] = [
-      { participantId: pid1, status: 'pending' },
-      { participantId: pid2, status: 'packed' },
-    ]
-    const result = validateParticipantAssignmentChange(
-      current,
-      false,
-      incoming,
+      undefined,
       false,
       pid1
     )
@@ -119,70 +78,129 @@ describe('validateParticipantAssignmentChange', () => {
     expect(result.message).toContain('own assignment')
   })
 
-  it('rejects when participant removes another entry', () => {
-    const incoming: Assignment[] = [{ participantId: pid1, status: 'pending' }]
-    const result = validateParticipantAssignmentChange(
-      current,
-      false,
-      incoming,
-      false,
-      pid1
-    )
-    expect(result.valid).toBe(false)
-  })
-
-  it('rejects when participant adds a new entry for someone else', () => {
+  it('rejects when participant includes someone elses entry alongside their own', () => {
     const incoming: Assignment[] = [
-      { participantId: pid1, status: 'pending' },
-      { participantId: pid2, status: 'purchased' },
-      { participantId: pid3, status: 'pending' },
+      { participantId: pid1, status: 'purchased' },
+      { participantId: pid2, status: 'packed' },
     ]
     const result = validateParticipantAssignmentChange(
-      current,
-      false,
       incoming,
+      undefined,
       false,
       pid1
     )
     expect(result.valid).toBe(false)
+    expect(result.message).toContain('own assignment')
   })
 
   it('rejects when participant changes isAllParticipants flag', () => {
+    const incoming: Assignment[] = [{ participantId: pid1, status: 'pending' }]
     const result = validateParticipantAssignmentChange(
-      current,
-      false,
-      current,
+      incoming,
       true,
+      false,
       pid1
     )
     expect(result.valid).toBe(false)
     expect(result.message).toContain('all-participants flag')
   })
 
-  it('allows no-op (same data)', () => {
+  it('allows when isAllParticipants is unchanged', () => {
+    const incoming: Assignment[] = [
+      { participantId: pid1, status: 'purchased' },
+    ]
     const result = validateParticipantAssignmentChange(
-      current,
+      incoming,
       false,
-      [...current],
       false,
       pid1
     )
     expect(result.valid).toBe(true)
   })
 
-  it('allows participant to both update status and stay in list', () => {
+  it('allows when isAllParticipants is undefined (not sent)', () => {
     const incoming: Assignment[] = [
-      { participantId: pid1, status: 'packed' },
-      { participantId: pid2, status: 'purchased' },
+      { participantId: pid1, status: 'purchased' },
     ]
     const result = validateParticipantAssignmentChange(
-      current,
-      false,
       incoming,
+      undefined,
+      true,
+      pid1
+    )
+    expect(result.valid).toBe(true)
+  })
+
+  it('allows empty incoming list', () => {
+    const result = validateParticipantAssignmentChange(
+      [],
+      undefined,
       false,
       pid1
     )
     expect(result.valid).toBe(true)
+  })
+})
+
+describe('mergeParticipantAssignment', () => {
+  const current: Assignment[] = [
+    { participantId: pid1, status: 'pending' },
+    { participantId: pid2, status: 'pending' },
+    { participantId: pid3, status: 'pending' },
+  ]
+
+  it('merges a single participant status update', () => {
+    const incoming: Assignment[] = [
+      { participantId: pid2, status: 'purchased' },
+    ]
+    const result = mergeParticipantAssignment(current, incoming)
+    expect(result).toEqual([
+      { participantId: pid1, status: 'pending' },
+      { participantId: pid2, status: 'purchased' },
+      { participantId: pid3, status: 'pending' },
+    ])
+  })
+
+  it('leaves list unchanged when incoming is empty', () => {
+    const result = mergeParticipantAssignment(current, [])
+    expect(result).toEqual(current)
+  })
+
+  it('does not add entries for participants not in current list', () => {
+    const incoming: Assignment[] = [
+      { participantId: 'not-in-list', status: 'purchased' },
+    ]
+    const result = mergeParticipantAssignment(current, incoming)
+    expect(result).toEqual(current)
+  })
+
+  it('does not mutate the original array', () => {
+    const incoming: Assignment[] = [{ participantId: pid1, status: 'packed' }]
+    mergeParticipantAssignment(current, incoming)
+    expect(current[0].status).toBe('pending')
+  })
+})
+
+describe('filterAssignmentForParticipant', () => {
+  const list: Assignment[] = [
+    { participantId: pid1, status: 'pending' },
+    { participantId: pid2, status: 'purchased' },
+    { participantId: pid3, status: 'packed' },
+  ]
+
+  it('returns only the matching participant entry', () => {
+    const result = filterAssignmentForParticipant(list, pid2)
+    expect(result).toEqual([{ participantId: pid2, status: 'purchased' }])
+  })
+
+  it('returns empty array when participant is not in list', () => {
+    const result = filterAssignmentForParticipant(list, 'not-in-list')
+    expect(result).toEqual([])
+  })
+
+  it('returns empty array for empty input list', () => {
+    const result = filterAssignmentForParticipant([], pid1)
+    expect(result).toEqual([])
   })
 })
 

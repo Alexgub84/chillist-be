@@ -1,6 +1,6 @@
 {
-  "id": "dee9fc0f-1ca3-4b1d-a3a0-5b6cf6e32f45",
-  "prevId": "274bba7f-ec42-4c45-ba1c-733f90d21804",
+  "id": "111add5b-549d-40cf-b52a-e4050a40df6e",
+  "prevId": "dee9fc0f-1ca3-4b1d-a3a0-5b6cf6e32f45",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -153,15 +153,15 @@
         "item_changes_item_id_items_item_id_fk": {
           "name": "item_changes_item_id_items_item_id_fk",
           "tableFrom": "item_changes",
+          "tableTo": "items",
           "columnsFrom": [
             "item_id"
           ],
-          "tableTo": "items",
           "columnsTo": [
             "item_id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -215,14 +215,6 @@
           "notNull": true,
           "default": "'pcs'"
         },
-        "status": {
-          "name": "status",
-          "type": "item_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
         "subcategory": {
           "name": "subcategory",
           "type": "varchar(255)",
@@ -269,15 +261,15 @@
         "items_plan_id_plans_plan_id_fk": {
           "name": "items_plan_id_plans_plan_id_fk",
           "tableFrom": "items",
+          "tableTo": "plans",
           "columnsFrom": [
             "plan_id"
           ],
-          "tableTo": "plans",
           "columnsTo": [
             "plan_id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -397,26 +389,26 @@
         "participant_join_requests_plan_id_plans_plan_id_fk": {
           "name": "participant_join_requests_plan_id_plans_plan_id_fk",
           "tableFrom": "participant_join_requests",
+          "tableTo": "plans",
           "columnsFrom": [
             "plan_id"
           ],
-          "tableTo": "plans",
           "columnsTo": [
             "plan_id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "join_request_plan_user_unique": {
           "name": "join_request_plan_user_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "plan_id",
             "supabase_user_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -574,38 +566,38 @@
         "participants_plan_id_plans_plan_id_fk": {
           "name": "participants_plan_id_plans_plan_id_fk",
           "tableFrom": "participants",
+          "tableTo": "plans",
           "columnsFrom": [
             "plan_id"
           ],
-          "tableTo": "plans",
           "columnsTo": [
             "plan_id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "participants_guest_profile_id_guest_profiles_guest_id_fk": {
           "name": "participants_guest_profile_id_guest_profiles_guest_id_fk",
           "tableFrom": "participants",
+          "tableTo": "guest_profiles",
           "columnsFrom": [
             "guest_profile_id"
           ],
-          "tableTo": "guest_profiles",
           "columnsTo": [
             "guest_id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "participants_invite_token_unique": {
           "name": "participants_invite_token_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "invite_token"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -686,28 +678,28 @@
         "plan_invites_plan_id_plans_plan_id_fk": {
           "name": "plan_invites_plan_id_plans_plan_id_fk",
           "tableFrom": "plan_invites",
+          "tableTo": "plans",
           "columnsFrom": [
             "plan_id"
           ],
-          "tableTo": "plans",
           "columnsTo": [
             "plan_id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "plan_invites_participant_id_participants_participant_id_fk": {
           "name": "plan_invites_participant_id_participants_participant_id_fk",
           "tableFrom": "plan_invites",
+          "tableTo": "participants",
           "columnsFrom": [
             "participant_id"
           ],
-          "tableTo": "participants",
           "columnsTo": [
             "participant_id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -976,10 +968,10 @@
     }
   },
   "schemas": {},
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

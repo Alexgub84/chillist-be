@@ -7,7 +7,6 @@ const TRACKED_FIELDS = [
   'category',
   'quantity',
   'unit',
-  'status',
   'subcategory',
   'notes',
 ] as const

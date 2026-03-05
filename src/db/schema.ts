@@ -181,7 +181,6 @@ export const items = pgTable('items', {
   category: itemCategoryEnum('category').notNull(),
   quantity: integer('quantity').default(1).notNull(),
   unit: unitEnum('unit').default('pcs').notNull(),
-  status: itemStatusEnum('status').default('pending').notNull(),
   subcategory: varchar('subcategory', { length: 255 }),
   notes: text('notes'),
   isAllParticipants: boolean('is_all_participants').default(false).notNull(),

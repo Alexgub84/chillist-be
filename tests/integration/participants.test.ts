@@ -789,7 +789,6 @@ describe('Participants Route', () => {
           name: 'Tent',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
           assignmentStatusList: [
             { participantId: nonOwner.participantId, status: 'pending' },
           ],

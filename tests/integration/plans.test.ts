@@ -1312,7 +1312,6 @@ describe('Plans Route', () => {
       expect(item).toHaveProperty('category')
       expect(item).toHaveProperty('quantity')
       expect(item).toHaveProperty('unit')
-      expect(item).toHaveProperty('status')
       expect(item).toHaveProperty('notes')
       expect(item).toHaveProperty('createdAt')
       expect(item).toHaveProperty('updatedAt')
@@ -1322,7 +1321,6 @@ describe('Plans Route', () => {
       expect(item.category).toBe('equipment')
       expect(item.quantity).toBe(1)
       expect(item.unit).toBe('pcs')
-      expect(item.status).toBe('pending')
     })
 
     it('returns only items belonging to the requested plan', async () => {

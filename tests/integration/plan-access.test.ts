@@ -780,7 +780,6 @@ describe('Plan Access Control', () => {
         category: 'equipment',
         quantity: 1,
         unit: 'pcs',
-        status: 'pending',
       })
 
       const token = await signTestJwt({ sub: UNRELATED_USER_ID })
@@ -807,7 +806,6 @@ describe('Plan Access Control', () => {
         category: 'equipment',
         quantity: 1,
         unit: 'pcs',
-        status: 'pending',
       })
 
       const token = await signTestJwt({ sub: OWNER_USER_ID })
@@ -865,7 +863,6 @@ describe('Plan Access Control', () => {
         category: 'equipment',
         quantity: 1,
         unit: 'pcs',
-        status: 'pending',
       })
 
       const token = await signAdminJwt()

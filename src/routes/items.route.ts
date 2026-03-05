@@ -1,10 +1,10 @@
 import { FastifyInstance } from 'fastify'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 import {
   items,
+  participants,
   ItemCategory,
   Unit,
-  ItemStatus,
   Item,
   Assignment,
 } from '../db/schema.js'
@@ -23,13 +23,14 @@ import {
 import {
   resolveAssignments,
   validateParticipantAssignmentChange,
+  mergeParticipantAssignment,
+  filterAssignmentForParticipant,
 } from '../utils/assignment-helpers.js'
 
 interface CreateItemBody {
   name: string
   category: ItemCategory
   quantity: number
-  status: ItemStatus
   unit?: Unit
   subcategory?: string | null
   notes?: string | null
@@ -42,7 +43,6 @@ interface UpdateItemBody {
   category?: ItemCategory
   quantity?: number
   unit?: Unit
-  status?: ItemStatus
   subcategory?: string | null
   notes?: string | null
   assignmentStatusList?: Assignment[]
@@ -75,7 +75,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Add an item to a plan',
         description:
-          'Create a new item. Equipment items always use pcs. Assignment fields (owner-only): send assignmentStatusList with participant entries + isAllParticipants=true to assign all, or a subset with isAllParticipants=false. Omit both to create unassigned.',
+          'Create a new item (no top-level status field — per-participant status lives in assignmentStatusList). Equipment items always use pcs. Assignment fields (owner-only): send assignmentStatusList with participant entries (each has participantId + status) and isAllParticipants=true to assign all, or a subset with isAllParticipants=false. Omit both to create unassigned.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'CreateItemBody#' },
         response: {
@@ -182,7 +182,8 @@ export async function itemsRoutes(fastify: FastifyInstance) {
       schema: {
         tags: ['items'],
         summary: 'List all items for a plan',
-        description: 'Retrieve all items belonging to a specific plan',
+        description:
+          'Retrieve all items belonging to a specific plan. Response filtering: owners see the full assignmentStatusList for each item; non-owners (participants) see only their own entry in assignmentStatusList. There is no top-level status field — check assignmentStatusList entries for per-participant status.',
         params: { $ref: 'PlanIdParam#' },
         response: {
           200: {
@@ -229,6 +230,33 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           .where(eq(items.planId, planId))
           .orderBy(items.createdAt)
 
+        const [myParticipant] = request.user
+          ? await fastify.db
+              .select({
+                participantId: participants.participantId,
+                role: participants.role,
+              })
+              .from(participants)
+              .where(
+                and(
+                  eq(participants.planId, planId),
+                  eq(participants.userId, request.user.id)
+                )
+              )
+              .limit(1)
+          : [undefined]
+
+        const isOwner = !myParticipant || myParticipant.role === 'owner'
+
+        if (!isOwner) {
+          for (const item of planItems) {
+            item.assignmentStatusList = filterAssignmentForParticipant(
+              item.assignmentStatusList as Assignment[],
+              myParticipant.participantId
+            )
+          }
+        }
+
         request.log.info(
           { planId, count: planItems.length },
           'Plan items retrieved'
@@ -257,7 +285,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Update an item',
         description:
-          'Update an item. Send the full desired state. For assignments: owner sends any assignmentStatusList + isAllParticipants. Non-owner sends the full list but may only change their own entry (update status or remove self). To assign all: send all participants + isAllParticipants=true. To unassign all: send [] + isAllParticipants=false.',
+          'Update an item. No top-level status field — use assignmentStatusList to change per-participant status. Owner: send the full assignmentStatusList array (replaces existing) + isAllParticipants. Non-owner: send assignmentStatusList with ONLY your own entry (e.g. [{ participantId: "your-id", status: "purchased" }]) — the backend merges it into the full list, preserving other participants. Response: owners see the full assignmentStatusList; non-owners see only their own entry.',
         params: { $ref: 'ItemIdParam#' },
         body: { $ref: 'UpdateItemBody#' },
         response: {
@@ -331,16 +359,12 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           access.participant?.role === 'owner' || !access.participant
 
         if (hasAssignmentFields && !isOwner) {
-          const incomingList =
-            bodyAssignments ??
-            (existingItem.assignmentStatusList as Assignment[])
-          const incomingIsAll = bodyIsAll ?? existingItem.isAllParticipants
+          const incomingList = bodyAssignments ?? []
 
           const validation = validateParticipantAssignmentChange(
-            existingItem.assignmentStatusList as Assignment[],
-            existingItem.isAllParticipants,
             incomingList,
-            incomingIsAll,
+            bodyIsAll,
+            existingItem.isAllParticipants,
             access.participant!.participantId
           )
           if (!validation.valid) {
@@ -372,18 +396,38 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         }
 
         if (hasAssignmentFields) {
-          const finalList =
-            bodyAssignments !== undefined
-              ? resolveAssignments(bodyAssignments)
-              : (existingItem.assignmentStatusList as Assignment[])
-          const finalIsAll = bodyIsAll ?? existingItem.isAllParticipants
+          const currentList = existingItem.assignmentStatusList as Assignment[]
 
+          let finalList: Assignment[]
+          if (isOwner) {
+            finalList =
+              bodyAssignments !== undefined
+                ? resolveAssignments(bodyAssignments)
+                : currentList
+          } else {
+            finalList = mergeParticipantAssignment(
+              currentList,
+              bodyAssignments ?? []
+            )
+          }
+
+          const finalIsAll = bodyIsAll ?? existingItem.isAllParticipants
           finalItem = await persistAssignments(
             fastify.db,
             itemId,
             finalList,
             finalIsAll
           )
+        }
+
+        if (!isOwner && access.participant) {
+          finalItem = {
+            ...finalItem,
+            assignmentStatusList: filterAssignmentForParticipant(
+              finalItem.assignmentStatusList as Assignment[],
+              access.participant.participantId
+            ),
+          }
         }
 
         request.log.info(
@@ -422,7 +466,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Bulk create items in a plan',
         description:
-          'Create multiple items at once. Each item is validated independently. Send assignmentStatusList and isAllParticipants per item.',
+          'Create multiple items at once. Each item is validated independently. No top-level status field — per-participant status lives in assignmentStatusList. Assignment fields (owner-only): send assignmentStatusList and isAllParticipants per item.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'BulkCreateItemBody#' },
         response: {
@@ -478,7 +522,6 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           category: ItemCategory
           quantity: number
           unit: Unit
-          status: ItemStatus
           subcategory?: string | null
           notes?: string | null
           assignmentStatusList: Assignment[]
@@ -567,7 +610,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Bulk update items in a plan',
         description:
-          'Update multiple items at once. Each item is validated independently. Send assignmentStatusList and isAllParticipants per item.',
+          "Update multiple items at once. Each item is validated independently. No top-level status field — use assignmentStatusList per item. Owner: send the full assignmentStatusList (replaces). Non-owner: send only your own entry per item — backend merges. Response: non-owners see only their own entry in each item's assignmentStatusList.",
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'BulkUpdateItemBody#' },
         response: {
@@ -672,15 +715,12 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           }
 
           if (hasAssignmentFields && !isOwner) {
-            const incomingList =
-              bodyAssignments ?? (existing.assignmentStatusList as Assignment[])
-            const incomingIsAll = bodyIsAll ?? existing.isAllParticipants
+            const incomingList = bodyAssignments ?? []
 
             const validation = validateParticipantAssignmentChange(
-              existing.assignmentStatusList as Assignment[],
-              existing.isAllParticipants,
               incomingList,
-              incomingIsAll,
+              bodyIsAll,
+              existing.isAllParticipants,
               access.participant!.participantId
             )
             if (!validation.valid) {
@@ -721,18 +761,38 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             }
 
             if (hasAssignmentFields) {
-              const finalList =
-                bodyAssignments !== undefined
-                  ? resolveAssignments(bodyAssignments)
-                  : (existing.assignmentStatusList as Assignment[])
-              const finalIsAll = bodyIsAll ?? existing.isAllParticipants
+              const currentList = existing.assignmentStatusList as Assignment[]
 
+              let finalList: Assignment[]
+              if (isOwner) {
+                finalList =
+                  bodyAssignments !== undefined
+                    ? resolveAssignments(bodyAssignments)
+                    : currentList
+              } else {
+                finalList = mergeParticipantAssignment(
+                  currentList,
+                  bodyAssignments ?? []
+                )
+              }
+
+              const finalIsAll = bodyIsAll ?? existing.isAllParticipants
               finalItem = await persistAssignments(
                 fastify.db,
                 itemId,
                 finalList,
                 finalIsAll
               )
+            }
+
+            if (!isOwner && access.participant) {
+              finalItem = {
+                ...finalItem,
+                assignmentStatusList: filterAssignmentForParticipant(
+                  finalItem.assignmentStatusList as Assignment[],
+                  access.participant.participantId
+                ),
+              }
             }
 
             updatedItems.push(finalItem)
