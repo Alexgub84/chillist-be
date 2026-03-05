@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { participants, plans } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
-import { removeParticipantFromAllGroups } from '../services/all-participants-items.service.js'
+import { removeParticipantFromAssignments } from '../services/item.service.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -408,6 +408,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         const [existingParticipant] = await fastify.db
           .select({
             participantId: participants.participantId,
+            planId: participants.planId,
             role: participants.role,
           })
           .from(participants)
@@ -429,14 +430,15 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           })
         }
 
-        const deletedAllItems = await removeParticipantFromAllGroups(
+        const updatedItems = await removeParticipantFromAssignments(
           fastify.db,
+          existingParticipant.planId,
           participantId
         )
-        if (deletedAllItems > 0) {
+        if (updatedItems > 0) {
           request.log.info(
-            { participantId, deletedAllItems },
-            'Removed participant all-participants item copies'
+            { participantId, updatedItems },
+            'Removed participant from item assignments'
           )
         }
 

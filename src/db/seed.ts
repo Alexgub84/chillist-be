@@ -349,7 +349,12 @@ async function seed() {
         quantity: item.quantity,
         unit: item.unit,
         status: 'pending' as const,
-        assignedParticipantId: participantsForAssignment[i % 5],
+        assignmentStatusList: [
+          {
+            participantId: participantsForAssignment[i % 5],
+            status: 'pending' as const,
+          },
+        ],
       }))
     )
 
@@ -447,7 +452,12 @@ async function seed() {
         quantity: 1,
         unit: 'pcs',
         status: 'pending',
-        assignedParticipantId: joinTestOwner.participantId,
+        assignmentStatusList: [
+          {
+            participantId: joinTestOwner.participantId,
+            status: 'pending' as const,
+          },
+        ],
       },
       {
         planId: joinTestPlan.planId,

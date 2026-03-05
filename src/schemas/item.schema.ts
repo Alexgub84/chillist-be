@@ -23,12 +23,17 @@ export const itemSchema = {
     },
     subcategory: { type: 'string', nullable: true },
     notes: { type: 'string', nullable: true },
-    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
     isAllParticipants: { type: 'boolean' },
-    allParticipantsGroupId: {
-      type: 'string',
-      format: 'uuid',
-      nullable: true,
+    assignmentStatusList: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
     },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
@@ -42,6 +47,7 @@ export const itemSchema = {
     'unit',
     'status',
     'isAllParticipants',
+    'assignmentStatusList',
     'createdAt',
     'updatedAt',
   ],
@@ -70,8 +76,18 @@ export const createItemBodySchema = {
     },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
-    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
-    assignedToAll: { type: 'boolean' },
+    assignmentStatusList: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
+    },
+    assignToAll: { type: 'boolean' },
   },
   required: ['name', 'category', 'quantity', 'status'],
 } as const
@@ -93,8 +109,20 @@ export const updateItemBodySchema = {
     },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
-    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
-    assignedToAll: { type: 'boolean' },
+    assignmentStatusList: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
+    },
+    assignToAll: { type: 'boolean' },
+    forParticipantId: { type: 'string', format: 'uuid' },
+    unassign: { type: 'boolean' },
   },
 } as const
 
@@ -115,6 +143,7 @@ export const bulkCreateItemBodySchema = {
       type: 'array',
       items: { $ref: 'CreateItemBody#' },
       minItems: 1,
+      maxItems: 100,
     },
   },
   required: ['items'],
@@ -138,7 +167,20 @@ export const bulkUpdateItemEntrySchema = {
     },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
-    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
+    assignmentStatusList: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
+    },
+    assignToAll: { type: 'boolean' },
+    forParticipantId: { type: 'string', format: 'uuid' },
+    unassign: { type: 'boolean' },
   },
   required: ['itemId'],
 } as const
@@ -151,6 +193,7 @@ export const bulkUpdateItemBodySchema = {
       type: 'array',
       items: { $ref: 'BulkUpdateItemEntry#' },
       minItems: 1,
+      maxItems: 100,
     },
   },
   required: ['items'],

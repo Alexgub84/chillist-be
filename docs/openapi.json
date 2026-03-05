@@ -510,18 +510,33 @@
             "type": "string",
             "nullable": true
           },
-          "assignedParticipantId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
           "isAllParticipants": {
             "type": "boolean"
           },
-          "allParticipantsGroupId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+          "assignmentStatusList": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
           },
           "createdAt": {
             "type": "string",
@@ -541,6 +556,7 @@
           "unit",
           "status",
           "isAllParticipants",
+          "assignmentStatusList",
           "createdAt",
           "updatedAt"
         ],
@@ -606,12 +622,32 @@
             "type": "string",
             "nullable": true
           },
-          "assignedParticipantId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+          "assignmentStatusList": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
           },
-          "assignedToAll": {
+          "assignToAll": {
             "type": "boolean"
           }
         },
@@ -676,12 +712,39 @@
             "type": "string",
             "nullable": true
           },
-          "assignedParticipantId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+          "assignmentStatusList": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
           },
-          "assignedToAll": {
+          "assignToAll": {
+            "type": "boolean"
+          },
+          "forParticipantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unassign": {
             "type": "boolean"
           }
         },
@@ -1768,7 +1831,8 @@
             "items": {
               "$ref": "#/components/schemas/def-16"
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 100
           }
         },
         "required": [
@@ -1833,10 +1897,40 @@
             "type": "string",
             "nullable": true
           },
-          "assignedParticipantId": {
+          "assignmentStatusList": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
+          },
+          "assignToAll": {
+            "type": "boolean"
+          },
+          "forParticipantId": {
             "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "format": "uuid"
+          },
+          "unassign": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1852,7 +1946,8 @@
             "items": {
               "$ref": "#/components/schemas/def-47"
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 100
           }
         },
         "required": [
@@ -3065,7 +3160,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create a new item in the specified plan. Equipment items always use pcs as the unit. Food items require a unit.",
+        "description": "Create a new item in the specified plan. Equipment items always use pcs as the unit. Send assignToAll=true to assign to every participant (owner only). Send assignmentStatusList to assign to specific participants.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3206,7 +3301,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update an existing item by its ID",
+        "description": "Update an existing item by its ID. Owner can set assignmentStatusList or assignToAll. Non-owner can use forParticipantId to update own status or unassign self.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3287,7 +3382,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create multiple items at once. Each item is validated independently — valid items are created, invalid items are reported in the errors array with their name.",
+        "description": "Create multiple items at once. Each item is validated independently. Supports assignToAll per item (owner only).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3366,7 +3461,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update multiple items at once. Each item is validated independently — valid items are updated, invalid items are reported in the errors array with their name.",
+        "description": "Update multiple items at once. Each item is validated independently. Supports assignToAll, assignmentStatusList, forParticipantId per item.",
         "requestBody": {
           "content": {
             "application/json": {

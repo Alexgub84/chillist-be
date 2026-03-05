@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import type { Database } from '../db/index.js'
 import { participants, userDetails, Participant } from '../db/schema.js'
-import { createItemsForNewParticipant } from './all-participants-items.service.js'
+import { addParticipantToAllFlaggedItems } from './item.service.js'
 
 export interface AddParticipantData {
   planId: string
@@ -67,7 +67,7 @@ export async function addParticipantToPlan(
     })
     .returning()
 
-  await createItemsForNewParticipant(db, data.planId, created.participantId)
+  await addParticipantToAllFlaggedItems(db, data.planId, created.participantId)
 
   return created
 }

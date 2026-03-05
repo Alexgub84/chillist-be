@@ -774,9 +774,11 @@ describe('Participants Route', () => {
       expect(response.statusCode).toBe(400)
     })
 
-    it('nullifies assignedParticipantId on items when participant is deleted', async () => {
-      const [plan] = await seedTestPlans(1)
-      const seeded = await seedTestParticipants(plan.planId, 2)
+    it('removes participant from assignmentStatusList on items when participant is deleted', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const seeded = await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: TEST_USER_ID,
+      })
       const nonOwner = seeded.find((p) => p.role !== 'owner')!
 
       const createItemResponse = await app.inject({
@@ -788,11 +790,16 @@ describe('Participants Route', () => {
           category: 'equipment',
           quantity: 1,
           status: 'pending',
-          assignedParticipantId: nonOwner.participantId,
+          assignmentStatusList: [
+            { participantId: nonOwner.participantId, status: 'pending' },
+          ],
         },
       })
       const item = createItemResponse.json()
-      expect(item.assignedParticipantId).toBe(nonOwner.participantId)
+      expect(item.assignmentStatusList).toContainEqual({
+        participantId: nonOwner.participantId,
+        status: 'pending',
+      })
 
       await app.inject({
         method: 'DELETE',
@@ -809,7 +816,12 @@ describe('Participants Route', () => {
       const updatedItem = items.find(
         (i: { itemId: string }) => i.itemId === item.itemId
       )
-      expect(updatedItem.assignedParticipantId).toBeNull()
+      expect(
+        updatedItem.assignmentStatusList.some(
+          (a: { participantId: string }) =>
+            a.participantId === nonOwner.participantId
+        )
+      ).toBe(false)
     })
   })
 

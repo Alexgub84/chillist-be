@@ -96,11 +96,13 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           }
         })
 
-        const filteredItems = plan.items.filter(
-          (item) =>
-            !item.assignedParticipantId ||
-            item.assignedParticipantId === participant.participantId
-        )
+        const filteredItems = plan.items.filter((item) => {
+          const list = item.assignmentStatusList ?? []
+          return (
+            list.length === 0 ||
+            list.some((a) => a.participantId === participant.participantId)
+          )
+        })
 
         request.log.info(
           {
@@ -352,7 +354,6 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             planId,
             category,
             unit: resolvedUnit,
-            assignedParticipantId: participant.participantId,
             ...rest,
           })
           .returning()
@@ -361,7 +362,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           {
             itemId: createdItem.itemId,
             planId,
-            assignedParticipantId: participant.participantId,
+            createdByParticipantId: participant.participantId,
           },
           'Guest created item via invite token'
         )
@@ -463,10 +464,11 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Item not found' })
         }
 
-        if (
-          existingItem.assignedParticipantId !== null &&
-          existingItem.assignedParticipantId !== participant.participantId
-        ) {
+        const list = existingItem.assignmentStatusList ?? []
+        const isAssignedToOthers =
+          list.length > 0 &&
+          !list.some((a) => a.participantId === participant.participantId)
+        if (isAssignedToOthers) {
           return reply
             .status(403)
             .send({ message: 'You can only edit items assigned to you' })
@@ -593,7 +595,6 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           unit: Unit
           subcategory?: string | null
           notes?: string | null
-          assignedParticipantId: string
         }> = []
         const errors: BulkItemError[] = []
 
@@ -613,7 +614,6 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             planId,
             category,
             unit: resolvedUnit,
-            assignedParticipantId: participant.participantId,
             ...rest,
           })
         }
@@ -761,10 +761,11 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          if (
-            existing.assignedParticipantId !== null &&
-            existing.assignedParticipantId !== participant.participantId
-          ) {
+          const list = existing.assignmentStatusList ?? []
+          const isAssignedToOthers =
+            list.length > 0 &&
+            !list.some((a) => a.participantId === participant.participantId)
+          if (isAssignedToOthers) {
             errors.push({
               name: existing.name,
               message: 'You can only edit items assigned to you',
