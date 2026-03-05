@@ -46,14 +46,39 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'CreateJoinRequestBody#' },
         response: {
-          201: { $ref: 'JoinRequest#' },
-          200: { $ref: 'JoinRequest#' },
-          400: { $ref: 'ErrorResponse#' },
-          401: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          409: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          201: {
+            description: 'Join request created',
+            $ref: 'JoinRequest#',
+          },
+          200: {
+            description: 'Join request already exists — returned existing',
+            $ref: 'JoinRequest#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          409: {
+            description: 'Conflict — duplicate join request',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -200,14 +225,38 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
         params: { $ref: 'JoinRequestActionParams#' },
         body: { $ref: 'UpdateJoinRequestStatusBody#' },
         response: {
-          200: {},
-          400: { $ref: 'ErrorResponse#' },
-          401: { $ref: 'ErrorResponse#' },
-          403: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          409: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Join request approved or rejected',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description: 'Forbidden — only the plan owner can manage requests',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or join request does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          409: {
+            description: 'Conflict — request already approved or rejected',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },

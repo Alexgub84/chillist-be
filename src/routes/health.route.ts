@@ -10,7 +10,14 @@ export async function healthRoutes(fastify: FastifyInstance) {
         summary: 'Health check',
         description: 'Check if the server and database are healthy',
         response: {
-          200: { $ref: 'HealthResponse#' },
+          200: {
+            description: 'Server and database are healthy',
+            $ref: 'HealthResponse#',
+          },
+          503: {
+            description: 'Database unreachable',
+            $ref: 'HealthResponse#',
+          },
         },
       },
     },

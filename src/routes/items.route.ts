@@ -75,15 +75,35 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Add an item to a plan',
         description:
-          'Create a new item in the specified plan. Equipment items always use pcs as the unit. Send assignmentStatusList and isAllParticipants to set assignments.',
+          'Create a new item. Equipment items always use pcs. Assignment fields (owner-only): send assignmentStatusList with participant entries + isAllParticipants=true to assign all, or a subset with isAllParticipants=false. Omit both to create unassigned.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'CreateItemBody#' },
         response: {
-          201: { $ref: 'Item#' },
-          400: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          201: {
+            description: 'Created item',
+            $ref: 'Item#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -112,7 +132,8 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Plan not found' })
         }
 
-        const isOwner = access.participant?.role === 'owner'
+        const isOwner =
+          access.participant?.role === 'owner' || !access.participant
         const hasAssignmentFields =
           bodyAssignments !== undefined || bodyIsAll !== undefined
 
@@ -164,10 +185,27 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         description: 'Retrieve all items belonging to a specific plan',
         params: { $ref: 'PlanIdParam#' },
         response: {
-          200: { $ref: 'ItemList#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'List of items',
+            $ref: 'ItemList#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -219,15 +257,35 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Update an item',
         description:
-          'Update an existing item by its ID. Send the full desired assignmentStatusList and isAllParticipants. Non-owners may only change their own assignment entry.',
+          'Update an item. Send the full desired state. For assignments: owner sends any assignmentStatusList + isAllParticipants. Non-owner sends the full list but may only change their own entry (update status or remove self). To assign all: send all participants + isAllParticipants=true. To unassign all: send [] + isAllParticipants=false.',
         params: { $ref: 'ItemIdParam#' },
         body: { $ref: 'UpdateItemBody#' },
         response: {
-          200: { $ref: 'Item#' },
-          400: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Updated item',
+            $ref: 'Item#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -269,7 +327,8 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Item not found' })
         }
 
-        const isOwner = access.participant?.role === 'owner'
+        const isOwner =
+          access.participant?.role === 'owner' || !access.participant
 
         if (hasAssignmentFields && !isOwner) {
           const incomingList =
@@ -328,7 +387,11 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         }
 
         request.log.info(
-          { itemId, changes: Object.keys(request.body) },
+          {
+            itemId,
+            fieldChanges: Object.keys(fieldUpdates),
+            assignmentChanged: hasAssignmentFields,
+          },
           'Item updated'
         )
         recordItemUpdated(fastify.db, {
@@ -363,11 +426,32 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'BulkCreateItemBody#' },
         response: {
-          200: { $ref: 'BulkItemResponse#' },
-          207: { $ref: 'BulkItemResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Bulk operation results — all succeeded',
+            $ref: 'BulkItemResponse#',
+          },
+          207: {
+            description:
+              'Partial success — some items failed, check errors array',
+            $ref: 'BulkItemResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -385,7 +469,8 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Plan not found' })
         }
 
-        const isOwner = access.participant?.role === 'owner'
+        const isOwner =
+          access.participant?.role === 'owner' || !access.participant
 
         const validValues: Array<{
           planId: string
@@ -486,10 +571,32 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'BulkUpdateItemBody#' },
         response: {
-          200: { $ref: 'BulkItemResponse#' },
-          207: { $ref: 'BulkItemResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Bulk operation results — all succeeded',
+            $ref: 'BulkItemResponse#',
+          },
+          207: {
+            description:
+              'Partial success — some items failed, check errors array',
+            $ref: 'BulkItemResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -507,7 +614,8 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Plan not found' })
         }
 
-        const isOwner = access.participant?.role === 'owner'
+        const isOwner =
+          access.participant?.role === 'owner' || !access.participant
         const itemIds = itemUpdates.map((entry) => entry.itemId)
         const existingItems = await fastify.db
           .select()

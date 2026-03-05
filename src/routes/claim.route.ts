@@ -14,12 +14,31 @@ export async function claimRoutes(fastify: FastifyInstance) {
           'Links an authenticated user (JWT) to an existing participant record identified by the invite token. After claiming, the user can access the plan via JWT without the invite token.',
         params: { $ref: 'InviteParams#' },
         response: {
-          200: { $ref: 'Participant#' },
-          400: { $ref: 'ErrorResponse#' },
-          401: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Participant claimed successfully',
+            $ref: 'Participant#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — invite token or plan is invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },

@@ -511,10 +511,12 @@
             "nullable": true
           },
           "isAllParticipants": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "True when this item is assigned to all participants. When a new participant joins the plan, they are automatically added to items with this flag."
           },
           "assignmentStatusList": {
             "type": "array",
+            "description": "Per-participant assignment and status tracking. Each entry is { participantId, status }.",
             "items": {
               "type": "object",
               "properties": {
@@ -571,6 +573,7 @@
       },
       "def-16": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -624,6 +627,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
+            "description": "The full list of participant assignments for this item. To assign to all participants: send every participant with status \"pending\" and set isAllParticipants=true. To assign a subset: send only those participants and set isAllParticipants=false (or omit it). To leave unassigned: omit this field or send []. Owner-only on create.",
             "items": {
               "type": "object",
               "properties": {
@@ -648,7 +652,8 @@
             }
           },
           "isAllParticipants": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Set true when assigning to all participants (new joiners will be auto-added). Set false or omit for subset/single/no assignment. Owner-only on create."
           }
         },
         "required": [
@@ -661,6 +666,7 @@
       },
       "def-17": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -714,6 +720,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
+            "description": "Send the full desired assignment list. Owner can set any list. Non-owner can only change their own entry (update status or remove self). To toggle assign-all ON: send all participants with status \"pending\" + isAllParticipants=true. To toggle assign-all OFF: send [] + isAllParticipants=false. To update one status: send the full list with that entry changed.",
             "items": {
               "type": "object",
               "properties": {
@@ -738,7 +745,8 @@
             }
           },
           "isAllParticipants": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Only the plan owner can change this flag."
           }
         },
         "title": "UpdateItemBody"
@@ -1835,6 +1843,7 @@
       },
       "def-47": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "itemId": {
             "type": "string",
@@ -1892,6 +1901,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
+            "description": "Send the full desired assignment list. Same rules as single-item PATCH: owner can set any list, non-owner can only change their own entry.",
             "items": {
               "type": "object",
               "properties": {
@@ -1916,7 +1926,8 @@
             }
           },
           "isAllParticipants": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Owner-only."
           }
         },
         "required": [
@@ -2183,10 +2194,22 @@
         "description": "Check if the server and database are healthy",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Server and database are healthy",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Server and database are healthy",
+                  "$ref": "#/components/schemas/def-3"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Database unreachable",
                   "$ref": "#/components/schemas/def-3"
                 }
               }
@@ -2213,50 +2236,55 @@
         },
         "responses": {
           "201": {
-            "description": "Default Response",
+            "description": "Plan created successfully with owner and participants",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Plan created successfully with owner and participants",
                   "$ref": "#/components/schemas/def-25"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2272,30 +2300,44 @@
         "description": "Retrieve plans created by the authenticated user, ordered by creation date",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "List of plans owned by the authenticated user",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "List of plans owned by the authenticated user",
                   "$ref": "#/components/schemas/def-6"
                 }
               }
             }
           },
-          "500": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2314,40 +2356,55 @@
         "description": "Returns all plans in the system. Admin only. JWT required.",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "List of all plans (admin only)",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "List of all plans (admin only)",
                   "$ref": "#/components/schemas/def-6"
                 }
               }
             }
           },
-          "403": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2365,30 +2422,44 @@
         "description": "Returns minimal plan details (planId, title, dates, location) for plans where the user has a pending join request. JWT required.",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "List of plans with pending join requests for the user",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "List of plans with pending join requests for the user",
                   "$ref": "#/components/schemas/def-8"
                 }
               }
             }
           },
-          "500": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2417,60 +2488,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Plan preview for non-participant",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Plan preview for non-participant",
                   "$ref": "#/components/schemas/def-27"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan does not exist or you do not have access",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan does not exist or you do not have access",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2499,10 +2576,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Full plan for participants, or preview+joinRequest for non-participants",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Full plan for participants, or preview+joinRequest for non-participants",
                   "oneOf": [
                     {
                       "$ref": "#/components/schemas/def-25"
@@ -2516,40 +2594,44 @@
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan does not exist or you do not have access",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan does not exist or you do not have access",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2585,50 +2667,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Updated plan",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Updated plan",
                   "$ref": "#/components/schemas/def-5"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan does not exist or you do not have access",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan does not exist or you do not have access",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2655,50 +2753,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Plan deleted successfully",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Plan deleted successfully",
                   "$ref": "#/components/schemas/def-13"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan does not exist or you do not have access",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan does not exist or you do not have access",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2727,40 +2830,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "List of participants",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "List of participants",
                   "$ref": "#/components/schemas/def-20"
                 }
               }
             }
           },
-          "404": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — participant or plan does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2796,50 +2914,66 @@
         ],
         "responses": {
           "201": {
-            "description": "Default Response",
+            "description": "Created participant",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Created participant",
                   "$ref": "#/components/schemas/def-19"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — participant or plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2868,40 +3002,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Participant details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Participant details",
                   "$ref": "#/components/schemas/def-19"
                 }
               }
             }
           },
-          "404": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — participant or plan does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2937,60 +3086,77 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Updated participant",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Updated participant",
                   "$ref": "#/components/schemas/def-19"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "403": {
-            "description": "Default Response",
+            "description": "Forbidden — insufficient permissions",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Forbidden — insufficient permissions",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — participant or plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3017,50 +3183,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Participant deleted",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Participant deleted",
                   "$ref": "#/components/schemas/def-24"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — participant or plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3098,40 +3280,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Regenerated invite token",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Regenerated invite token",
                   "$ref": "#/components/schemas/def-40"
                 }
               }
             }
           },
-          "404": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — participant or plan does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3146,7 +3343,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create a new item in the specified plan. Equipment items always use pcs as the unit. Send assignmentStatusList and isAllParticipants to set assignments.",
+        "description": "Create a new item. Equipment items always use pcs. Assignment fields (owner-only): send assignmentStatusList with participant entries + isAllParticipants=true to assign all, or a subset with isAllParticipants=false. Omit both to create unassigned.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3169,50 +3366,66 @@
         ],
         "responses": {
           "201": {
-            "description": "Default Response",
+            "description": "Created item",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Created item",
                   "$ref": "#/components/schemas/def-14"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan or item does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan or item does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3239,40 +3452,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "List of items",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "List of items",
                   "$ref": "#/components/schemas/def-15"
                 }
               }
             }
           },
-          "404": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan or item does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan or item does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3287,7 +3515,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update an existing item by its ID. Send the full desired assignmentStatusList and isAllParticipants. Non-owners may only change their own assignment entry.",
+        "description": "Update an item. Send the full desired state. For assignments: owner sends any assignmentStatusList + isAllParticipants. Non-owner sends the full list but may only change their own entry (update status or remove self). To assign all: send all participants + isAllParticipants=true. To unassign all: send [] + isAllParticipants=false.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3310,50 +3538,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Updated item",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Updated item",
                   "$ref": "#/components/schemas/def-14"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan or item does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan or item does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3391,50 +3635,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Bulk operation results — all succeeded",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bulk operation results — all succeeded",
                   "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "207": {
-            "description": "Default Response",
+            "description": "Partial success — some items failed, check errors array",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Partial success — some items failed, check errors array",
                   "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
-          "404": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan or item does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan or item does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3470,40 +3730,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Bulk operation results — all succeeded",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bulk operation results — all succeeded",
                   "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "207": {
-            "description": "Default Response",
+            "description": "Partial success — some items failed, check errors array",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Partial success — some items failed, check errors array",
                   "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
-          "500": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan or item does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan or item does not exist",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3542,40 +3828,44 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Plan and items returned for the invite token",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Plan and items returned for the invite token",
                   "$ref": "#/components/schemas/def-38"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan, item, or invite token is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3623,50 +3913,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Guest preferences updated",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Guest preferences updated",
                   "$ref": "#/components/schemas/def-42"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan, item, or invite token is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3714,50 +4009,55 @@
         ],
         "responses": {
           "201": {
-            "description": "Default Response",
+            "description": "Item created",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Item created",
                   "$ref": "#/components/schemas/def-14"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan, item, or invite token is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3814,60 +4114,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Item updated",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Item updated",
                   "$ref": "#/components/schemas/def-14"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "403": {
-            "description": "Default Response",
+            "description": "Forbidden — insufficient permissions",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Forbidden — insufficient permissions",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan, item, or invite token is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3915,50 +4221,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "All items created successfully",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "All items created successfully",
                   "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "207": {
-            "description": "Default Response",
+            "description": "Partial success — some items created, some had validation errors",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Partial success — some items created, some had validation errors",
                   "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan, item, or invite token is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -4004,50 +4315,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "All items updated successfully",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "All items updated successfully",
                   "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "207": {
-            "description": "Default Response",
+            "description": "Partial success — some items updated, some had validation or permission errors",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Partial success — some items updated, some had validation or permission errors",
                   "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan, item, or invite token is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -4065,10 +4381,11 @@
         "description": "Returns the authenticated user identity extracted from the JWT. Returns 401 if no valid JWT is provided.",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Authenticated user identity",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authenticated user identity",
                   "type": "object",
                   "properties": {
                     "user": {
@@ -4097,6 +4414,17 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
           }
         }
       }
@@ -4110,11 +4438,23 @@
         "description": "Returns user identity from JWT and app preferences from the database. Returns 401 if no valid JWT is provided.",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "User identity and preferences",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "User identity and preferences",
                   "$ref": "#/components/schemas/def-55"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
@@ -4138,11 +4478,23 @@
         },
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Updated preferences",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Updated preferences",
                   "$ref": "#/components/schemas/def-57"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
@@ -4159,10 +4511,11 @@
         "description": "Updates all participant records linked to the authenticated user with identity fields from the JWT (name, email, phone, avatar). Call this after updating the user profile in Supabase so all plans reflect the latest data.",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Number of participant records synced",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Number of participant records synced",
                   "type": "object",
                   "properties": {
                     "synced": {
@@ -4177,20 +4530,22 @@
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -4229,60 +4584,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Participant claimed successfully",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Participant claimed successfully",
                   "$ref": "#/components/schemas/def-19"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — invite token or plan is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — invite token or plan is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -4320,80 +4681,88 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Join request already exists — returned existing",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Join request already exists — returned existing",
                   "$ref": "#/components/schemas/def-28"
                 }
               }
             }
           },
           "201": {
-            "description": "Default Response",
+            "description": "Join request created",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Join request created",
                   "$ref": "#/components/schemas/def-28"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "409": {
-            "description": "Default Response",
+            "description": "Conflict — duplicate join request",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Conflict — duplicate join request",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -4440,78 +4809,87 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Join request approved or rejected",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "description": "Join request approved or rejected"
+                }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "403": {
-            "description": "Default Response",
+            "description": "Forbidden — only the plan owner can manage requests",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Forbidden — only the plan owner can manage requests",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan or join request does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan or join request does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "409": {
-            "description": "Default Response",
+            "description": "Conflict — request already approved or rejected",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Conflict — request already approved or rejected",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
