@@ -50,8 +50,10 @@ describe('Plans Route - Error Scenarios', () => {
     function mockListChainError(error: unknown) {
       mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockRejectedValue(error),
+          innerJoin: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockRejectedValue(error),
+            }),
           }),
         }),
       })

@@ -114,7 +114,10 @@ describe('Plans Route', () => {
     })
 
     it('returns all plans when plans exist', async () => {
-      await seedTestPlans(3, { createdByUserId: TEST_USER_ID })
+      const seeded = await seedTestPlans(3, { createdByUserId: TEST_USER_ID })
+      for (const p of seeded) {
+        await seedTestParticipantWithUser(p.planId, TEST_USER_ID)
+      }
 
       const response = await app.inject({
         method: 'GET',
@@ -139,8 +142,36 @@ describe('Plans Route', () => {
       expect(plans[0].updatedAt).toBeDefined()
     })
 
+    it('returns plans where user is a participant but not the creator', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Someone Else Plan', owner: validOwner },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { planId } = createRes.json()
+
+      await seedTestParticipantWithUser(planId, REQUESTER_USER_ID)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans',
+        headers: { authorization: `Bearer ${requesterToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const plans = response.json()
+      expect(plans.some((p: { planId: string }) => p.planId === planId)).toBe(
+        true
+      )
+    })
+
     it('returns plans ordered by createdAt', async () => {
-      await seedTestPlans(3, { createdByUserId: TEST_USER_ID })
+      const seeded = await seedTestPlans(3, { createdByUserId: TEST_USER_ID })
+      for (const p of seeded) {
+        await seedTestParticipantWithUser(p.planId, TEST_USER_ID)
+      }
 
       const response = await app.inject({
         method: 'GET',
@@ -159,7 +190,10 @@ describe('Plans Route', () => {
     })
 
     it('returns plans with correct structure', async () => {
-      await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const [seededPlan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      await seedTestParticipantWithUser(seededPlan.planId, TEST_USER_ID)
 
       const response = await app.inject({
         method: 'GET',
@@ -1554,6 +1588,8 @@ describe('Plans Route', () => {
       const [plan1, plan2] = await seedTestPlans(2, {
         createdByUserId: TEST_USER_ID,
       })
+      await seedTestParticipantWithUser(plan1.planId, TEST_USER_ID)
+      await seedTestParticipantWithUser(plan2.planId, TEST_USER_ID)
       const adminToken = await signAdminJwt()
 
       await app.inject({
