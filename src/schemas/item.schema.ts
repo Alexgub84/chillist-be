@@ -87,7 +87,7 @@ export const createItemBodySchema = {
         required: ['participantId', 'status'],
       },
     },
-    assignToAll: { type: 'boolean' },
+    isAllParticipants: { type: 'boolean' },
   },
   required: ['name', 'category', 'quantity', 'status'],
 } as const
@@ -120,9 +120,7 @@ export const updateItemBodySchema = {
         required: ['participantId', 'status'],
       },
     },
-    assignToAll: { type: 'boolean' },
-    forParticipantId: { type: 'string', format: 'uuid' },
-    unassign: { type: 'boolean' },
+    isAllParticipants: { type: 'boolean' },
   },
 } as const
 
@@ -178,9 +176,7 @@ export const bulkUpdateItemEntrySchema = {
         required: ['participantId', 'status'],
       },
     },
-    assignToAll: { type: 'boolean' },
-    forParticipantId: { type: 'string', format: 'uuid' },
-    unassign: { type: 'boolean' },
+    isAllParticipants: { type: 'boolean' },
   },
   required: ['itemId'],
 } as const

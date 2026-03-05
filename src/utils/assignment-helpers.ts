@@ -1,25 +1,5 @@
 import type { Assignment, ItemStatus } from '../db/schema.js'
 
-export interface ResolveAssignmentsParams {
-  current: {
-    assignmentStatusList: Assignment[]
-    isAllParticipants: boolean
-  }
-  planParticipantIds: string[]
-  payload: {
-    assignToAll?: boolean
-    assignmentStatusList?: Assignment[]
-    forParticipantId?: string
-    unassign?: boolean
-    status?: ItemStatus
-  }
-}
-
-export interface ResolveAssignmentsResult {
-  assignmentStatusList: Assignment[]
-  isAllParticipants: boolean
-}
-
 function dedupeAssignments(list: Assignment[]): Assignment[] {
   const map = new Map<string, Assignment>()
   for (const entry of list) {
@@ -29,63 +9,69 @@ function dedupeAssignments(list: Assignment[]): Assignment[] {
 }
 
 export function resolveAssignments(
-  params: ResolveAssignmentsParams
-): ResolveAssignmentsResult {
-  const { current, planParticipantIds, payload } = params
+  incoming: Assignment[] | undefined
+): Assignment[] {
+  if (!incoming || incoming.length === 0) return []
+  return dedupeAssignments(incoming)
+}
 
-  if (payload.assignToAll === true) {
+export interface AssignmentChangeValidation {
+  valid: boolean
+  message?: string
+}
+
+export function validateParticipantAssignmentChange(
+  currentList: Assignment[],
+  currentIsAll: boolean,
+  incomingList: Assignment[],
+  incomingIsAll: boolean,
+  selfParticipantId: string
+): AssignmentChangeValidation {
+  if (incomingIsAll !== currentIsAll) {
     return {
-      assignmentStatusList: planParticipantIds.map((pid) => ({
-        participantId: pid,
-        status: 'pending' as ItemStatus,
-      })),
-      isAllParticipants: true,
+      valid: false,
+      message: 'Only the plan owner can change the all-participants flag',
     }
   }
 
-  if (payload.assignToAll === false) {
-    return {
-      assignmentStatusList: [],
-      isAllParticipants: false,
-    }
+  const currentMap = new Map<string, string>()
+  for (const a of currentList) {
+    currentMap.set(a.participantId, a.status)
   }
 
-  if (payload.assignmentStatusList !== undefined) {
-    return {
-      assignmentStatusList: dedupeAssignments(payload.assignmentStatusList),
-      isAllParticipants: false,
-    }
+  const incomingMap = new Map<string, string>()
+  for (const a of dedupeAssignments(incomingList)) {
+    incomingMap.set(a.participantId, a.status)
   }
 
-  if (payload.forParticipantId) {
-    if (payload.unassign === true) {
+  for (const [pid, status] of currentMap) {
+    if (pid === selfParticipantId) continue
+    const incomingStatus = incomingMap.get(pid)
+    if (incomingStatus === undefined) {
       return {
-        assignmentStatusList: current.assignmentStatusList.filter(
-          (a) => a.participantId !== payload.forParticipantId
-        ),
-        isAllParticipants: current.isAllParticipants,
+        valid: false,
+        message: 'Non-owners can only update their own assignment',
       }
     }
-
-    if (payload.status !== undefined) {
-      const found = current.assignmentStatusList.some(
-        (a) => a.participantId === payload.forParticipantId
-      )
-      if (!found) {
-        return { ...current }
-      }
+    if (incomingStatus !== status) {
       return {
-        assignmentStatusList: current.assignmentStatusList.map((a) =>
-          a.participantId === payload.forParticipantId
-            ? { ...a, status: payload.status! }
-            : a
-        ),
-        isAllParticipants: current.isAllParticipants,
+        valid: false,
+        message: 'Non-owners can only update their own assignment',
       }
     }
   }
 
-  return { ...current }
+  for (const [pid] of incomingMap) {
+    if (pid === selfParticipantId) continue
+    if (!currentMap.has(pid)) {
+      return {
+        valid: false,
+        message: 'Non-owners can only update their own assignment',
+      }
+    }
+  }
+
+  return { valid: true }
 }
 
 export function addParticipantToAssignments(

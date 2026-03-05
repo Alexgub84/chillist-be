@@ -18,10 +18,12 @@ import {
 import {
   checkItemMutationAccess,
   canEditItem,
-  getPlanParticipantIds,
   persistAssignments,
 } from '../services/item.service.js'
-import { resolveAssignments } from '../utils/assignment-helpers.js'
+import {
+  resolveAssignments,
+  validateParticipantAssignmentChange,
+} from '../utils/assignment-helpers.js'
 
 interface CreateItemBody {
   name: string
@@ -32,7 +34,7 @@ interface CreateItemBody {
   subcategory?: string | null
   notes?: string | null
   assignmentStatusList?: Assignment[]
-  assignToAll?: boolean
+  isAllParticipants?: boolean
 }
 
 interface UpdateItemBody {
@@ -44,9 +46,7 @@ interface UpdateItemBody {
   subcategory?: string | null
   notes?: string | null
   assignmentStatusList?: Assignment[]
-  assignToAll?: boolean
-  forParticipantId?: string
-  unassign?: boolean
+  isAllParticipants?: boolean
 }
 
 interface BulkItemError {
@@ -75,7 +75,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Add an item to a plan',
         description:
-          'Create a new item in the specified plan. Equipment items always use pcs as the unit. Send assignToAll=true to assign to every participant (owner only). Send assignmentStatusList to assign to specific participants.',
+          'Create a new item in the specified plan. Equipment items always use pcs as the unit. Send assignmentStatusList and isAllParticipants to set assignments.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'CreateItemBody#' },
         response: {
@@ -93,20 +93,13 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         category,
         unit,
         assignmentStatusList: bodyAssignments,
-        assignToAll,
+        isAllParticipants: bodyIsAll,
         ...rest
       } = request.body
 
       const unitResult = resolveItemUnit(category, unit)
       if ('error' in unitResult) {
         return reply.status(400).send({ message: unitResult.error })
-      }
-
-      if (assignToAll && bodyAssignments && bodyAssignments.length > 0) {
-        return reply.status(400).send({
-          message:
-            'Cannot set both assignToAll and assignmentStatusList. Use one or the other.',
-        })
       }
 
       try {
@@ -120,32 +113,16 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         }
 
         const isOwner = access.participant?.role === 'owner'
+        const hasAssignmentFields =
+          bodyAssignments !== undefined || bodyIsAll !== undefined
 
-        if (assignToAll && !isOwner) {
+        if (hasAssignmentFields && !isOwner) {
           return reply.status(400).send({
-            message: 'Only the plan owner can assign items to all participants',
+            message: 'Only the plan owner can set assignments on create',
           })
         }
 
-        if (bodyAssignments && bodyAssignments.length > 0 && !isOwner) {
-          return reply.status(400).send({
-            message: 'Only the plan owner can set assignments',
-          })
-        }
-
-        const planParticipantIds = await getPlanParticipantIds(
-          fastify.db,
-          planId
-        )
-
-        const resolved = resolveAssignments({
-          current: { assignmentStatusList: [], isAllParticipants: false },
-          planParticipantIds,
-          payload: {
-            assignToAll,
-            assignmentStatusList: bodyAssignments,
-          },
-        })
+        const resolved = resolveAssignments(bodyAssignments)
 
         const [createdItem] = await fastify.db
           .insert(items)
@@ -153,8 +130,8 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             planId,
             category,
             unit: unitResult.unit,
-            assignmentStatusList: resolved.assignmentStatusList,
-            isAllParticipants: resolved.isAllParticipants,
+            assignmentStatusList: resolved,
+            isAllParticipants: bodyIsAll ?? false,
             ...rest,
           })
           .returning()
@@ -242,7 +219,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Update an item',
         description:
-          'Update an existing item by its ID. Owner can set assignmentStatusList or assignToAll. Non-owner can use forParticipantId to update own status or unassign self.',
+          'Update an existing item by its ID. Send the full desired assignmentStatusList and isAllParticipants. Non-owners may only change their own assignment entry.',
         params: { $ref: 'ItemIdParam#' },
         body: { $ref: 'UpdateItemBody#' },
         response: {
@@ -257,31 +234,16 @@ export async function itemsRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { itemId } = request.params
       const {
-        assignToAll,
         assignmentStatusList: bodyAssignments,
-        forParticipantId,
-        unassign,
+        isAllParticipants: bodyIsAll,
         ...fieldUpdates
       } = request.body
 
       const hasAssignmentFields =
-        assignToAll !== undefined ||
-        bodyAssignments !== undefined ||
-        forParticipantId !== undefined
+        bodyAssignments !== undefined || bodyIsAll !== undefined
 
       if (Object.keys(fieldUpdates).length === 0 && !hasAssignmentFields) {
         return reply.status(400).send({ message: 'No fields to update' })
-      }
-
-      if (
-        assignToAll !== undefined &&
-        bodyAssignments !== undefined &&
-        bodyAssignments.length > 0
-      ) {
-        return reply.status(400).send({
-          message:
-            'Cannot set both assignToAll and assignmentStatusList. Use one or the other.',
-        })
       }
 
       try {
@@ -309,20 +271,21 @@ export async function itemsRoutes(fastify: FastifyInstance) {
 
         const isOwner = access.participant?.role === 'owner'
 
-        if (
-          (assignToAll !== undefined || bodyAssignments !== undefined) &&
-          !isOwner
-        ) {
-          return reply.status(400).send({
-            message: 'Only the plan owner can modify assignments',
-          })
-        }
+        if (hasAssignmentFields && !isOwner) {
+          const incomingList =
+            bodyAssignments ??
+            (existingItem.assignmentStatusList as Assignment[])
+          const incomingIsAll = bodyIsAll ?? existingItem.isAllParticipants
 
-        if (forParticipantId && !isOwner) {
-          if (forParticipantId !== access.participant?.participantId) {
-            return reply.status(400).send({
-              message: 'Non-owners can only update their own assignment',
-            })
+          const validation = validateParticipantAssignmentChange(
+            existingItem.assignmentStatusList as Assignment[],
+            existingItem.isAllParticipants,
+            incomingList,
+            incomingIsAll,
+            access.participant!.participantId
+          )
+          if (!validation.valid) {
+            return reply.status(400).send({ message: validation.message! })
           }
         }
 
@@ -350,32 +313,17 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         }
 
         if (hasAssignmentFields) {
-          const planParticipantIds = await getPlanParticipantIds(
-            fastify.db,
-            existingItem.planId
-          )
-
-          const resolved = resolveAssignments({
-            current: {
-              assignmentStatusList:
-                finalItem.assignmentStatusList as Assignment[],
-              isAllParticipants: finalItem.isAllParticipants,
-            },
-            planParticipantIds,
-            payload: {
-              assignToAll,
-              assignmentStatusList: bodyAssignments,
-              forParticipantId,
-              unassign,
-              status: fieldUpdates.status ?? request.body.status,
-            },
-          })
+          const finalList =
+            bodyAssignments !== undefined
+              ? resolveAssignments(bodyAssignments)
+              : (existingItem.assignmentStatusList as Assignment[])
+          const finalIsAll = bodyIsAll ?? existingItem.isAllParticipants
 
           finalItem = await persistAssignments(
             fastify.db,
             itemId,
-            resolved.assignmentStatusList,
-            resolved.isAllParticipants
+            finalList,
+            finalIsAll
           )
         }
 
@@ -411,7 +359,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Bulk create items in a plan',
         description:
-          'Create multiple items at once. Each item is validated independently. Supports assignToAll per item (owner only).',
+          'Create multiple items at once. Each item is validated independently. Send assignmentStatusList and isAllParticipants per item.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'BulkCreateItemBody#' },
         response: {
@@ -438,10 +386,6 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         }
 
         const isOwner = access.participant?.role === 'owner'
-        const planParticipantIds = await getPlanParticipantIds(
-          fastify.db,
-          planId
-        )
 
         const validValues: Array<{
           planId: string
@@ -462,7 +406,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             category,
             unit,
             assignmentStatusList: bodyAssignments,
-            assignToAll,
+            isAllParticipants: bodyIsAll,
             ...rest
           } = item
 
@@ -472,43 +416,25 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          if (assignToAll && bodyAssignments && bodyAssignments.length > 0) {
+          const hasAssignmentFields =
+            bodyAssignments !== undefined || bodyIsAll !== undefined
+
+          if (hasAssignmentFields && !isOwner) {
             errors.push({
               name: item.name,
-              message: 'Cannot set both assignToAll and assignmentStatusList',
+              message: 'Only the plan owner can set assignments on create',
             })
             continue
           }
 
-          if (assignToAll && !isOwner) {
-            errors.push({
-              name: item.name,
-              message:
-                'Only the plan owner can assign items to all participants',
-            })
-            continue
-          }
-
-          if (bodyAssignments && bodyAssignments.length > 0 && !isOwner) {
-            errors.push({
-              name: item.name,
-              message: 'Only the plan owner can set assignments',
-            })
-            continue
-          }
-
-          const resolved = resolveAssignments({
-            current: { assignmentStatusList: [], isAllParticipants: false },
-            planParticipantIds,
-            payload: { assignToAll, assignmentStatusList: bodyAssignments },
-          })
+          const resolved = resolveAssignments(bodyAssignments)
 
           validValues.push({
             planId,
             category,
             unit: unitResult.unit,
-            assignmentStatusList: resolved.assignmentStatusList,
-            isAllParticipants: resolved.isAllParticipants,
+            assignmentStatusList: resolved,
+            isAllParticipants: bodyIsAll ?? false,
             ...rest,
           })
         }
@@ -556,7 +482,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Bulk update items in a plan',
         description:
-          'Update multiple items at once. Each item is validated independently. Supports assignToAll, assignmentStatusList, forParticipantId per item.',
+          'Update multiple items at once. Each item is validated independently. Send assignmentStatusList and isAllParticipants per item.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'BulkUpdateItemBody#' },
         response: {
@@ -590,21 +516,14 @@ export async function itemsRoutes(fastify: FastifyInstance) {
 
         const itemMap = new Map(existingItems.map((i) => [i.itemId, i]))
 
-        const planParticipantIds = await getPlanParticipantIds(
-          fastify.db,
-          planId
-        )
-
         const updatedItems: Item[] = []
         const errors: BulkItemError[] = []
 
         for (const entry of itemUpdates) {
           const {
             itemId,
-            assignToAll,
             assignmentStatusList: bodyAssignments,
-            forParticipantId,
-            unassign,
+            isAllParticipants: bodyIsAll,
             ...fieldUpdates
           } = entry
           const existing = itemMap.get(itemId)
@@ -626,9 +545,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           }
 
           const hasAssignmentFields =
-            assignToAll !== undefined ||
-            bodyAssignments !== undefined ||
-            forParticipantId !== undefined
+            bodyAssignments !== undefined || bodyIsAll !== undefined
 
           if (Object.keys(fieldUpdates).length === 0 && !hasAssignmentFields) {
             errors.push({
@@ -646,22 +563,22 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          if (
-            (assignToAll !== undefined || bodyAssignments !== undefined) &&
-            !isOwner
-          ) {
-            errors.push({
-              name: existing.name,
-              message: 'Only the plan owner can modify assignments',
-            })
-            continue
-          }
+          if (hasAssignmentFields && !isOwner) {
+            const incomingList =
+              bodyAssignments ?? (existing.assignmentStatusList as Assignment[])
+            const incomingIsAll = bodyIsAll ?? existing.isAllParticipants
 
-          if (forParticipantId && !isOwner) {
-            if (forParticipantId !== access.participant?.participantId) {
+            const validation = validateParticipantAssignmentChange(
+              existing.assignmentStatusList as Assignment[],
+              existing.isAllParticipants,
+              incomingList,
+              incomingIsAll,
+              access.participant!.participantId
+            )
+            if (!validation.valid) {
               errors.push({
                 name: existing.name,
-                message: 'Non-owners can only update their own assignment',
+                message: validation.message!,
               })
               continue
             }
@@ -696,27 +613,17 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             }
 
             if (hasAssignmentFields) {
-              const resolved = resolveAssignments({
-                current: {
-                  assignmentStatusList:
-                    finalItem.assignmentStatusList as Assignment[],
-                  isAllParticipants: finalItem.isAllParticipants,
-                },
-                planParticipantIds,
-                payload: {
-                  assignToAll,
-                  assignmentStatusList: bodyAssignments,
-                  forParticipantId,
-                  unassign,
-                  status: fieldUpdates.status ?? entry.status,
-                },
-              })
+              const finalList =
+                bodyAssignments !== undefined
+                  ? resolveAssignments(bodyAssignments)
+                  : (existing.assignmentStatusList as Assignment[])
+              const finalIsAll = bodyIsAll ?? existing.isAllParticipants
 
               finalItem = await persistAssignments(
                 fastify.db,
                 itemId,
-                resolved.assignmentStatusList,
-                resolved.isAllParticipants
+                finalList,
+                finalIsAll
               )
             }
 

@@ -33,21 +33,15 @@ function mockAccessCheckWithError(
 }
 
 function mockAccessCheckSuccess(mockDb: ReturnType<typeof createMockDb>) {
-  mockDb.select
-    .mockReturnValueOnce({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi
-            .fn()
-            .mockResolvedValue([{ participantId: VALID_UUID, role: 'owner' }]),
-        }),
+  mockDb.select.mockReturnValueOnce({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi
+          .fn()
+          .mockResolvedValue([{ participantId: VALID_UUID, role: 'owner' }]),
       }),
-    })
-    .mockReturnValueOnce({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([{ participantId: VALID_UUID }]),
-      }),
-    })
+    }),
+  })
 }
 
 function mockInsertError(

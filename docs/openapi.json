@@ -647,7 +647,7 @@
               ]
             }
           },
-          "assignToAll": {
+          "isAllParticipants": {
             "type": "boolean"
           }
         },
@@ -737,14 +737,7 @@
               ]
             }
           },
-          "assignToAll": {
-            "type": "boolean"
-          },
-          "forParticipantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "unassign": {
+          "isAllParticipants": {
             "type": "boolean"
           }
         },
@@ -1922,14 +1915,7 @@
               ]
             }
           },
-          "assignToAll": {
-            "type": "boolean"
-          },
-          "forParticipantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "unassign": {
+          "isAllParticipants": {
             "type": "boolean"
           }
         },
@@ -3160,7 +3146,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create a new item in the specified plan. Equipment items always use pcs as the unit. Send assignToAll=true to assign to every participant (owner only). Send assignmentStatusList to assign to specific participants.",
+        "description": "Create a new item in the specified plan. Equipment items always use pcs as the unit. Send assignmentStatusList and isAllParticipants to set assignments.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3301,7 +3287,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update an existing item by its ID. Owner can set assignmentStatusList or assignToAll. Non-owner can use forParticipantId to update own status or unassign self.",
+        "description": "Update an existing item by its ID. Send the full desired assignmentStatusList and isAllParticipants. Non-owners may only change their own assignment entry.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3382,7 +3368,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create multiple items at once. Each item is validated independently. Supports assignToAll per item (owner only).",
+        "description": "Create multiple items at once. Each item is validated independently. Send assignmentStatusList and isAllParticipants per item.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3461,7 +3447,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update multiple items at once. Each item is validated independently. Supports assignToAll, assignmentStatusList, forParticipantId per item.",
+        "description": "Update multiple items at once. Each item is validated independently. Send assignmentStatusList and isAllParticipants per item.",
         "requestBody": {
           "content": {
             "application/json": {

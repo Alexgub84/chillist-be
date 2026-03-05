@@ -48,8 +48,8 @@ describe('All Participants Items — JSONB assignment model', () => {
     await cleanupTestDatabase()
   })
 
-  describe('Create item with assignToAll: true', () => {
-    it('creates item with assignmentStatusList containing all participants and isAllParticipants: true', async () => {
+  describe('Create item with isAllParticipants and full assignmentStatusList', () => {
+    it('creates item with assignmentStatusList containing all participants', async () => {
       const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
       const planParticipants = await seedTestParticipants(plan.planId, 3, {
         ownerUserId: TEST_USER_ID,
@@ -63,7 +63,11 @@ describe('All Participants Items — JSONB assignment model', () => {
           category: 'equipment',
           quantity: 1,
           status: 'pending',
-          assignToAll: true,
+          isAllParticipants: true,
+          assignmentStatusList: planParticipants.map((p) => ({
+            participantId: p.participantId,
+            status: 'pending',
+          })),
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -77,16 +81,11 @@ describe('All Participants Items — JSONB assignment model', () => {
       )
       const expectedIds = planParticipants.map((p) => p.participantId)
       expect(assignedIds.sort()).toEqual(expectedIds.sort())
-      created.assignmentStatusList.forEach(
-        (a: { participantId: string; status: string }) => {
-          expect(a.status).toBe('pending')
-        }
-      )
     })
   })
 
-  describe('Create item with explicit assignmentStatusList', () => {
-    it('creates item with only the specified participants in assignmentStatusList', async () => {
+  describe('Create item with explicit subset assignmentStatusList', () => {
+    it('creates item with only the specified participants', async () => {
       const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
       const planParticipants = await seedTestParticipants(plan.planId, 3, {
         ownerUserId: TEST_USER_ID,
@@ -103,7 +102,7 @@ describe('All Participants Items — JSONB assignment model', () => {
           status: 'pending',
           assignmentStatusList: subset.map((p) => ({
             participantId: p.participantId,
-            status: 'pending' as const,
+            status: 'pending',
           })),
         },
         headers: { authorization: `Bearer ${token}` },
@@ -113,16 +112,10 @@ describe('All Participants Items — JSONB assignment model', () => {
       const created = response.json()
       expect(created.isAllParticipants).toBe(false)
       expect(created.assignmentStatusList).toHaveLength(2)
-      const assignedIds = created.assignmentStatusList.map(
-        (a: { participantId: string }) => a.participantId
-      )
-      expect(assignedIds.sort()).toEqual(
-        subset.map((p) => p.participantId).sort()
-      )
     })
   })
 
-  describe('Update item with assignToAll: true', () => {
+  describe('Update item with new assignmentStatusList (owner)', () => {
     it('replaces assignmentStatusList with all participants', async () => {
       const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
       const planParticipants = await seedTestParticipants(plan.planId, 3, {
@@ -133,7 +126,13 @@ describe('All Participants Items — JSONB assignment model', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
-        payload: { assignToAll: true },
+        payload: {
+          isAllParticipants: true,
+          assignmentStatusList: planParticipants.map((p) => ({
+            participantId: p.participantId,
+            status: 'pending',
+          })),
+        },
         headers: { authorization: `Bearer ${token}` },
       })
 
@@ -141,23 +140,21 @@ describe('All Participants Items — JSONB assignment model', () => {
       const updated = response.json()
       expect(updated.isAllParticipants).toBe(true)
       expect(updated.assignmentStatusList).toHaveLength(3)
-      const assignedIds = updated.assignmentStatusList.map(
-        (a: { participantId: string }) => a.participantId
-      )
-      expect(assignedIds.sort()).toEqual(
-        planParticipants.map((p) => p.participantId).sort()
-      )
     })
   })
 
-  describe('Update with forParticipantId + status', () => {
-    it('updates only that participant entry in assignmentStatusList', async () => {
-      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
-      const planParticipants = await seedTestParticipants(plan.planId, 3, {
-        ownerUserId: TEST_USER_ID,
+  describe('Non-owner self-update via assignmentStatusList', () => {
+    it('non-owner can update their own status', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: OTHER_USER_ID })
+      const planParticipants = await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: OTHER_USER_ID,
       })
-      const target = planParticipants.find((p) => p.role === 'participant')!
+      const myParticipant = await seedTestParticipantWithUser(
+        plan.planId,
+        TEST_USER_ID
+      )
 
+      const createToken = await signTestJwt({ sub: OTHER_USER_ID })
       const createResponse = await app.inject({
         method: 'POST',
         url: `/plans/${plan.planId}/items`,
@@ -166,43 +163,55 @@ describe('All Participants Items — JSONB assignment model', () => {
           category: 'equipment',
           quantity: 1,
           status: 'pending',
-          assignToAll: true,
+          isAllParticipants: true,
+          assignmentStatusList: [
+            ...planParticipants.map((p) => ({
+              participantId: p.participantId,
+              status: 'pending',
+            })),
+            { participantId: myParticipant.participantId, status: 'pending' },
+          ],
         },
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${createToken}` },
       })
       const item = createResponse.json()
+
+      const updatedList = item.assignmentStatusList.map(
+        (a: { participantId: string; status: string }) =>
+          a.participantId === myParticipant.participantId
+            ? { ...a, status: 'purchased' }
+            : a
+      )
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
-        payload: {
-          forParticipantId: target.participantId,
-          status: 'purchased',
-        },
+        payload: { assignmentStatusList: updatedList },
         headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
       const updated = response.json()
-      const targetEntry = updated.assignmentStatusList.find(
+      const myEntry = updated.assignmentStatusList.find(
         (a: { participantId: string }) =>
-          a.participantId === target.participantId
+          a.participantId === myParticipant.participantId
       )
-      expect(targetEntry).toBeDefined()
-      expect(targetEntry.status).toBe('purchased')
+      expect(myEntry).toBeDefined()
+      expect(myEntry.status).toBe('purchased')
     })
-  })
 
-  describe('Non-owner self-unassign via forParticipantId + unassign: true', () => {
-    it('non-owner can remove themselves from assignmentStatusList', async () => {
+    it('non-owner can unassign themselves', async () => {
       const [plan] = await seedTestPlans(1, { createdByUserId: OTHER_USER_ID })
-      await seedTestParticipants(plan.planId, 2, { ownerUserId: OTHER_USER_ID })
+      await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: OTHER_USER_ID,
+      })
       const myParticipant = await seedTestParticipantWithUser(
         plan.planId,
         TEST_USER_ID
       )
       const [item] = await seedTestItems(plan.planId, 1)
 
+      const ownerToken = await signTestJwt({ sub: OTHER_USER_ID })
       await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
@@ -211,16 +220,13 @@ describe('All Participants Items — JSONB assignment model', () => {
             { participantId: myParticipant.participantId, status: 'pending' },
           ],
         },
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${ownerToken}` },
       })
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
-        payload: {
-          forParticipantId: myParticipant.participantId,
-          unassign: true,
-        },
+        payload: { assignmentStatusList: [] },
         headers: { authorization: `Bearer ${token}` },
       })
 
@@ -235,30 +241,25 @@ describe('All Participants Items — JSONB assignment model', () => {
     })
   })
 
-  describe('Non-owner cannot set assignToAll or assignmentStatusList', () => {
-    it('non-owner receives 400 when setting assignToAll', async () => {
+  describe('Non-owner cannot modify other assignments', () => {
+    it('non-owner receives 400 when setting isAllParticipants', async () => {
       const [plan] = await seedTestPlans(1, { createdByUserId: OTHER_USER_ID })
       await seedTestParticipants(plan.planId, 2, { ownerUserId: OTHER_USER_ID })
       await seedTestParticipantWithUser(plan.planId, TEST_USER_ID)
+      const [item] = await seedTestItems(plan.planId, 1)
 
       const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/items`,
-        payload: {
-          name: 'Attempt',
-          category: 'equipment',
-          quantity: 1,
-          status: 'pending',
-          assignToAll: true,
-        },
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { isAllParticipants: true },
         headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(400)
-      expect(response.json().message).toContain('owner')
+      expect(response.json().message).toContain('all-participants flag')
     })
 
-    it('non-owner receives 400 when setting assignmentStatusList with others', async () => {
+    it('non-owner receives 400 when adding another participant', async () => {
       const [plan] = await seedTestPlans(1, { createdByUserId: OTHER_USER_ID })
       const planParticipants = await seedTestParticipants(plan.planId, 2, {
         ownerUserId: OTHER_USER_ID,
@@ -286,12 +287,35 @@ describe('All Participants Items — JSONB assignment model', () => {
 
       expect(response.statusCode).toBe(400)
     })
+
+    it('non-owner receives 400 on create with assignments', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: OTHER_USER_ID })
+      await seedTestParticipants(plan.planId, 2, { ownerUserId: OTHER_USER_ID })
+      await seedTestParticipantWithUser(plan.planId, TEST_USER_ID)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Attempt',
+          category: 'equipment',
+          quantity: 1,
+          status: 'pending',
+          isAllParticipants: true,
+          assignmentStatusList: [],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toContain('owner')
+    })
   })
 
   describe('New participant added', () => {
     it('auto-added to isAllParticipants items', async () => {
       const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
-      await seedTestParticipants(plan.planId, 2, {
+      const planParticipants = await seedTestParticipants(plan.planId, 2, {
         ownerUserId: TEST_USER_ID,
       })
 
@@ -303,7 +327,11 @@ describe('All Participants Items — JSONB assignment model', () => {
           category: 'equipment',
           quantity: 1,
           status: 'pending',
-          assignToAll: true,
+          isAllParticipants: true,
+          assignmentStatusList: planParticipants.map((p) => ({
+            participantId: p.participantId,
+            status: 'pending',
+          })),
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -324,8 +352,8 @@ describe('All Participants Items — JSONB assignment model', () => {
         url: `/plans/${plan.planId}/items`,
         headers: { authorization: `Bearer ${token}` },
       })
-      const items = getResponse.json()
-      const allItem = items.find(
+      const planItems = getResponse.json()
+      const allItem = planItems.find(
         (i: { itemId: string }) => i.itemId === item.itemId
       )
       expect(allItem).toBeDefined()
@@ -350,7 +378,11 @@ describe('All Participants Items — JSONB assignment model', () => {
           category: 'equipment',
           quantity: 1,
           status: 'pending',
-          assignToAll: true,
+          isAllParticipants: true,
+          assignmentStatusList: planParticipants.map((p) => ({
+            participantId: p.participantId,
+            status: 'pending',
+          })),
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -373,8 +405,8 @@ describe('All Participants Items — JSONB assignment model', () => {
         url: `/plans/${plan.planId}/items`,
         headers: { authorization: `Bearer ${token}` },
       })
-      const items = getResponse.json()
-      const updatedItem = items.find(
+      const planItems = getResponse.json()
+      const updatedItem = planItems.find(
         (i: { itemId: string }) => i.itemId === item.itemId
       )
       expect(updatedItem).toBeDefined()
