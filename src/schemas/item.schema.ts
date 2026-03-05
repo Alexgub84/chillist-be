@@ -17,10 +17,6 @@ export const itemSchema = {
       type: 'string',
       enum: [...UNIT_VALUES],
     },
-    status: {
-      type: 'string',
-      enum: [...ITEM_STATUS_VALUES],
-    },
     subcategory: { type: 'string', nullable: true },
     notes: { type: 'string', nullable: true },
     isAllParticipants: {
@@ -31,7 +27,7 @@ export const itemSchema = {
     assignmentStatusList: {
       type: 'array',
       description:
-        'Per-participant assignment and status tracking. Each entry is { participantId, status }.',
+        "Per-participant assignment and status tracking (replaces the old top-level status field). Each entry is { participantId, status } where status is one of: pending, purchased, packed, canceled. For non-owner responses, this array is filtered to only the requesting participant's entry.",
       items: {
         type: 'object',
         properties: {
@@ -51,7 +47,6 @@ export const itemSchema = {
     'category',
     'quantity',
     'unit',
-    'status',
     'isAllParticipants',
     'assignmentStatusList',
     'createdAt',
@@ -77,10 +72,6 @@ export const createItemBodySchema = {
       type: 'string',
       enum: [...UNIT_VALUES],
     },
-    status: {
-      type: 'string',
-      enum: [...ITEM_STATUS_VALUES],
-    },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignmentStatusList: {
@@ -102,7 +93,7 @@ export const createItemBodySchema = {
         'Set true when assigning to all participants (new joiners will be auto-added). Set false or omit for subset/single/no assignment. Owner-only on create.',
     },
   },
-  required: ['name', 'category', 'quantity', 'status'],
+  required: ['name', 'category', 'quantity'],
 } as const
 
 export const updateItemBodySchema = {
@@ -117,16 +108,12 @@ export const updateItemBodySchema = {
       type: 'string',
       enum: [...UNIT_VALUES],
     },
-    status: {
-      type: 'string',
-      enum: [...ITEM_STATUS_VALUES],
-    },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignmentStatusList: {
       type: 'array',
       description:
-        'Send the full desired assignment list. Owner can set any list. Non-owner can only change their own entry (update status or remove self). To toggle assign-all ON: send all participants with status "pending" + isAllParticipants=true. To toggle assign-all OFF: send [] + isAllParticipants=false. To update one status: send the full list with that entry changed.',
+        'Owner: send the full desired assignment list. Non-owner: send only your own entry with updated status — backend merges into the full list. To toggle assign-all ON (owner): send all participants + isAllParticipants=true. To toggle assign-all OFF (owner): send [] + isAllParticipants=false.',
       items: {
         type: 'object',
         properties: {
@@ -180,16 +167,12 @@ export const bulkUpdateItemEntrySchema = {
       type: 'string',
       enum: [...UNIT_VALUES],
     },
-    status: {
-      type: 'string',
-      enum: [...ITEM_STATUS_VALUES],
-    },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
     assignmentStatusList: {
       type: 'array',
       description:
-        'Send the full desired assignment list. Same rules as single-item PATCH: owner can set any list, non-owner can only change their own entry.',
+        'Owner: send the full desired assignment list. Non-owner: send only your own entry — backend merges. Same rules as single-item PATCH.',
       items: {
         type: 'object',
         properties: {

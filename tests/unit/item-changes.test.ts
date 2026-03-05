@@ -5,45 +5,32 @@ import type { Item } from '../../src/db/schema.js'
 describe('computeItemDiff', () => {
   const baseItem: Pick<
     Item,
-    | 'name'
-    | 'category'
-    | 'quantity'
-    | 'unit'
-    | 'status'
-    | 'subcategory'
-    | 'notes'
+    'name' | 'category' | 'quantity' | 'unit' | 'subcategory' | 'notes'
   > = {
     name: 'Tent',
     category: 'equipment',
     quantity: 2,
     unit: 'pcs',
-    status: 'pending',
     subcategory: null,
     notes: null,
   }
 
   it('returns diff for single field change', () => {
-    const diff = computeItemDiff(baseItem, { status: 'purchased' })
+    const diff = computeItemDiff(baseItem, { name: 'Big Tent' })
     expect(diff).toHaveLength(1)
     expect(diff[0]).toEqual({
-      field: 'status',
-      from: 'pending',
-      to: 'purchased',
+      field: 'name',
+      from: 'Tent',
+      to: 'Big Tent',
     })
   })
 
   it('returns diff for multiple field changes', () => {
     const diff = computeItemDiff(baseItem, {
-      status: 'packed',
       quantity: 3,
       notes: 'Ready',
     })
-    expect(diff).toHaveLength(3)
-    expect(diff).toContainEqual({
-      field: 'status',
-      from: 'pending',
-      to: 'packed',
-    })
+    expect(diff).toHaveLength(2)
     expect(diff).toContainEqual({ field: 'quantity', from: 2, to: 3 })
     expect(diff).toContainEqual({
       field: 'notes',
@@ -54,7 +41,7 @@ describe('computeItemDiff', () => {
 
   it('returns empty array when values are unchanged', () => {
     const diff = computeItemDiff(baseItem, {
-      status: 'pending',
+      name: 'Tent',
       quantity: 2,
     })
     expect(diff).toHaveLength(0)

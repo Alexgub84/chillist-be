@@ -6,10 +6,16 @@ import {
   plans,
   Unit,
   ItemCategory,
-  ItemStatus,
+  Assignment,
 } from '../db/schema.js'
 import * as schema from '../db/schema.js'
 import { recordItemCreated, recordItemUpdated } from '../utils/item-changes.js'
+import { persistAssignments } from '../services/item.service.js'
+import {
+  mergeParticipantAssignment,
+  filterAssignmentForParticipant,
+  validateParticipantAssignmentChange,
+} from '../utils/assignment-helpers.js'
 
 interface BulkItemError {
   name: string
@@ -24,7 +30,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         tags: ['invite'],
         summary: 'Access a plan via invite link',
         description:
-          'Public endpoint. Validates the invite token and returns plan data with items. Participant PII is stripped — only displayName and role are included.',
+          "Public endpoint. Validates the invite token and returns plan data with items. Items are filtered to only those assigned to the guest or unassigned. Each item's assignmentStatusList is filtered to show only the guest's own entry. Participant PII is stripped — only displayName and role are included. There is no top-level status on items — check assignmentStatusList for per-participant status.",
         params: { $ref: 'InviteParams#' },
         response: {
           200: {
@@ -108,13 +114,21 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           }
         })
 
-        const filteredItems = plan.items.filter((item) => {
-          const list = item.assignmentStatusList ?? []
-          return (
-            list.length === 0 ||
-            list.some((a) => a.participantId === participant.participantId)
-          )
-        })
+        const filteredItems = plan.items
+          .filter((item) => {
+            const list = item.assignmentStatusList ?? []
+            return (
+              list.length === 0 ||
+              list.some((a) => a.participantId === participant.participantId)
+            )
+          })
+          .map((item) => ({
+            ...item,
+            assignmentStatusList: filterAssignmentForParticipant(
+              (item.assignmentStatusList ?? []) as Assignment[],
+              participant.participantId
+            ),
+          }))
 
         request.log.info(
           {
@@ -318,7 +332,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         tags: ['invite'],
         summary: 'Create an item as a guest via invite token',
         description:
-          'Creates a new item auto-assigned to the participant matched by the invite token. Equipment items default to pcs; food items require a unit.',
+          'Creates a new item (no top-level status field). Equipment items default to pcs; food items require a unit. The item is not auto-assigned — send assignmentStatusList separately via PATCH if needed.',
         params: { $ref: 'InviteParams#' },
         body: { $ref: 'CreateInviteItemBody#' },
         response: {
@@ -441,9 +455,9 @@ export async function inviteRoutes(fastify: FastifyInstance) {
       category?: ItemCategory
       quantity?: number
       unit?: Unit
-      status?: ItemStatus
       subcategory?: string | null
       notes?: string | null
+      assignmentStatusList?: Assignment[]
     }
   }>(
     '/plans/:planId/invite/:inviteToken/items/:itemId',
@@ -452,7 +466,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         tags: ['invite'],
         summary: 'Update an item as a guest via invite token',
         description:
-          'Updates an existing item. Allowed if the item is assigned to the participant matched by the invite token OR unassigned. Returns 403 if the item belongs to another participant.',
+          'Updates an existing item. Allowed if the item is assigned to the guest or unassigned. Returns 403 if assigned to a different participant. No top-level status field — to update your status, send assignmentStatusList with your own entry: [{ participantId: "your-id", status: "purchased" }]. Backend merges into the full list. Response returns assignmentStatusList filtered to only your entry.',
         params: { $ref: 'InviteItemParams#' },
         body: { $ref: 'UpdateInviteItemBody#' },
         response: {
@@ -485,9 +499,12 @@ export async function inviteRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { planId, inviteToken, itemId } = request.params
-      const updates = request.body
+      const { assignmentStatusList: bodyAssignments, ...fieldUpdates } =
+        request.body
 
-      if (Object.keys(updates).length === 0) {
+      const hasAssignmentFields = bodyAssignments !== undefined
+
+      if (Object.keys(fieldUpdates).length === 0 && !hasAssignmentFields) {
         return reply.status(400).send({ message: 'No fields to update' })
       }
 
@@ -524,28 +541,70 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Item not found' })
         }
 
-        const list = existingItem.assignmentStatusList ?? []
+        const currentList = (existingItem.assignmentStatusList ??
+          []) as Assignment[]
         const isAssignedToOthers =
-          list.length > 0 &&
-          !list.some((a) => a.participantId === participant.participantId)
+          currentList.length > 0 &&
+          !currentList.some(
+            (a) => a.participantId === participant.participantId
+          )
         if (isAssignedToOthers) {
           return reply
             .status(403)
             .send({ message: 'You can only edit items assigned to you' })
         }
 
-        const [updatedItem] = await fastify.db
-          .update(items)
-          .set({ ...updates, updatedAt: new Date() })
-          .where(eq(items.itemId, itemId))
-          .returning()
+        if (hasAssignmentFields) {
+          const validation = validateParticipantAssignmentChange(
+            bodyAssignments,
+            undefined,
+            existingItem.isAllParticipants,
+            participant.participantId
+          )
+          if (!validation.valid) {
+            return reply.status(400).send({ message: validation.message! })
+          }
+        }
+
+        let updatedItem = existingItem
+
+        if (Object.keys(fieldUpdates).length > 0) {
+          const [row] = await fastify.db
+            .update(items)
+            .set({ ...fieldUpdates, updatedAt: new Date() })
+            .where(eq(items.itemId, itemId))
+            .returning()
+          updatedItem = row
+        }
+
+        if (hasAssignmentFields) {
+          const mergedList = mergeParticipantAssignment(
+            currentList,
+            bodyAssignments
+          )
+          updatedItem = await persistAssignments(
+            fastify.db,
+            itemId,
+            mergedList,
+            existingItem.isAllParticipants
+          )
+        }
+
+        updatedItem = {
+          ...updatedItem,
+          assignmentStatusList: filterAssignmentForParticipant(
+            updatedItem.assignmentStatusList as Assignment[],
+            participant.participantId
+          ),
+        }
 
         request.log.info(
           {
             itemId,
             planId,
             participantId: participant.participantId,
-            changes: Object.keys(updates),
+            fieldChanges: Object.keys(fieldUpdates),
+            assignmentChanged: hasAssignmentFields,
           },
           'Guest updated item via invite token'
         )
@@ -553,7 +612,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           itemId,
           planId,
           existing: existingItem,
-          updates,
+          updates: fieldUpdates,
           changedByParticipantId: participant.participantId,
         })
         return updatedItem
@@ -598,7 +657,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         tags: ['invite'],
         summary: 'Bulk create items as a guest via invite token',
         description:
-          'Creates multiple items auto-assigned to the participant matched by the invite token. Each item is validated independently — valid items are created, invalid items are reported in the errors array.',
+          'Creates multiple items (no top-level status field). Each item is validated independently — valid items are created, invalid items are reported in the errors array. Items are not auto-assigned.',
         params: { $ref: 'InviteParams#' },
         body: { $ref: 'BulkCreateInviteItemBody#' },
         response: {
@@ -754,9 +813,9 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         category?: ItemCategory
         quantity?: number
         unit?: Unit
-        status?: ItemStatus
         subcategory?: string | null
         notes?: string | null
+        assignmentStatusList?: Assignment[]
       }>
     }
   }>(
@@ -766,7 +825,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         tags: ['invite'],
         summary: 'Bulk update items as a guest via invite token',
         description:
-          'Updates multiple items. Only allowed for items assigned to the participant matched by the invite token or unassigned items. Items assigned to other participants are reported in errors.',
+          'Updates multiple items. No top-level status field — to update your status per item, send assignmentStatusList with your own entry: [{ participantId: "your-id", status: "purchased" }]. Backend merges into the full list for each item. Only allowed for items assigned to the guest or unassigned. Response returns each item\'s assignmentStatusList filtered to only your entry.',
         params: { $ref: 'InviteParams#' },
         body: { $ref: 'BulkUpdateInviteItemBody#' },
         response: {
@@ -834,7 +893,11 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         const errors: BulkItemError[] = []
 
         for (const entry of itemUpdates) {
-          const { itemId, ...updates } = entry
+          const {
+            itemId,
+            assignmentStatusList: bodyAssignments,
+            ...fieldUpdates
+          } = entry
           const existing = itemMap.get(itemId)
 
           if (!existing || existing.planId !== planId) {
@@ -845,7 +908,9 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          if (Object.keys(updates).length === 0) {
+          const hasAssignmentFields = bodyAssignments !== undefined
+
+          if (Object.keys(fieldUpdates).length === 0 && !hasAssignmentFields) {
             errors.push({
               name: existing.name,
               message: 'No fields to update',
@@ -853,10 +918,13 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          const list = existing.assignmentStatusList ?? []
+          const currentList = (existing.assignmentStatusList ??
+            []) as Assignment[]
           const isAssignedToOthers =
-            list.length > 0 &&
-            !list.some((a) => a.participantId === participant.participantId)
+            currentList.length > 0 &&
+            !currentList.some(
+              (a) => a.participantId === participant.participantId
+            )
           if (isAssignedToOthers) {
             errors.push({
               name: existing.name,
@@ -865,18 +933,60 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          const [updatedItem] = await fastify.db
-            .update(items)
-            .set({ ...updates, updatedAt: new Date() })
-            .where(eq(items.itemId, itemId))
-            .returning()
+          if (hasAssignmentFields) {
+            const validation = validateParticipantAssignmentChange(
+              bodyAssignments,
+              undefined,
+              existing.isAllParticipants,
+              participant.participantId
+            )
+            if (!validation.valid) {
+              errors.push({
+                name: existing.name,
+                message: validation.message!,
+              })
+              continue
+            }
+          }
+
+          let updatedItem = existing
+
+          if (Object.keys(fieldUpdates).length > 0) {
+            const [row] = await fastify.db
+              .update(items)
+              .set({ ...fieldUpdates, updatedAt: new Date() })
+              .where(eq(items.itemId, itemId))
+              .returning()
+            updatedItem = row
+          }
+
+          if (hasAssignmentFields) {
+            const mergedList = mergeParticipantAssignment(
+              currentList,
+              bodyAssignments
+            )
+            updatedItem = await persistAssignments(
+              fastify.db,
+              itemId,
+              mergedList,
+              existing.isAllParticipants
+            )
+          }
+
+          updatedItem = {
+            ...updatedItem,
+            assignmentStatusList: filterAssignmentForParticipant(
+              updatedItem.assignmentStatusList as Assignment[],
+              participant.participantId
+            ),
+          }
 
           updatedItems.push(updatedItem)
           recordItemUpdated(fastify.db, {
             itemId,
             planId: existing.planId,
             existing,
-            updates,
+            updates: fieldUpdates,
             changedByParticipantId: participant.participantId,
           })
         }

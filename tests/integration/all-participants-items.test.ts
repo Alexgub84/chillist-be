@@ -62,7 +62,6 @@ describe('All Participants Items — JSONB assignment model', () => {
           name: 'Shared Tent',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
           isAllParticipants: true,
           assignmentStatusList: planParticipants.map((p) => ({
             participantId: p.participantId,
@@ -99,7 +98,6 @@ describe('All Participants Items — JSONB assignment model', () => {
           name: 'Subset Item',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
           assignmentStatusList: subset.map((p) => ({
             participantId: p.participantId,
             status: 'pending',
@@ -162,7 +160,6 @@ describe('All Participants Items — JSONB assignment model', () => {
           name: 'Status Item',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
           isAllParticipants: true,
           assignmentStatusList: [
             ...planParticipants.map((p) => ({
@@ -176,31 +173,27 @@ describe('All Participants Items — JSONB assignment model', () => {
       })
       const item = createResponse.json()
 
-      const updatedList = item.assignmentStatusList.map(
-        (a: { participantId: string; status: string }) =>
-          a.participantId === myParticipant.participantId
-            ? { ...a, status: 'purchased' }
-            : a
-      )
-
       const response = await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
-        payload: { assignmentStatusList: updatedList },
+        payload: {
+          assignmentStatusList: [
+            { participantId: myParticipant.participantId, status: 'purchased' },
+          ],
+        },
         headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
       const updated = response.json()
-      const myEntry = updated.assignmentStatusList.find(
-        (a: { participantId: string }) =>
-          a.participantId === myParticipant.participantId
+      expect(updated.assignmentStatusList).toHaveLength(1)
+      expect(updated.assignmentStatusList[0].participantId).toBe(
+        myParticipant.participantId
       )
-      expect(myEntry).toBeDefined()
-      expect(myEntry.status).toBe('purchased')
+      expect(updated.assignmentStatusList[0].status).toBe('purchased')
     })
 
-    it('non-owner can unassign themselves', async () => {
+    it('non-owner empty assignmentStatusList is a no-op merge', async () => {
       const [plan] = await seedTestPlans(1, { createdByUserId: OTHER_USER_ID })
       await seedTestParticipants(plan.planId, 2, {
         ownerUserId: OTHER_USER_ID,
@@ -232,12 +225,11 @@ describe('All Participants Items — JSONB assignment model', () => {
 
       expect(response.statusCode).toBe(200)
       const updated = response.json()
-      expect(
-        updated.assignmentStatusList.some(
-          (a: { participantId: string }) =>
-            a.participantId === myParticipant.participantId
-        )
-      ).toBe(false)
+      expect(updated.assignmentStatusList).toHaveLength(1)
+      expect(updated.assignmentStatusList[0].participantId).toBe(
+        myParticipant.participantId
+      )
+      expect(updated.assignmentStatusList[0].status).toBe('pending')
     })
   })
 
@@ -300,7 +292,6 @@ describe('All Participants Items — JSONB assignment model', () => {
           name: 'Attempt',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
           isAllParticipants: true,
           assignmentStatusList: [],
         },
@@ -326,7 +317,6 @@ describe('All Participants Items — JSONB assignment model', () => {
           name: 'All Item',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
           isAllParticipants: true,
           assignmentStatusList: planParticipants.map((p) => ({
             participantId: p.participantId,
@@ -377,7 +367,6 @@ describe('All Participants Items — JSONB assignment model', () => {
           name: 'All Item',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
           isAllParticipants: true,
           assignmentStatusList: planParticipants.map((p) => ({
             participantId: p.participantId,

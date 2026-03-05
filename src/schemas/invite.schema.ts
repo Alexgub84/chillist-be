@@ -174,12 +174,21 @@ export const updateInviteItemBodySchema = {
       type: 'string',
       enum: [...UNIT_VALUES],
     },
-    status: {
-      type: 'string',
-      enum: [...ITEM_STATUS_VALUES],
-    },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
+    assignmentStatusList: {
+      type: 'array',
+      description:
+        'Send only your own entry with updated status. Backend merges into the full list.',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
+    },
   },
 } as const
 
@@ -208,12 +217,21 @@ export const bulkUpdateInviteItemEntrySchema = {
       type: 'string',
       enum: [...UNIT_VALUES],
     },
-    status: {
-      type: 'string',
-      enum: [...ITEM_STATUS_VALUES],
-    },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
+    assignmentStatusList: {
+      type: 'array',
+      description:
+        'Send only your own entry with updated status. Backend merges into the full list.',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
+    },
   },
   required: ['itemId'],
 } as const

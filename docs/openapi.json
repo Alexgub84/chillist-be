@@ -493,15 +493,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "nullable": true
@@ -516,7 +507,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
-            "description": "Per-participant assignment and status tracking. Each entry is { participantId, status }.",
+            "description": "Per-participant assignment and status tracking (replaces the old top-level status field). Each entry is { participantId, status } where status is one of: pending, purchased, packed, canceled. For non-owner responses, this array is filtered to only the requesting participant's entry.",
             "items": {
               "type": "object",
               "properties": {
@@ -556,7 +547,6 @@
           "category",
           "quantity",
           "unit",
-          "status",
           "isAllParticipants",
           "assignmentStatusList",
           "createdAt",
@@ -607,15 +597,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -659,8 +640,7 @@
         "required": [
           "name",
           "category",
-          "quantity",
-          "status"
+          "quantity"
         ],
         "title": "CreateItemBody"
       },
@@ -700,15 +680,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -720,7 +691,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
-            "description": "Send the full desired assignment list. Owner can set any list. Non-owner can only change their own entry (update status or remove self). To toggle assign-all ON: send all participants with status \"pending\" + isAllParticipants=true. To toggle assign-all OFF: send [] + isAllParticipants=false. To update one status: send the full list with that entry changed.",
+            "description": "Owner: send the full desired assignment list. Non-owner: send only your own entry with updated status — backend merges into the full list. To toggle assign-all ON (owner): send all participants + isAllParticipants=true. To toggle assign-all OFF (owner): send [] + isAllParticipants=false.",
             "items": {
               "type": "object",
               "properties": {
@@ -1803,15 +1774,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -1820,6 +1782,32 @@
           "notes": {
             "type": "string",
             "nullable": true
+          },
+          "assignmentStatusList": {
+            "type": "array",
+            "description": "Send only your own entry with updated status. Backend merges into the full list.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
           }
         },
         "title": "UpdateInviteItemBody"
@@ -1881,15 +1869,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -1901,7 +1880,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
-            "description": "Send the full desired assignment list. Same rules as single-item PATCH: owner can set any list, non-owner can only change their own entry.",
+            "description": "Owner: send the full desired assignment list. Non-owner: send only your own entry — backend merges. Same rules as single-item PATCH.",
             "items": {
               "type": "object",
               "properties": {
@@ -2042,15 +2021,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -2059,6 +2029,32 @@
           "notes": {
             "type": "string",
             "nullable": true
+          },
+          "assignmentStatusList": {
+            "type": "array",
+            "description": "Send only your own entry with updated status. Backend merges into the full list.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
           }
         },
         "required": [
@@ -3343,7 +3339,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create a new item. Equipment items always use pcs. Assignment fields (owner-only): send assignmentStatusList with participant entries + isAllParticipants=true to assign all, or a subset with isAllParticipants=false. Omit both to create unassigned.",
+        "description": "Create a new item (no top-level status field — per-participant status lives in assignmentStatusList). Equipment items always use pcs. Assignment fields (owner-only): send assignmentStatusList with participant entries (each has participantId + status) and isAllParticipants=true to assign all, or a subset with isAllParticipants=false. Omit both to create unassigned.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3438,7 +3434,7 @@
         "tags": [
           "items"
         ],
-        "description": "Retrieve all items belonging to a specific plan",
+        "description": "Retrieve all items belonging to a specific plan. Response filtering: owners see the full assignmentStatusList for each item; non-owners (participants) see only their own entry in assignmentStatusList. There is no top-level status field — check assignmentStatusList entries for per-participant status.",
         "parameters": [
           {
             "schema": {
@@ -3515,7 +3511,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update an item. Send the full desired state. For assignments: owner sends any assignmentStatusList + isAllParticipants. Non-owner sends the full list but may only change their own entry (update status or remove self). To assign all: send all participants + isAllParticipants=true. To unassign all: send [] + isAllParticipants=false.",
+        "description": "Update an item. No top-level status field — use assignmentStatusList to change per-participant status. Owner: send the full assignmentStatusList array (replaces existing) + isAllParticipants. Non-owner: send assignmentStatusList with ONLY your own entry (e.g. [{ participantId: \"your-id\", status: \"purchased\" }]) — the backend merges it into the full list, preserving other participants. Response: owners see the full assignmentStatusList; non-owners see only their own entry.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3612,7 +3608,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create multiple items at once. Each item is validated independently. Send assignmentStatusList and isAllParticipants per item.",
+        "description": "Create multiple items at once. Each item is validated independently. No top-level status field — per-participant status lives in assignmentStatusList. Assignment fields (owner-only): send assignmentStatusList and isAllParticipants per item.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3707,7 +3703,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update multiple items at once. Each item is validated independently. Send assignmentStatusList and isAllParticipants per item.",
+        "description": "Update multiple items at once. Each item is validated independently. No top-level status field — use assignmentStatusList per item. Owner: send the full assignmentStatusList (replaces). Non-owner: send only your own entry per item — backend merges. Response: non-owners see only their own entry in each item's assignmentStatusList.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3804,7 +3800,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Public endpoint. Validates the invite token and returns plan data with items. Participant PII is stripped — only displayName and role are included.",
+        "description": "Public endpoint. Validates the invite token and returns plan data with items. Items are filtered to only those assigned to the guest or unassigned. Each item's assignmentStatusList is filtered to show only the guest's own entry. Participant PII is stripped — only displayName and role are included. There is no top-level status on items — check assignmentStatusList for per-participant status.",
         "parameters": [
           {
             "schema": {
@@ -3976,7 +3972,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Creates a new item auto-assigned to the participant matched by the invite token. Equipment items default to pcs; food items require a unit.",
+        "description": "Creates a new item (no top-level status field). Equipment items default to pcs; food items require a unit. The item is not auto-assigned — send assignmentStatusList separately via PATCH if needed.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4072,7 +4068,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Updates an existing item. Allowed if the item is assigned to the participant matched by the invite token OR unassigned. Returns 403 if the item belongs to another participant.",
+        "description": "Updates an existing item. Allowed if the item is assigned to the guest or unassigned. Returns 403 if assigned to a different participant. No top-level status field — to update your status, send assignmentStatusList with your own entry: [{ participantId: \"your-id\", status: \"purchased\" }]. Backend merges into the full list. Response returns assignmentStatusList filtered to only your entry.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4188,7 +4184,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Creates multiple items auto-assigned to the participant matched by the invite token. Each item is validated independently — valid items are created, invalid items are reported in the errors array.",
+        "description": "Creates multiple items (no top-level status field). Each item is validated independently — valid items are created, invalid items are reported in the errors array. Items are not auto-assigned.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4282,7 +4278,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Updates multiple items. Only allowed for items assigned to the participant matched by the invite token or unassigned items. Items assigned to other participants are reported in errors.",
+        "description": "Updates multiple items. No top-level status field — to update your status per item, send assignmentStatusList with your own entry: [{ participantId: \"your-id\", status: \"purchased\" }]. Backend merges into the full list for each item. Only allowed for items assigned to the guest or unassigned. Response returns each item's assignmentStatusList filtered to only your entry.",
         "requestBody": {
           "content": {
             "application/json": {

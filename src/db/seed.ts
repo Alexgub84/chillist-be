@@ -353,7 +353,6 @@ async function seed() {
           subcategory: item.subcategory,
           quantity: item.quantity,
           unit: item.unit,
-          status: 'pending' as const,
           isAllParticipants: true,
           assignmentStatusList: pIds.map((participantId) => ({
             participantId,
@@ -369,7 +368,6 @@ async function seed() {
           subcategory: item.subcategory,
           quantity: item.quantity,
           unit: item.unit,
-          status: 'pending' as const,
           isAllParticipants: false,
           assignmentStatusList: [] as Assignment[],
         }
@@ -381,7 +379,6 @@ async function seed() {
         subcategory: item.subcategory,
         quantity: item.quantity,
         unit: item.unit,
-        status: 'pending' as const,
         isAllParticipants: false,
         assignmentStatusList: [
           { participantId: pIds[i % 5], status: 'pending' as const },
@@ -484,7 +481,6 @@ async function seed() {
         subcategory: 'Cooking and Heating Equipment',
         quantity: 1,
         unit: 'pcs',
-        status: 'pending',
         isAllParticipants: false,
         assignmentStatusList: [
           {
@@ -500,7 +496,6 @@ async function seed() {
         subcategory: 'Meat and Proteins',
         quantity: 12,
         unit: 'pcs',
-        status: 'pending',
         isAllParticipants: false,
         assignmentStatusList: [] as Assignment[],
       },
@@ -511,7 +506,6 @@ async function seed() {
         subcategory: 'Vegan',
         quantity: 6,
         unit: 'pcs',
-        status: 'pending',
         isAllParticipants: false,
         assignmentStatusList: [] as Assignment[],
       },
@@ -522,7 +516,6 @@ async function seed() {
         subcategory: 'Cooking and Heating Equipment',
         quantity: 2,
         unit: 'pack',
-        status: 'pending',
         isAllParticipants: false,
         assignmentStatusList: [] as Assignment[],
       },
