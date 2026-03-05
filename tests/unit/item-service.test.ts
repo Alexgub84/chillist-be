@@ -7,29 +7,30 @@ import {
   seedTestPlans,
   seedTestParticipants,
   seedTestItems,
-  getTestDb,
+  seedTestParticipantWithUser,
 } from '../helpers/db.js'
-import { items, participants } from '../../src/db/schema.js'
+import { items } from '../../src/db/schema.js'
 import { Database } from '../../src/db/index.js'
 import {
   checkPlanExists,
+  checkItemMutationAccess,
+  canEditItem,
   validateParticipant,
   batchValidateParticipants,
-  findPlanOwner,
-  applyAllParticipantsUpdate,
-  createItemAssignedToAll,
+  getPlanParticipantIds,
+  persistAssignments,
+  removeParticipantFromAssignments,
+  addParticipantToAllFlaggedItems,
 } from '../../src/services/item.service.js'
-import {
-  assignItemToAllParticipants,
-  unassignGroup,
-} from '../../src/services/all-participants-items.service.js'
+
+const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
 
 describe('Item Service', () => {
   let db: Database
 
   beforeAll(async () => {
     db = await setupTestDatabase()
-  })
+  }, 60000)
 
   afterAll(async () => {
     await closeTestDatabase()
@@ -42,6 +43,7 @@ describe('Item Service', () => {
   describe('checkPlanExists', () => {
     it('returns true for existing plan', async () => {
       const [plan] = await seedTestPlans(1)
+      await seedTestItems(plan.planId, 1)
       expect(await checkPlanExists(db, plan.planId)).toBe(true)
     })
 
@@ -49,6 +51,185 @@ describe('Item Service', () => {
       expect(
         await checkPlanExists(db, '00000000-0000-0000-0000-000000000099')
       ).toBe(false)
+    })
+  })
+
+  describe('checkItemMutationAccess', () => {
+    it('returns not allowed for null user', async () => {
+      const [plan] = await seedTestPlans(1)
+      const result = await checkItemMutationAccess(db, plan.planId, null)
+      expect(result.allowed).toBe(false)
+    })
+
+    it('returns allowed for admin user', async () => {
+      const [plan] = await seedTestPlans(1)
+      const result = await checkItemMutationAccess(db, plan.planId, {
+        id: TEST_USER_ID,
+        email: 'admin@test.com',
+        role: 'admin',
+      })
+      expect(result.allowed).toBe(true)
+      expect(result.participant).toBeNull()
+    })
+
+    it('returns allowed for owner participant', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 3, {
+        ownerUserId: TEST_USER_ID,
+      })
+
+      const result = await checkItemMutationAccess(db, plan.planId, {
+        id: TEST_USER_ID,
+        email: 'test@test.com',
+        role: 'authenticated',
+      })
+      expect(result.allowed).toBe(true)
+      expect(result.participant?.role).toBe('owner')
+    })
+
+    it('returns allowed for regular participant', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 2)
+      await seedTestParticipantWithUser(plan.planId, TEST_USER_ID)
+
+      const result = await checkItemMutationAccess(db, plan.planId, {
+        id: TEST_USER_ID,
+        email: 'test@test.com',
+        role: 'authenticated',
+      })
+      expect(result.allowed).toBe(true)
+      expect(result.participant?.role).toBe('participant')
+    })
+
+    it('returns not allowed for viewer', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipantWithUser(plan.planId, TEST_USER_ID, {
+        role: 'viewer',
+      })
+
+      const result = await checkItemMutationAccess(db, plan.planId, {
+        id: TEST_USER_ID,
+        email: 'test@test.com',
+        role: 'authenticated',
+      })
+      expect(result.allowed).toBe(false)
+    })
+
+    it('returns not allowed for user not in plan', async () => {
+      const [plan] = await seedTestPlans(1)
+      await seedTestParticipants(plan.planId, 2)
+
+      const result = await checkItemMutationAccess(db, plan.planId, {
+        id: TEST_USER_ID,
+        email: 'test@test.com',
+        role: 'authenticated',
+      })
+      expect(result.allowed).toBe(false)
+    })
+
+    it('returns not allowed for non-existent plan', async () => {
+      const result = await checkItemMutationAccess(
+        db,
+        '00000000-0000-0000-0000-000000000099',
+        {
+          id: TEST_USER_ID,
+          email: 'test@test.com',
+          role: 'authenticated',
+        }
+      )
+      expect(result.allowed).toBe(false)
+    })
+  })
+
+  describe('canEditItem', () => {
+    it('owner can always edit', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 2)
+      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const result = canEditItem(
+        {
+          allowed: true,
+          participant: { participantId: owner.participantId, role: 'owner' },
+        },
+        item
+      )
+      expect(result).toBe(true)
+    })
+
+    it('participant can edit if they are in assignmentStatusList', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 2)
+      const nonOwner = planParticipants.find((p) => p.role === 'participant')!
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const assignedItem = {
+        ...item,
+        assignmentStatusList: [
+          { participantId: nonOwner.participantId, status: 'pending' as const },
+        ],
+      }
+
+      const result = canEditItem(
+        {
+          allowed: true,
+          participant: {
+            participantId: nonOwner.participantId,
+            role: 'participant',
+          },
+        },
+        assignedItem
+      )
+      expect(result).toBe(true)
+    })
+
+    it('participant can edit unassigned items', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 2)
+      const nonOwner = planParticipants.find((p) => p.role === 'participant')!
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const unassignedItem = { ...item, assignmentStatusList: [] }
+
+      const result = canEditItem(
+        {
+          allowed: true,
+          participant: {
+            participantId: nonOwner.participantId,
+            role: 'participant',
+          },
+        },
+        unassignedItem
+      )
+      expect(result).toBe(true)
+    })
+
+    it('participant cannot edit items assigned to others', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const nonOwner = planParticipants.find((p) => p.role === 'participant')!
+      const other = planParticipants.filter((p) => p.role === 'participant')[1]
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const assignedItem = {
+        ...item,
+        assignmentStatusList: [
+          { participantId: other.participantId, status: 'pending' as const },
+        ],
+      }
+
+      const result = canEditItem(
+        {
+          allowed: true,
+          participant: {
+            participantId: nonOwner.participantId,
+            role: 'participant',
+          },
+        },
+        assignedItem
+      )
+      expect(result).toBe(false)
     })
   })
 
@@ -123,336 +304,180 @@ describe('Item Service', () => {
       expect(map.has(planParticipants[0].participantId)).toBe(true)
       expect(map.has('00000000-0000-0000-0000-000000000099')).toBe(false)
     })
+  })
 
-    it('includes participants from different plans', async () => {
-      const [planA, planB] = await seedTestPlans(2)
-      const pA = await seedTestParticipants(planA.planId, 1)
-      const pB = await seedTestParticipants(planB.planId, 1)
+  describe('getPlanParticipantIds', () => {
+    it('returns participant ids for plan', async () => {
+      const [plan] = await seedTestPlans(1)
+      const planParticipants = await seedTestParticipants(plan.planId, 3)
 
-      const ids = [pA[0].participantId, pB[0].participantId]
-      const map = await batchValidateParticipants(db, ids)
+      const ids = await getPlanParticipantIds(db, plan.planId)
+      expect(ids).toHaveLength(3)
+      expect(ids.sort()).toEqual(
+        planParticipants.map((p) => p.participantId).sort()
+      )
+    })
 
-      expect(map.get(pA[0].participantId)).toBe(planA.planId)
-      expect(map.get(pB[0].participantId)).toBe(planB.planId)
+    it('returns empty array for plan with no participants', async () => {
+      const [plan] = await seedTestPlans(1)
+      const ids = await getPlanParticipantIds(db, plan.planId)
+      expect(ids).toEqual([])
     })
   })
 
-  describe('findPlanOwner', () => {
-    it('returns owner participantId when plan has an owner', async () => {
+  describe('persistAssignments', () => {
+    it('updates assignmentStatusList and isAllParticipants', async () => {
       const [plan] = await seedTestPlans(1)
-      const planParticipants = await seedTestParticipants(plan.planId, 3)
-      const owner = planParticipants.find((p) => p.role === 'owner')!
+      const planParticipants = await seedTestParticipants(plan.planId, 2)
+      const [item] = await seedTestItems(plan.planId, 1)
 
-      const result = await findPlanOwner(db, plan.planId)
-      expect(result).toBe(owner.participantId)
-    })
+      const assignmentStatusList = [
+        {
+          participantId: planParticipants[0].participantId,
+          status: 'pending' as const,
+        },
+        {
+          participantId: planParticipants[1].participantId,
+          status: 'purchased' as const,
+        },
+      ]
 
-    it('returns null when plan has no participants', async () => {
-      const [plan] = await seedTestPlans(1)
-      const result = await findPlanOwner(db, plan.planId)
-      expect(result).toBeNull()
-    })
-
-    it('returns null for non-existent plan', async () => {
-      const result = await findPlanOwner(
+      const updated = await persistAssignments(
         db,
-        '00000000-0000-0000-0000-000000000099'
+        item.itemId,
+        assignmentStatusList,
+        true
       )
-      expect(result).toBeNull()
+
+      expect(updated.assignmentStatusList).toEqual(assignmentStatusList)
+      expect(updated.isAllParticipants).toBe(true)
     })
   })
 
-  describe('applyAllParticipantsUpdate', () => {
-    it('assigns to all when assignedToAll=true', async () => {
+  describe('removeParticipantFromAssignments', () => {
+    it('removes participant from items that have them assigned', async () => {
       const [plan] = await seedTestPlans(1)
-      await seedTestParticipants(plan.planId, 3)
+      const planParticipants = await seedTestParticipants(plan.planId, 2)
       const [item] = await seedTestItems(plan.planId, 1)
 
-      const result = await applyAllParticipantsUpdate(
+      await db
+        .update(items)
+        .set({
+          assignmentStatusList: [
+            {
+              participantId: planParticipants[0].participantId,
+              status: 'pending',
+            },
+            {
+              participantId: planParticipants[1].participantId,
+              status: 'pending',
+            },
+          ],
+          updatedAt: new Date(),
+        })
+        .where(eq(items.itemId, item.itemId))
+
+      const count = await removeParticipantFromAssignments(
         db,
-        item.itemId,
-        item,
-        true,
-        {},
-        async () => ({ valid: true })
+        plan.planId,
+        planParticipants[0].participantId
       )
 
-      expect(result).not.toBeNull()
-      expect(result!.item.isAllParticipants).toBe(true)
-      expect(result!.item.allParticipantsGroupId).toBeTruthy()
+      expect(count).toBe(1)
 
-      const allGroupItems = await db
-        .select()
-        .from(items)
-        .where(
-          eq(items.allParticipantsGroupId, result!.item.allParticipantsGroupId!)
-        )
-      expect(allGroupItems).toHaveLength(3)
-    })
-
-    it('reassigns group to specific participant', async () => {
-      const [plan] = await seedTestPlans(1)
-      const planParticipants = await seedTestParticipants(plan.planId, 3)
-      const owner = planParticipants.find((p) => p.role === 'owner')!
-      const target = planParticipants.find((p) => p.role === 'participant')!
-      const [item] = await seedTestItems(plan.planId, 1)
-
-      await assignItemToAllParticipants(db, item.itemId, owner.participantId)
-
-      const [existing] = await db
+      const [updated] = await db
         .select()
         .from(items)
         .where(eq(items.itemId, item.itemId))
-
-      const result = await applyAllParticipantsUpdate(
-        db,
-        item.itemId,
-        existing,
-        undefined,
-        { assignedParticipantId: target.participantId },
-        async () => ({ valid: true })
-      )
-
-      expect(result).not.toBeNull()
-      expect(result!.item.isAllParticipants).toBe(false)
-      expect(result!.item.assignedParticipantId).toBe(target.participantId)
+      expect(updated.assignmentStatusList).toHaveLength(1)
+      expect(
+        (updated.assignmentStatusList as { participantId: string }[])[0]
+          .participantId
+      ).toBe(planParticipants[1].participantId)
     })
 
-    it('unassigns group when assignedParticipantId is null', async () => {
+    it('returns 0 when participant is not assigned to any items', async () => {
       const [plan] = await seedTestPlans(1)
-      const planParticipants = await seedTestParticipants(plan.planId, 3)
-      const owner = planParticipants.find((p) => p.role === 'owner')!
-      const [item] = await seedTestItems(plan.planId, 1)
+      const planParticipants = await seedTestParticipants(plan.planId, 2)
+      await seedTestItems(plan.planId, 1)
 
-      const group = await assignItemToAllParticipants(
+      const count = await removeParticipantFromAssignments(
         db,
-        item.itemId,
-        owner.participantId
+        plan.planId,
+        planParticipants[0].participantId
       )
-      const groupId = group[0].allParticipantsGroupId!
-
-      const [existing] = await db
-        .select()
-        .from(items)
-        .where(eq(items.itemId, item.itemId))
-
-      const result = await applyAllParticipantsUpdate(
-        db,
-        item.itemId,
-        existing,
-        undefined,
-        { assignedParticipantId: null },
-        async () => ({ valid: true })
-      )
-
-      expect(result).not.toBeNull()
-      expect(result!.item.status).toBe('canceled')
-
-      const allGroupItems = await db
-        .select()
-        .from(items)
-        .where(eq(items.allParticipantsGroupId, groupId))
-      expect(allGroupItems.every((i) => i.status === 'canceled')).toBe(true)
-    })
-
-    it('unassigns group when assignedToAll=false', async () => {
-      const [plan] = await seedTestPlans(1)
-      await seedTestParticipants(plan.planId, 3)
-      const [item] = await seedTestItems(plan.planId, 1)
-
-      await applyAllParticipantsUpdate(
-        db,
-        item.itemId,
-        item,
-        true,
-        {},
-        async () => ({ valid: true })
-      )
-
-      const [existing] = await db
-        .select()
-        .from(items)
-        .where(eq(items.itemId, item.itemId))
-
-      const result = await applyAllParticipantsUpdate(
-        db,
-        item.itemId,
-        existing,
-        false,
-        {},
-        async () => ({ valid: true })
-      )
-
-      expect(result).not.toBeNull()
-      expect(result!.item.status).toBe('canceled')
-      expect(result!.item.isAllParticipants).toBe(false)
-    })
-
-    it('cascades core field updates to all copies', async () => {
-      const [plan] = await seedTestPlans(1)
-      const planParticipants = await seedTestParticipants(plan.planId, 3)
-      const owner = planParticipants.find((p) => p.role === 'owner')!
-      const [item] = await seedTestItems(plan.planId, 1)
-
-      const group = await assignItemToAllParticipants(
-        db,
-        item.itemId,
-        owner.participantId
-      )
-      const groupId = group[0].allParticipantsGroupId!
-
-      const [existing] = await db
-        .select()
-        .from(items)
-        .where(eq(items.itemId, item.itemId))
-
-      await applyAllParticipantsUpdate(
-        db,
-        item.itemId,
-        existing,
-        undefined,
-        { name: 'Renamed Item', quantity: 10 },
-        async () => ({ valid: true })
-      )
-
-      const allGroupItems = await db
-        .select()
-        .from(items)
-        .where(eq(items.allParticipantsGroupId, groupId))
-      for (const gi of allGroupItems) {
-        expect(gi.name).toBe('Renamed Item')
-        expect(gi.quantity).toBe(10)
-      }
-    })
-
-    it('applies status update only to the target item', async () => {
-      const [plan] = await seedTestPlans(1)
-      const planParticipants = await seedTestParticipants(plan.planId, 3)
-      const owner = planParticipants.find((p) => p.role === 'owner')!
-      const [item] = await seedTestItems(plan.planId, 1)
-
-      const group = await assignItemToAllParticipants(
-        db,
-        item.itemId,
-        owner.participantId
-      )
-      const sibling = group.find((g) => g.itemId !== item.itemId)!
-
-      const [existing] = await db
-        .select()
-        .from(items)
-        .where(eq(items.itemId, item.itemId))
-
-      await applyAllParticipantsUpdate(
-        db,
-        item.itemId,
-        existing,
-        undefined,
-        { status: 'purchased' },
-        async () => ({ valid: true })
-      )
-
-      const [refreshedTarget] = await db
-        .select()
-        .from(items)
-        .where(eq(items.itemId, item.itemId))
-      expect(refreshedTarget.status).toBe('purchased')
-
-      const [refreshedSibling] = await db
-        .select()
-        .from(items)
-        .where(eq(items.itemId, sibling.itemId))
-      expect(refreshedSibling.status).toBe('pending')
-    })
-
-    it('returns null for normal (non-all-participants) item with no assignedToAll flag', async () => {
-      const [plan] = await seedTestPlans(1)
-      const [item] = await seedTestItems(plan.planId, 1)
-
-      const result = await applyAllParticipantsUpdate(
-        db,
-        item.itemId,
-        item,
-        undefined,
-        { name: 'Updated' },
-        async () => ({ valid: true })
-      )
-
-      expect(result).toBeNull()
-    })
-
-    it('throws when participant validator fails during reassignment', async () => {
-      const [plan] = await seedTestPlans(1)
-      const planParticipants = await seedTestParticipants(plan.planId, 3)
-      const owner = planParticipants.find((p) => p.role === 'owner')!
-      const [item] = await seedTestItems(plan.planId, 1)
-
-      await assignItemToAllParticipants(db, item.itemId, owner.participantId)
-
-      const [existing] = await db
-        .select()
-        .from(items)
-        .where(eq(items.itemId, item.itemId))
-
-      await expect(
-        applyAllParticipantsUpdate(
-          db,
-          item.itemId,
-          existing,
-          undefined,
-          { assignedParticipantId: '00000000-0000-0000-0000-000000000099' },
-          async () => ({ valid: false, message: 'Participant not found' })
-        )
-      ).rejects.toThrow('Participant not found')
+      expect(count).toBe(0)
     })
   })
 
-  describe('createItemAssignedToAll', () => {
-    it('creates copies for all participants', async () => {
+  describe('addParticipantToAllFlaggedItems', () => {
+    it('adds participant to items with isAllParticipants=true', async () => {
       const [plan] = await seedTestPlans(1)
-      const planParticipants = await seedTestParticipants(plan.planId, 3)
+      const planParticipants = await seedTestParticipants(plan.planId, 2)
       const [item] = await seedTestItems(plan.planId, 1)
 
-      const group = await createItemAssignedToAll(db, item.itemId, plan.planId)
+      await db
+        .update(items)
+        .set({
+          isAllParticipants: true,
+          assignmentStatusList: [
+            {
+              participantId: planParticipants[0].participantId,
+              status: 'pending',
+            },
+          ],
+          updatedAt: new Date(),
+        })
+        .where(eq(items.itemId, item.itemId))
 
-      expect(group).not.toBeNull()
-      expect(group!).toHaveLength(3)
+      const count = await addParticipantToAllFlaggedItems(
+        db,
+        plan.planId,
+        planParticipants[1].participantId
+      )
 
-      const assignedIds = group!.map((g) => g.assignedParticipantId).sort()
-      const expectedIds = planParticipants.map((p) => p.participantId).sort()
-      expect(assignedIds).toEqual(expectedIds)
+      expect(count).toBe(1)
+
+      const [updated] = await db
+        .select()
+        .from(items)
+        .where(eq(items.itemId, item.itemId))
+      const list = updated.assignmentStatusList as { participantId: string }[]
+      expect(list).toHaveLength(2)
+      expect(list.map((a) => a.participantId)).toContain(
+        planParticipants[1].participantId
+      )
     })
 
-    it('returns null when plan has no owner', async () => {
+    it('returns 0 when participant already in assignmentStatusList', async () => {
       const [plan] = await seedTestPlans(1)
-      const testDb = await getTestDb()
-      await testDb.insert(participants).values({
-        planId: plan.planId,
-        name: 'Non',
-        lastName: 'Owner',
-        contactPhone: '+1-555-000-0001',
-        role: 'participant',
-      })
+      const planParticipants = await seedTestParticipants(plan.planId, 2)
       const [item] = await seedTestItems(plan.planId, 1)
 
-      const result = await createItemAssignedToAll(db, item.itemId, plan.planId)
-      expect(result).toBeNull()
-    })
+      await db
+        .update(items)
+        .set({
+          isAllParticipants: true,
+          assignmentStatusList: [
+            {
+              participantId: planParticipants[0].participantId,
+              status: 'pending',
+            },
+            {
+              participantId: planParticipants[1].participantId,
+              status: 'pending',
+            },
+          ],
+          updatedAt: new Date(),
+        })
+        .where(eq(items.itemId, item.itemId))
 
-    it('works after unassign and re-create', async () => {
-      const [plan] = await seedTestPlans(1)
-      await seedTestParticipants(plan.planId, 3)
-      const [item] = await seedTestItems(plan.planId, 1)
-
-      const first = await createItemAssignedToAll(db, item.itemId, plan.planId)
-      expect(first).toHaveLength(3)
-
-      await unassignGroup(db, item.itemId)
-
-      const second = await createItemAssignedToAll(db, item.itemId, plan.planId)
-      expect(second).not.toBeNull()
-      expect(second!).toHaveLength(3)
-      expect(second!.every((g) => g.isAllParticipants)).toBe(true)
+      const count = await addParticipantToAllFlaggedItems(
+        db,
+        plan.planId,
+        planParticipants[1].participantId
+      )
+      expect(count).toBe(0)
     })
   })
 })

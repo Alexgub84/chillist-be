@@ -23,18 +23,23 @@ export const itemSchema = {
     },
     subcategory: { type: 'string', nullable: true },
     notes: { type: 'string', nullable: true },
-    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
     isAllParticipants: {
       type: 'boolean',
       description:
-        'True when this item is part of an all-participants group (one copy per participant).',
+        'True when this item is assigned to all participants. When a new participant joins the plan, they are automatically added to items with this flag.',
     },
-    allParticipantsGroupId: {
-      type: 'string',
-      format: 'uuid',
-      nullable: true,
+    assignmentStatusList: {
+      type: 'array',
       description:
-        'Shared UUID linking all copies in an all-participants group. Null for regular items.',
+        'Per-participant assignment and status tracking. Each entry is { participantId, status }.',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
     },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
@@ -48,6 +53,7 @@ export const itemSchema = {
     'unit',
     'status',
     'isAllParticipants',
+    'assignmentStatusList',
     'createdAt',
     'updatedAt',
   ],
@@ -62,6 +68,7 @@ export const itemListSchema = {
 export const createItemBodySchema = {
   $id: 'CreateItemBody',
   type: 'object',
+  additionalProperties: false,
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },
     category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
@@ -76,11 +83,23 @@ export const createItemBodySchema = {
     },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
-    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
-    assignedToAll: {
+    assignmentStatusList: {
+      type: 'array',
+      description:
+        'The full list of participant assignments for this item. To assign to all participants: send every participant with status "pending" and set isAllParticipants=true. To assign a subset: send only those participants and set isAllParticipants=false (or omit it). To leave unassigned: omit this field or send []. Owner-only on create.',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
+    },
+    isAllParticipants: {
       type: 'boolean',
       description:
-        'Set true to assign this item to all participants (creates one copy per participant). Ignored if assignedParticipantId is also set.',
+        'Set true when assigning to all participants (new joiners will be auto-added). Set false or omit for subset/single/no assignment. Owner-only on create.',
     },
   },
   required: ['name', 'category', 'quantity', 'status'],
@@ -89,6 +108,7 @@ export const createItemBodySchema = {
 export const updateItemBodySchema = {
   $id: 'UpdateItemBody',
   type: 'object',
+  additionalProperties: false,
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },
     category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
@@ -103,11 +123,23 @@ export const updateItemBodySchema = {
     },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
-    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
-    assignedToAll: {
+    assignmentStatusList: {
+      type: 'array',
+      description:
+        'Send the full desired assignment list. Owner can set any list. Non-owner can only change their own entry (update status or remove self). To toggle assign-all ON: send all participants with status "pending" + isAllParticipants=true. To toggle assign-all OFF: send [] + isAllParticipants=false. To update one status: send the full list with that entry changed.',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
+    },
+    isAllParticipants: {
       type: 'boolean',
       description:
-        'Set true to assign to all participants. Set false (or send assignedParticipantId/null) to switch from all to specific/unassigned.',
+        'Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Only the plan owner can change this flag.',
     },
   },
 } as const
@@ -129,6 +161,7 @@ export const bulkCreateItemBodySchema = {
       type: 'array',
       items: { $ref: 'CreateItemBody#' },
       minItems: 1,
+      maxItems: 100,
     },
   },
   required: ['items'],
@@ -137,6 +170,7 @@ export const bulkCreateItemBodySchema = {
 export const bulkUpdateItemEntrySchema = {
   $id: 'BulkUpdateItemEntry',
   type: 'object',
+  additionalProperties: false,
   properties: {
     itemId: { type: 'string', format: 'uuid' },
     name: { type: 'string', minLength: 1, maxLength: 255 },
@@ -152,11 +186,23 @@ export const bulkUpdateItemEntrySchema = {
     },
     subcategory: { type: 'string', maxLength: 255, nullable: true },
     notes: { type: 'string', nullable: true },
-    assignedParticipantId: { type: 'string', format: 'uuid', nullable: true },
-    assignedToAll: {
+    assignmentStatusList: {
+      type: 'array',
+      description:
+        'Send the full desired assignment list. Same rules as single-item PATCH: owner can set any list, non-owner can only change their own entry.',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', enum: [...ITEM_STATUS_VALUES] },
+        },
+        required: ['participantId', 'status'],
+      },
+    },
+    isAllParticipants: {
       type: 'boolean',
       description:
-        'Set true to assign to all participants. Set false (or send assignedParticipantId/null) to switch from all to specific/unassigned.',
+        'Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Owner-only.',
     },
   },
   required: ['itemId'],
@@ -170,6 +216,7 @@ export const bulkUpdateItemBodySchema = {
       type: 'array',
       items: { $ref: 'BulkUpdateItemEntry#' },
       minItems: 1,
+      maxItems: 100,
     },
   },
   required: ['items'],

@@ -12,7 +12,6 @@ describe('computeItemDiff', () => {
     | 'status'
     | 'subcategory'
     | 'notes'
-    | 'assignedParticipantId'
   > = {
     name: 'Tent',
     category: 'equipment',
@@ -21,7 +20,6 @@ describe('computeItemDiff', () => {
     status: 'pending',
     subcategory: null,
     notes: null,
-    assignedParticipantId: null,
   }
 
   it('returns diff for single field change', () => {

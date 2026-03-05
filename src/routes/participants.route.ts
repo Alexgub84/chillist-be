@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { participants, plans } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
-import { removeParticipantFromAllGroups } from '../services/all-participants-items.service.js'
+import { removeParticipantFromAssignments } from '../services/item.service.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -64,10 +64,27 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         description: 'Retrieve all participants belonging to a specific plan',
         params: { $ref: 'PlanIdParam#' },
         response: {
-          200: { $ref: 'ParticipantList#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'List of participants',
+            $ref: 'ParticipantList#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — participant or plan does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -140,11 +157,31 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'CreateParticipantBody#' },
         response: {
-          201: { $ref: 'Participant#' },
-          400: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          201: {
+            description: 'Created participant',
+            $ref: 'Participant#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — participant or plan does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -210,10 +247,27 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         description: 'Retrieve a single participant by its ID',
         params: { $ref: 'ParticipantIdParam#' },
         response: {
-          200: { $ref: 'Participant#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Participant details',
+            $ref: 'Participant#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — participant or plan does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -284,12 +338,35 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         params: { $ref: 'ParticipantIdParam#' },
         body: { $ref: 'UpdateParticipantBody#' },
         response: {
-          200: { $ref: 'Participant#' },
-          400: { $ref: 'ErrorResponse#' },
-          403: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Updated participant',
+            $ref: 'Participant#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description: 'Forbidden — insufficient permissions',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — participant or plan does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -393,11 +470,31 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           'Delete a participant by its ID. Items assigned to this participant will have their assignment cleared.',
         params: { $ref: 'ParticipantIdParam#' },
         response: {
-          200: { $ref: 'DeleteParticipantResponse#' },
-          400: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Participant deleted',
+            $ref: 'DeleteParticipantResponse#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — participant or plan does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -408,6 +505,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         const [existingParticipant] = await fastify.db
           .select({
             participantId: participants.participantId,
+            planId: participants.planId,
             role: participants.role,
           })
           .from(participants)
@@ -429,14 +527,15 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           })
         }
 
-        const deletedAllItems = await removeParticipantFromAllGroups(
+        const updatedItems = await removeParticipantFromAssignments(
           fastify.db,
+          existingParticipant.planId,
           participantId
         )
-        if (deletedAllItems > 0) {
+        if (updatedItems > 0) {
           request.log.info(
-            { participantId, deletedAllItems },
-            'Removed participant all-participants item copies'
+            { participantId, updatedItems },
+            'Removed participant from item assignments'
           )
         }
 
@@ -480,10 +579,27 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           'Generates a new invite token for the specified participant, invalidating the previous one. Requires API key (owner action).',
         params: { $ref: 'RegenerateTokenParams#' },
         response: {
-          200: { $ref: 'RegenerateTokenResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Regenerated invite token',
+            $ref: 'RegenerateTokenResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — participant or plan does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },

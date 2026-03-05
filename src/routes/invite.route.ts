@@ -27,10 +27,22 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           'Public endpoint. Validates the invite token and returns plan data with items. Participant PII is stripped — only displayName and role are included.',
         params: { $ref: 'InviteParams#' },
         response: {
-          200: { $ref: 'InvitePlanResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Plan and items returned for the invite token',
+            $ref: 'InvitePlanResponse#',
+          },
+          404: {
+            description: 'Not found — plan, item, or invite token is invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -96,11 +108,13 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           }
         })
 
-        const filteredItems = plan.items.filter(
-          (item) =>
-            !item.assignedParticipantId ||
-            item.assignedParticipantId === participant.participantId
-        )
+        const filteredItems = plan.items.filter((item) => {
+          const list = item.assignmentStatusList ?? []
+          return (
+            list.length === 0 ||
+            list.some((a) => a.participantId === participant.participantId)
+          )
+        })
 
         request.log.info(
           {
@@ -182,11 +196,26 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         params: { $ref: 'InviteParams#' },
         body: { $ref: 'UpdateInvitePreferencesBody#' },
         response: {
-          200: { $ref: 'InvitePreferencesResponse#' },
-          400: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Guest preferences updated',
+            $ref: 'InvitePreferencesResponse#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan, item, or invite token is invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -293,11 +322,26 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         params: { $ref: 'InviteParams#' },
         body: { $ref: 'CreateInviteItemBody#' },
         response: {
-          201: { $ref: 'Item#' },
-          400: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          201: {
+            description: 'Item created',
+            $ref: 'Item#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan, item, or invite token is invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -352,7 +396,6 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             planId,
             category,
             unit: resolvedUnit,
-            assignedParticipantId: participant.participantId,
             ...rest,
           })
           .returning()
@@ -361,7 +404,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           {
             itemId: createdItem.itemId,
             planId,
-            assignedParticipantId: participant.participantId,
+            createdByParticipantId: participant.participantId,
           },
           'Guest created item via invite token'
         )
@@ -413,12 +456,30 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         params: { $ref: 'InviteItemParams#' },
         body: { $ref: 'UpdateInviteItemBody#' },
         response: {
-          200: { $ref: 'Item#' },
-          400: { $ref: 'ErrorResponse#' },
-          403: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Item updated',
+            $ref: 'Item#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description: 'Forbidden — insufficient permissions',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan, item, or invite token is invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -463,10 +524,11 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Item not found' })
         }
 
-        if (
-          existingItem.assignedParticipantId !== null &&
-          existingItem.assignedParticipantId !== participant.participantId
-        ) {
+        const list = existingItem.assignmentStatusList ?? []
+        const isAssignedToOthers =
+          list.length > 0 &&
+          !list.some((a) => a.participantId === participant.participantId)
+        if (isAssignedToOthers) {
           return reply
             .status(403)
             .send({ message: 'You can only edit items assigned to you' })
@@ -540,11 +602,27 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         params: { $ref: 'InviteParams#' },
         body: { $ref: 'BulkCreateInviteItemBody#' },
         response: {
-          200: { $ref: 'BulkItemResponse#' },
-          207: { $ref: 'BulkItemResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'All items created successfully',
+            $ref: 'BulkItemResponse#',
+          },
+          207: {
+            description:
+              'Partial success — some items created, some had validation errors',
+            $ref: 'BulkItemResponse#',
+          },
+          404: {
+            description: 'Not found — plan, item, or invite token is invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -593,7 +671,6 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           unit: Unit
           subcategory?: string | null
           notes?: string | null
-          assignedParticipantId: string
         }> = []
         const errors: BulkItemError[] = []
 
@@ -613,7 +690,6 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             planId,
             category,
             unit: resolvedUnit,
-            assignedParticipantId: participant.participantId,
             ...rest,
           })
         }
@@ -694,11 +770,27 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         params: { $ref: 'InviteParams#' },
         body: { $ref: 'BulkUpdateInviteItemBody#' },
         response: {
-          200: { $ref: 'BulkItemResponse#' },
-          207: { $ref: 'BulkItemResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'All items updated successfully',
+            $ref: 'BulkItemResponse#',
+          },
+          207: {
+            description:
+              'Partial success — some items updated, some had validation or permission errors',
+            $ref: 'BulkItemResponse#',
+          },
+          404: {
+            description: 'Not found — plan, item, or invite token is invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -761,10 +853,11 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          if (
-            existing.assignedParticipantId !== null &&
-            existing.assignedParticipantId !== participant.participantId
-          ) {
+          const list = existing.assignmentStatusList ?? []
+          const isAssignedToOthers =
+            list.length > 0 &&
+            !list.some((a) => a.participantId === participant.participantId)
+          if (isAssignedToOthers) {
             errors.push({
               name: existing.name,
               message: 'You can only edit items assigned to you',

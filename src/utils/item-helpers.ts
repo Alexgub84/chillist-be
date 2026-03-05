@@ -12,6 +12,26 @@ export function resolveItemUnit(
   return { unit: category === 'equipment' ? 'pcs' : unit! }
 }
 
+export function resolveItemUnitForUpdate(
+  existingCategory: ItemCategory,
+  existingUnit: Unit,
+  updates: { category?: ItemCategory; unit?: Unit }
+): UnitResult | null {
+  const { category: newCategory, unit: newUnit } = updates
+  if (newCategory === undefined && newUnit === undefined) return null
+
+  const effectiveCategory = newCategory ?? existingCategory
+
+  if (effectiveCategory === 'equipment') {
+    if (newUnit && newUnit !== 'pcs') {
+      return { error: 'Equipment items must use pcs as the unit' }
+    }
+    return { unit: 'pcs' }
+  }
+
+  return { unit: newUnit ?? existingUnit }
+}
+
 export function classifyDbError(
   error: unknown,
   fallbackMessage: string

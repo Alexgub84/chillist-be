@@ -1,33 +1,18 @@
 import { eq, and, inArray } from 'drizzle-orm'
 import type { Database } from '../db/index.js'
-import { items, plans, participants } from '../db/schema.js'
-import type { Item, ItemCategory, Unit, ItemStatus } from '../db/schema.js'
-import {
-  assignItemToAllParticipants,
-  reassignGroupToParticipant,
-  unassignGroup,
-  updateGroupCoreFields,
-} from './all-participants-items.service.js'
+import { items, participants } from '../db/schema.js'
+import type { Item, Assignment } from '../db/schema.js'
+import type { JwtUser } from '../plugins/auth.js'
+import { isAdmin } from '../utils/admin.js'
 
 export interface ValidationResult {
   valid: boolean
   message?: string
 }
 
-export interface ItemUpdateResult {
-  item: Item
-  handled: true
-}
-
-export interface UpdateItemFields {
-  name?: string
-  category?: ItemCategory
-  quantity?: number
-  unit?: Unit
-  status?: ItemStatus
-  subcategory?: string | null
-  notes?: string | null
-  assignedParticipantId?: string | null
+export interface MutationAccessResult {
+  allowed: boolean
+  participant: { participantId: string; role: string } | null
 }
 
 export async function checkPlanExists(
@@ -35,10 +20,54 @@ export async function checkPlanExists(
   planId: string
 ): Promise<boolean> {
   const [existing] = await db
-    .select({ planId: plans.planId })
-    .from(plans)
-    .where(eq(plans.planId, planId))
+    .select({ planId: items.planId })
+    .from(items)
+    .where(eq(items.planId, planId))
+    .limit(1)
   return !!existing
+}
+
+export async function checkItemMutationAccess(
+  db: Database,
+  planId: string,
+  user: JwtUser | null | undefined
+): Promise<MutationAccessResult> {
+  if (!user) return { allowed: false, participant: null }
+  if (isAdmin(user)) return { allowed: true, participant: null }
+
+  const [p] = await db
+    .select({
+      participantId: participants.participantId,
+      role: participants.role,
+    })
+    .from(participants)
+    .where(
+      and(eq(participants.planId, planId), eq(participants.userId, user.id))
+    )
+    .limit(1)
+
+  if (!p || p.role === 'viewer') return { allowed: false, participant: null }
+
+  return { allowed: true, participant: p }
+}
+
+export function canEditItem(
+  access: MutationAccessResult,
+  existingItem: Item
+): boolean {
+  if (!access.allowed || !access.participant) {
+    return access.allowed
+  }
+  if (access.participant.role === 'owner') return true
+
+  const isAssigned = existingItem.assignmentStatusList.some(
+    (a: Assignment) => a.participantId === access.participant!.participantId
+  )
+  if (isAssigned) return true
+
+  if (existingItem.assignmentStatusList.length === 0) return true
+
+  return false
 }
 
 export async function validateParticipant(
@@ -84,95 +113,88 @@ export async function batchValidateParticipants(
   return map
 }
 
-export async function findPlanOwner(
+export async function getPlanParticipantIds(
   db: Database,
   planId: string
-): Promise<string | null> {
-  const [owner] = await db
+): Promise<string[]> {
+  const rows = await db
     .select({ participantId: participants.participantId })
     .from(participants)
-    .where(and(eq(participants.planId, planId), eq(participants.role, 'owner')))
-  return owner?.participantId ?? null
+    .where(eq(participants.planId, planId))
+  return rows.map((r) => r.participantId)
 }
 
-export async function applyAllParticipantsUpdate(
+export async function persistAssignments(
   db: Database,
   itemId: string,
-  existing: Item,
-  assignedToAll: boolean | undefined,
-  fieldUpdates: UpdateItemFields,
-  participantValidator: (pid: string) => Promise<ValidationResult>
-): Promise<ItemUpdateResult | null> {
-  if (assignedToAll === true) {
-    const ownerPid = await findPlanOwner(db, existing.planId)
-    if (!ownerPid) {
-      throw new Error('Plan has no owner participant')
-    }
-
-    const group = await assignItemToAllParticipants(db, itemId, ownerPid)
-    const updated = group.find((g) => g.itemId === itemId) ?? group[0]
-    return { item: updated, handled: true }
-  }
-
-  if (!existing.isAllParticipants || !existing.allParticipantsGroupId) {
-    return null
-  }
-
-  if (
-    fieldUpdates.assignedParticipantId !== undefined &&
-    fieldUpdates.assignedParticipantId !== null
-  ) {
-    const check = await participantValidator(fieldUpdates.assignedParticipantId)
-    if (!check.valid) {
-      throw new Error(check.message ?? 'Participant not found')
-    }
-
-    const result = await reassignGroupToParticipant(
-      db,
-      itemId,
-      fieldUpdates.assignedParticipantId
-    )
-    return { item: result, handled: true }
-  }
-
-  if (fieldUpdates.assignedParticipantId === null || assignedToAll === false) {
-    await unassignGroup(db, itemId)
-    const [updated] = await db
-      .select()
-      .from(items)
-      .where(eq(items.itemId, itemId))
-    return { item: updated, handled: true }
-  }
-
-  if (Object.keys(fieldUpdates).length > 0) {
-    await updateGroupCoreFields(
-      db,
-      itemId,
-      fieldUpdates as Record<string, unknown>
-    )
-  }
-
-  if (fieldUpdates.status) {
-    await db
-      .update(items)
-      .set({ status: fieldUpdates.status, updatedAt: new Date() })
-      .where(eq(items.itemId, itemId))
-  }
-
-  const [refreshed] = await db
-    .select()
-    .from(items)
+  assignmentStatusList: Assignment[],
+  isAllParticipants: boolean
+): Promise<Item> {
+  const [updated] = await db
+    .update(items)
+    .set({
+      assignmentStatusList,
+      isAllParticipants,
+      updatedAt: new Date(),
+    })
     .where(eq(items.itemId, itemId))
-  return { item: refreshed, handled: true }
+    .returning()
+  return updated
 }
 
-export async function createItemAssignedToAll(
+export async function removeParticipantFromAssignments(
   db: Database,
-  createdItemId: string,
-  planId: string
-): Promise<Item[] | null> {
-  const ownerPid = await findPlanOwner(db, planId)
-  if (!ownerPid) return null
+  planId: string,
+  participantId: string
+): Promise<number> {
+  const planItems = await db
+    .select({
+      itemId: items.itemId,
+      assignmentStatusList: items.assignmentStatusList,
+    })
+    .from(items)
+    .where(eq(items.planId, planId))
 
-  return await assignItemToAllParticipants(db, createdItemId, ownerPid)
+  let updatedCount = 0
+  for (const item of planItems) {
+    const list = item.assignmentStatusList as Assignment[]
+    const hasParticipant = list.some((a) => a.participantId === participantId)
+    if (!hasParticipant) continue
+
+    const filtered = list.filter((a) => a.participantId !== participantId)
+    await db
+      .update(items)
+      .set({ assignmentStatusList: filtered, updatedAt: new Date() })
+      .where(eq(items.itemId, item.itemId))
+    updatedCount++
+  }
+  return updatedCount
+}
+
+export async function addParticipantToAllFlaggedItems(
+  db: Database,
+  planId: string,
+  participantId: string
+): Promise<number> {
+  const flaggedItems = await db
+    .select({
+      itemId: items.itemId,
+      assignmentStatusList: items.assignmentStatusList,
+    })
+    .from(items)
+    .where(and(eq(items.planId, planId), eq(items.isAllParticipants, true)))
+
+  let updatedCount = 0
+  for (const item of flaggedItems) {
+    const list = item.assignmentStatusList as Assignment[]
+    if (list.some((a) => a.participantId === participantId)) continue
+
+    const updated = [...list, { participantId, status: 'pending' as const }]
+    await db
+      .update(items)
+      .set({ assignmentStatusList: updated, updatedAt: new Date() })
+      .where(eq(items.itemId, item.itemId))
+    updatedCount++
+  }
+  return updatedCount
 }

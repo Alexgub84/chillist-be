@@ -177,7 +177,12 @@ describe('Invite Route', () => {
         quantity: 1,
         unit: 'pcs',
         status: 'pending',
-        assignedParticipantId: participantList[1].participantId,
+        assignmentStatusList: [
+          {
+            participantId: participantList[1].participantId,
+            status: 'pending',
+          },
+        ],
       })
 
       const response = await app.inject({
@@ -211,7 +216,12 @@ describe('Invite Route', () => {
           quantity: 1,
           unit: 'pcs',
           status: 'pending',
-          assignedParticipantId: participantList[1].participantId,
+          assignmentStatusList: [
+            {
+              participantId: participantList[1].participantId,
+              status: 'pending',
+            },
+          ],
         },
         {
           planId: plan.planId,
@@ -220,7 +230,12 @@ describe('Invite Route', () => {
           quantity: 1,
           unit: 'pcs',
           status: 'pending',
-          assignedParticipantId: participantList[2].participantId,
+          assignmentStatusList: [
+            {
+              participantId: participantList[2].participantId,
+              status: 'pending',
+            },
+          ],
         },
       ])
 
@@ -566,7 +581,8 @@ describe('Invite Route', () => {
       expect(item.quantity).toBe(1)
       expect(item.unit).toBe('pcs')
       expect(item.status).toBe('pending')
-      expect(item.assignedParticipantId).toBe(participantList[1].participantId)
+      expect(item.assignmentStatusList).toBeDefined()
+      expect(Array.isArray(item.assignmentStatusList)).toBe(true)
       expect(item.planId).toBe(plan.planId)
     })
 
@@ -721,7 +737,12 @@ describe('Invite Route', () => {
           quantity: 1,
           unit: 'pcs',
           status: 'pending',
-          assignedParticipantId: participantList[1].participantId,
+          assignmentStatusList: [
+            {
+              participantId: participantList[1].participantId,
+              status: 'pending',
+            },
+          ],
         })
         .returning()
 
@@ -736,9 +757,10 @@ describe('Invite Route', () => {
       expect(updated.name).toBe('New Name')
       expect(updated.quantity).toBe(3)
       expect(updated.subcategory).toBe('sleeping')
-      expect(updated.assignedParticipantId).toBe(
-        participantList[1].participantId
-      )
+      expect(updated.assignmentStatusList).toContainEqual({
+        participantId: participantList[1].participantId,
+        status: 'pending',
+      })
     })
 
     it('returns 403 when item is assigned to a different participant', async () => {
@@ -756,7 +778,12 @@ describe('Invite Route', () => {
           quantity: 1,
           unit: 'pcs',
           status: 'pending',
-          assignedParticipantId: participantList[2].participantId,
+          assignmentStatusList: [
+            {
+              participantId: participantList[2].participantId,
+              status: 'pending',
+            },
+          ],
         })
         .returning()
 
@@ -833,7 +860,12 @@ describe('Invite Route', () => {
           quantity: 1,
           unit: 'pcs',
           status: 'pending',
-          assignedParticipantId: participantList[0].participantId,
+          assignmentStatusList: [
+            {
+              participantId: participantList[0].participantId,
+              status: 'pending',
+            },
+          ],
         })
         .returning()
 
@@ -878,7 +910,12 @@ describe('Invite Route', () => {
           quantity: 1,
           unit: 'pcs',
           status: 'pending',
-          assignedParticipantId: participantList[0].participantId,
+          assignmentStatusList: [
+            {
+              participantId: participantList[0].participantId,
+              status: 'pending',
+            },
+          ],
         })
         .returning()
 
@@ -907,7 +944,12 @@ describe('Invite Route', () => {
           quantity: 1,
           unit: 'pcs',
           status: 'pending',
-          assignedParticipantId: participantList[0].participantId,
+          assignmentStatusList: [
+            {
+              participantId: participantList[0].participantId,
+              status: 'pending',
+            },
+          ],
         })
         .returning()
 
@@ -943,11 +985,14 @@ describe('Invite Route', () => {
       const body = response.json()
       expect(body.items).toHaveLength(2)
       expect(body.errors).toHaveLength(0)
-      body.items.forEach((item: { assignedParticipantId: string }) => {
-        expect(item.assignedParticipantId).toBe(
-          participantList[1].participantId
-        )
-      })
+      body.items.forEach(
+        (item: {
+          assignmentStatusList: Array<{ participantId: string; status: string }>
+        }) => {
+          expect(item.assignmentStatusList).toBeDefined()
+          expect(Array.isArray(item.assignmentStatusList)).toBe(true)
+        }
+      )
     })
 
     it('returns 207 with partial success when food item misses unit', async () => {
@@ -1023,7 +1068,12 @@ describe('Invite Route', () => {
             quantity: 1,
             unit: 'pcs' as const,
             status: 'pending' as const,
-            assignedParticipantId: participantList[1].participantId,
+            assignmentStatusList: [
+              {
+                participantId: participantList[1].participantId,
+                status: 'pending',
+              },
+            ],
           },
           {
             planId: plan.planId,
@@ -1032,7 +1082,12 @@ describe('Invite Route', () => {
             quantity: 2,
             unit: 'pcs' as const,
             status: 'pending' as const,
-            assignedParticipantId: participantList[1].participantId,
+            assignmentStatusList: [
+              {
+                participantId: participantList[1].participantId,
+                status: 'pending',
+              },
+            ],
           },
         ])
         .returning()
@@ -1072,7 +1127,12 @@ describe('Invite Route', () => {
             quantity: 1,
             unit: 'pcs' as const,
             status: 'pending' as const,
-            assignedParticipantId: participantList[1].participantId,
+            assignmentStatusList: [
+              {
+                participantId: participantList[1].participantId,
+                status: 'pending',
+              },
+            ],
           },
           {
             planId: plan.planId,
@@ -1081,7 +1141,12 @@ describe('Invite Route', () => {
             quantity: 1,
             unit: 'pcs' as const,
             status: 'pending' as const,
-            assignedParticipantId: participantList[2].participantId,
+            assignmentStatusList: [
+              {
+                participantId: participantList[2].participantId,
+                status: 'pending',
+              },
+            ],
           },
         ])
         .returning()

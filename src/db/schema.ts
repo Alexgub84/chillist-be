@@ -184,12 +184,11 @@ export const items = pgTable('items', {
   status: itemStatusEnum('status').default('pending').notNull(),
   subcategory: varchar('subcategory', { length: 255 }),
   notes: text('notes'),
-  assignedParticipantId: uuid('assigned_participant_id').references(
-    () => participants.participantId,
-    { onDelete: 'set null' }
-  ),
   isAllParticipants: boolean('is_all_participants').default(false).notNull(),
-  allParticipantsGroupId: uuid('all_participants_group_id'),
+  assignmentStatusList: jsonb('assignment_status_list')
+    .notNull()
+    .$type<Array<{ participantId: string; status: ItemStatus }>>()
+    .default([]),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -289,10 +288,6 @@ export const itemsRelations = relations(items, ({ one, many }) => ({
     fields: [items.planId],
     references: [plans.planId],
   }),
-  assignedParticipant: one(participants, {
-    fields: [items.assignedParticipantId],
-    references: [participants.participantId],
-  }),
   changes: many(itemChanges),
 }))
 
@@ -344,6 +339,7 @@ export type Plan = typeof plans.$inferSelect
 export type NewPlan = typeof plans.$inferInsert
 export type Participant = typeof participants.$inferSelect
 export type NewParticipant = typeof participants.$inferInsert
+export type Assignment = { participantId: string; status: ItemStatus }
 export type Item = typeof items.$inferSelect
 export type NewItem = typeof items.$inferInsert
 export type PlanInvite = typeof planInvites.$inferSelect

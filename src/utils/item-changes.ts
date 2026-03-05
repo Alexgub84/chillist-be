@@ -10,7 +10,6 @@ const TRACKED_FIELDS = [
   'status',
   'subcategory',
   'notes',
-  'assignedParticipantId',
 ] as const
 
 export function computeItemDiff(

@@ -137,6 +137,31 @@ export async function buildApp(
     )
   })
 
+  fastify.addHook('onSend', async (request, reply, payload) => {
+    const code = reply.statusCode
+    if (code >= 400 && code < 500 && !request.url.startsWith('/health')) {
+      let responseBody: unknown = payload
+      if (typeof payload === 'string') {
+        try {
+          responseBody = JSON.parse(payload)
+        } catch {
+          responseBody = payload
+        }
+      }
+      request.log.warn(
+        {
+          statusCode: code,
+          method: request.method,
+          url: request.url,
+          body: request.body ?? null,
+          responseBody,
+        },
+        'Client error response'
+      )
+    }
+    return payload
+  })
+
   fastify.addHook('onResponse', async (request, reply) => {
     if (request.url.startsWith('/health')) {
       return

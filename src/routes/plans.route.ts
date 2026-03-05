@@ -76,11 +76,28 @@ export async function plansRoutes(fastify: FastifyInstance) {
           'Creates a plan and its owner participant in a single transaction. Requires JWT. Returns the plan with participants[] and items[].',
         body: { $ref: 'CreatePlanBody#' },
         response: {
-          201: { $ref: 'PlanWithDetails#' },
-          400: { $ref: 'ErrorResponse#' },
-          401: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          201: {
+            description:
+              'Plan created successfully with owner and participants',
+            $ref: 'PlanWithDetails#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -201,9 +218,23 @@ export async function plansRoutes(fastify: FastifyInstance) {
         description:
           'Retrieve plans created by the authenticated user, ordered by creation date',
         response: {
-          200: { $ref: 'PlanList#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'List of plans owned by the authenticated user',
+            $ref: 'PlanList#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -252,10 +283,27 @@ export async function plansRoutes(fastify: FastifyInstance) {
         description:
           'Returns all plans in the system. Admin only. JWT required.',
         response: {
-          200: { $ref: 'PlanList#' },
-          403: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'List of all plans (admin only)',
+            $ref: 'PlanList#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description: 'Forbidden — insufficient permissions',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -307,9 +355,24 @@ export async function plansRoutes(fastify: FastifyInstance) {
         description:
           'Returns minimal plan details (planId, title, dates, location) for plans where the user has a pending join request. JWT required.',
         response: {
-          200: { $ref: 'PendingJoinRequestPreviewList#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description:
+              'List of plans with pending join requests for the user',
+            $ref: 'PendingJoinRequestPreviewList#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -373,12 +436,32 @@ export async function plansRoutes(fastify: FastifyInstance) {
           'Returns minimal plan info when user is authed but not a participant (needs to create join request). JWT required. 400 if already a participant.',
         params: { $ref: 'PlanIdParam#' },
         response: {
-          200: { $ref: 'PlanPreviewFields#' },
-          400: { $ref: 'ErrorResponse#' },
-          401: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Plan preview for non-participant',
+            $ref: 'PlanPreviewFields#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description:
+              'Not found — plan does not exist or you do not have access',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -457,15 +540,31 @@ export async function plansRoutes(fastify: FastifyInstance) {
         params: { $ref: 'PlanIdParam#' },
         response: {
           200: {
+            description:
+              'Full plan for participants, or preview+joinRequest for non-participants',
             oneOf: [
               { $ref: 'PlanWithDetails#' },
               { $ref: 'PlanNotParticipantResponse#' },
             ],
           },
-          401: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description:
+              'Not found — plan does not exist or you do not have access',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -631,11 +730,32 @@ export async function plansRoutes(fastify: FastifyInstance) {
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'UpdatePlanBody#' },
         response: {
-          200: { $ref: 'Plan#' },
-          400: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Updated plan',
+            $ref: 'Plan#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description:
+              'Not found — plan does not exist or you do not have access',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -726,11 +846,28 @@ export async function plansRoutes(fastify: FastifyInstance) {
           'Delete a plan by its ID. Requires JWT. Admin can delete any plan; owner can delete their own. Cascade delete handles related items, participants, and assignments.',
         params: { $ref: 'PlanIdParam#' },
         response: {
-          200: { $ref: 'DeletePlanResponse#' },
-          401: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Plan deleted successfully',
+            $ref: 'DeletePlanResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description:
+              'Not found — plan does not exist or you do not have access',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },

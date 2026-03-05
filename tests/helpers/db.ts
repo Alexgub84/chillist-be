@@ -132,7 +132,8 @@ export async function seedTestParticipantWithUser(
 
 export async function seedTestParticipants(
   planId: string,
-  count: number = 3
+  count: number = 3,
+  options?: { ownerUserId?: string }
 ): Promise<schema.Participant[]> {
   const testDb = await getTestDb()
 
@@ -147,6 +148,7 @@ export async function seedTestParticipants(
       | 'participant'
       | 'viewer',
     inviteToken: randomBytes(32).toString('hex'),
+    ...(i === 0 && options?.ownerUserId ? { userId: options.ownerUserId } : {}),
   }))
 
   const inserted = await testDb

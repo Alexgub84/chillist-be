@@ -10,6 +10,7 @@ import {
   items,
   participantJoinRequests,
   type Location,
+  type Assignment,
 } from './schema.js'
 
 function loadEnvLocal() {
@@ -105,7 +106,10 @@ async function seed() {
       })
       .returning()
 
-    await db.update(plans).set({ ownerParticipantId: negevOwner.participantId })
+    await db
+      .update(plans)
+      .set({ ownerParticipantId: negevOwner.participantId })
+      .where(eq(plans.planId, negevPlan.planId))
 
     const [negevP1] = await db
       .insert(participants)
@@ -332,7 +336,7 @@ async function seed() {
       },
     ]
 
-    const participantsForAssignment = [
+    const pIds = [
       negevOwner.participantId,
       negevP1.participantId,
       negevP2.participantId,
@@ -340,8 +344,37 @@ async function seed() {
       negevP4.participantId,
     ]
 
-    await db.insert(items).values(
-      seedItems.map((item, i) => ({
+    const negevItemValues = seedItems.map((item, i) => {
+      if (i === 0) {
+        return {
+          planId: negevPlan.planId,
+          name: item.name,
+          category: item.category,
+          subcategory: item.subcategory,
+          quantity: item.quantity,
+          unit: item.unit,
+          status: 'pending' as const,
+          isAllParticipants: true,
+          assignmentStatusList: pIds.map((participantId) => ({
+            participantId,
+            status: 'pending' as const,
+          })),
+        }
+      }
+      if (i === 5 || i === 10) {
+        return {
+          planId: negevPlan.planId,
+          name: item.name,
+          category: item.category,
+          subcategory: item.subcategory,
+          quantity: item.quantity,
+          unit: item.unit,
+          status: 'pending' as const,
+          isAllParticipants: false,
+          assignmentStatusList: [] as Assignment[],
+        }
+      }
+      return {
         planId: negevPlan.planId,
         name: item.name,
         category: item.category,
@@ -349,9 +382,14 @@ async function seed() {
         quantity: item.quantity,
         unit: item.unit,
         status: 'pending' as const,
-        assignedParticipantId: participantsForAssignment[i % 5],
-      }))
-    )
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: pIds[i % 5], status: 'pending' as const },
+        ],
+      }
+    })
+
+    await db.insert(items).values(negevItemValues)
 
     console.log('Created 20 items')
 
@@ -447,7 +485,13 @@ async function seed() {
         quantity: 1,
         unit: 'pcs',
         status: 'pending',
-        assignedParticipantId: joinTestOwner.participantId,
+        isAllParticipants: false,
+        assignmentStatusList: [
+          {
+            participantId: joinTestOwner.participantId,
+            status: 'pending' as const,
+          },
+        ],
       },
       {
         planId: joinTestPlan.planId,
@@ -457,6 +501,8 @@ async function seed() {
         quantity: 12,
         unit: 'pcs',
         status: 'pending',
+        isAllParticipants: false,
+        assignmentStatusList: [] as Assignment[],
       },
       {
         planId: joinTestPlan.planId,
@@ -466,6 +512,8 @@ async function seed() {
         quantity: 6,
         unit: 'pcs',
         status: 'pending',
+        isAllParticipants: false,
+        assignmentStatusList: [] as Assignment[],
       },
       {
         planId: joinTestPlan.planId,
@@ -475,6 +523,8 @@ async function seed() {
         quantity: 2,
         unit: 'pack',
         status: 'pending',
+        isAllParticipants: false,
+        assignmentStatusList: [] as Assignment[],
       },
     ])
 
