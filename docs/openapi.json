@@ -507,7 +507,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
-            "description": "Per-participant assignment and status tracking (replaces the old top-level status field). Each entry is { participantId, status } where status is one of: pending, purchased, packed, canceled. For non-owner responses, this array is filtered to only the requesting participant's entry.",
+            "description": "Per-participant assignment and status tracking (replaces the old top-level status field). Each entry is { participantId, status } where status is one of: pending, purchased, packed, canceled. Response visibility: owner/admin sees full list; non-owner sees only their own entry.",
             "items": {
               "type": "object",
               "properties": {
@@ -608,7 +608,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
-            "description": "The full list of participant assignments for this item. To assign to all participants: send every participant with status \"pending\" and set isAllParticipants=true. To assign a subset: send only those participants and set isAllParticipants=false (or omit it). To leave unassigned: omit this field or send []. Owner-only on create.",
+            "description": "Owner-only on create. Send the full desired assignment list. Assign all: include every participant and set isAllParticipants=true. Assign subset/single: include only those participants and keep isAllParticipants=false (or omit it). Unassigned item: omit this field or send [].",
             "items": {
               "type": "object",
               "properties": {
@@ -634,7 +634,7 @@
           },
           "isAllParticipants": {
             "type": "boolean",
-            "description": "Set true when assigning to all participants (new joiners will be auto-added). Set false or omit for subset/single/no assignment. Owner-only on create."
+            "description": "Owner-only on create. true means this item is for all participants and new participants should be auto-added later. false (or omitted) means regular assignment list behavior."
           }
         },
         "required": [
@@ -691,7 +691,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
-            "description": "Owner: send the full desired assignment list. Non-owner: send only your own entry with updated status — backend merges into the full list. To toggle assign-all ON (owner): send all participants + isAllParticipants=true. To toggle assign-all OFF (owner): send [] + isAllParticipants=false.",
+            "description": "PATCH behavior depends on caller role. Owner/admin: send the full desired list (replaces current list). Non-owner: send exactly one entry for yourself only (for status update or self-assign); backend merges it with current list. If using unassign=true, do not send assignmentStatusList.",
             "items": {
               "type": "object",
               "properties": {
@@ -717,7 +717,11 @@
           },
           "isAllParticipants": {
             "type": "boolean",
-            "description": "Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Only the plan owner can change this flag."
+            "description": "Owner/admin only. true marks item as \"assign to all participants\" and future participants are auto-added. false removes that mode."
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Participant self-unassign helper. Set true to remove your own entry from assignmentStatusList. Cannot be combined with assignmentStatusList in the same request."
           }
         },
         "title": "UpdateItemBody"
@@ -1785,7 +1789,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
-            "description": "Send only your own entry with updated status. Backend merges into the full list.",
+            "description": "Invite/guest PATCH rule: send only your own entry (participantId must be your participant) to update status or self-assign. Backend merges into the full assignment list.",
             "items": {
               "type": "object",
               "properties": {
@@ -1808,6 +1812,10 @@
                 "status"
               ]
             }
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Set true to remove your own assignment entry from this item. Cannot be combined with assignmentStatusList in the same request."
           }
         },
         "title": "UpdateInviteItemBody"
@@ -1880,7 +1888,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
-            "description": "Owner: send the full desired assignment list. Non-owner: send only your own entry — backend merges. Same rules as single-item PATCH.",
+            "description": "Same rules as single-item PATCH. Owner/admin sends full desired list. Non-owner sends only their own single entry; backend merges.",
             "items": {
               "type": "object",
               "properties": {
@@ -1906,7 +1914,11 @@
           },
           "isAllParticipants": {
             "type": "boolean",
-            "description": "Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Owner-only."
+            "description": "Owner/admin only. true enables assign-to-all mode; false disables it."
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Participant self-unassign helper for bulk PATCH. Set true to remove your own entry. Cannot be combined with assignmentStatusList."
           }
         },
         "required": [
@@ -2032,7 +2044,7 @@
           },
           "assignmentStatusList": {
             "type": "array",
-            "description": "Send only your own entry with updated status. Backend merges into the full list.",
+            "description": "Same invite/guest rule as single PATCH: each item may include only your own single assignment entry; backend merges into full list.",
             "items": {
               "type": "object",
               "properties": {
@@ -2055,6 +2067,10 @@
                 "status"
               ]
             }
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Bulk self-unassign helper. Set true to remove your own assignment entry. Cannot be combined with assignmentStatusList."
           }
         },
         "required": [
@@ -3339,7 +3355,7 @@
         "tags": [
           "items"
         ],
-        "description": "Create a new item (no top-level status field — per-participant status lives in assignmentStatusList). Equipment items always use pcs. Assignment fields (owner-only): send assignmentStatusList with participant entries (each has participantId + status) and isAllParticipants=true to assign all, or a subset with isAllParticipants=false. Omit both to create unassigned.",
+        "description": "Create a new item. No top-level status field exists; status is tracked per participant in assignmentStatusList. Equipment items always use pcs. Assignment payload on create is owner/admin only: send full assignmentStatusList + isAllParticipants=true for assign-to-all, or subset list + isAllParticipants=false for normal assignment. Omit assignment fields to create unassigned item.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3511,7 +3527,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update an item. No top-level status field — use assignmentStatusList to change per-participant status. Owner: send the full assignmentStatusList array (replaces existing) + isAllParticipants. Non-owner: send assignmentStatusList with ONLY your own entry (e.g. [{ participantId: \"your-id\", status: \"purchased\" }]) — the backend merges it into the full list, preserving other participants. Response: owners see the full assignmentStatusList; non-owners see only their own entry.",
+        "description": "Update an item. No top-level status field exists; use assignmentStatusList for per-participant status. Owner/admin: assignmentStatusList is treated as full desired list (replace semantics) and may update isAllParticipants. Non-owner: send only your own assignment entry to update status or self-assign, or send unassign=true to remove yourself. Response visibility: owner/admin sees full assignmentStatusList, non-owner sees only own entry.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3703,7 +3719,7 @@
         "tags": [
           "items"
         ],
-        "description": "Update multiple items at once. Each item is validated independently. No top-level status field — use assignmentStatusList per item. Owner: send the full assignmentStatusList (replaces). Non-owner: send only your own entry per item — backend merges. Response: non-owners see only their own entry in each item's assignmentStatusList.",
+        "description": "Update multiple items at once. Each item is validated independently. No top-level status field exists; use assignmentStatusList per item. Owner/admin uses full-list replace semantics and may set isAllParticipants. Non-owner sends only their own assignment entry per item (merge semantics) or unassign=true. Response for non-owners is filtered to their own assignment entries.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4068,7 +4084,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Updates an existing item. Allowed if the item is assigned to the guest or unassigned. Returns 403 if assigned to a different participant. No top-level status field — to update your status, send assignmentStatusList with your own entry: [{ participantId: \"your-id\", status: \"purchased\" }]. Backend merges into the full list. Response returns assignmentStatusList filtered to only your entry.",
+        "description": "Updates an existing item for the invite participant. Allowed only when item is currently unassigned or assigned to this participant; returns 403 if assigned only to others. No top-level status field exists. To update status or self-assign, send assignmentStatusList with your own single entry. To remove yourself, send unassign=true (without assignmentStatusList). Response is filtered to your own assignment entry.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4278,7 +4294,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Updates multiple items. No top-level status field — to update your status per item, send assignmentStatusList with your own entry: [{ participantId: \"your-id\", status: \"purchased\" }]. Backend merges into the full list for each item. Only allowed for items assigned to the guest or unassigned. Response returns each item's assignmentStatusList filtered to only your entry.",
+        "description": "Updates multiple items for the invite participant. No top-level status field exists. For each item, send assignmentStatusList with your own single entry to update status/self-assign, or send unassign=true to remove yourself. Updates are allowed only for items currently unassigned or assigned to this participant. Response returns each item's assignmentStatusList filtered to the caller entry.",
         "requestBody": {
           "content": {
             "application/json": {
