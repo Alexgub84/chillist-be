@@ -76,7 +76,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Add an item to a plan',
         description:
-          'Create a new item (no top-level status field — per-participant status lives in assignmentStatusList). Equipment items always use pcs. Assignment fields (owner-only): send assignmentStatusList with participant entries (each has participantId + status) and isAllParticipants=true to assign all, or a subset with isAllParticipants=false. Omit both to create unassigned.',
+          'Create a new item. No top-level status field exists; status is tracked per participant in assignmentStatusList. Equipment items always use pcs. Assignment payload on create is owner/admin only: send full assignmentStatusList + isAllParticipants=true for assign-to-all, or subset list + isAllParticipants=false for normal assignment. Omit assignment fields to create unassigned item.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'CreateItemBody#' },
         response: {
@@ -286,7 +286,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Update an item',
         description:
-          'Update an item. No top-level status field — use assignmentStatusList to change per-participant status. Owner: send the full assignmentStatusList array (replaces existing) + isAllParticipants. Non-owner: send assignmentStatusList with ONLY your own entry (e.g. [{ participantId: "your-id", status: "purchased" }]) — the backend merges it into the full list, preserving other participants. Response: owners see the full assignmentStatusList; non-owners see only their own entry.',
+          'Update an item. No top-level status field exists; use assignmentStatusList for per-participant status. Owner/admin: assignmentStatusList is treated as full desired list (replace semantics) and may update isAllParticipants. Non-owner: send only your own assignment entry to update status or self-assign, or send unassign=true to remove yourself. Response visibility: owner/admin sees full assignmentStatusList, non-owner sees only own entry.',
         params: { $ref: 'ItemIdParam#' },
         body: { $ref: 'UpdateItemBody#' },
         response: {
@@ -629,7 +629,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Bulk update items in a plan',
         description:
-          "Update multiple items at once. Each item is validated independently. No top-level status field — use assignmentStatusList per item. Owner: send the full assignmentStatusList (replaces). Non-owner: send only your own entry per item — backend merges. Response: non-owners see only their own entry in each item's assignmentStatusList.",
+          'Update multiple items at once. Each item is validated independently. No top-level status field exists; use assignmentStatusList per item. Owner/admin uses full-list replace semantics and may set isAllParticipants. Non-owner sends only their own assignment entry per item (merge semantics) or unassign=true. Response for non-owners is filtered to their own assignment entries.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'BulkUpdateItemBody#' },
         response: {

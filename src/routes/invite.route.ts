@@ -467,7 +467,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         tags: ['invite'],
         summary: 'Update an item as a guest via invite token',
         description:
-          'Updates an existing item. Allowed if the item is assigned to the guest or unassigned. Returns 403 if assigned to a different participant. No top-level status field — to update your status, send assignmentStatusList with your own entry: [{ participantId: "your-id", status: "purchased" }]. Backend merges into the full list. Send unassign: true to remove yourself. Response returns assignmentStatusList filtered to only your entry.',
+          'Updates an existing item for the invite participant. Allowed only when item is currently unassigned or assigned to this participant; returns 403 if assigned only to others. No top-level status field exists. To update status or self-assign, send assignmentStatusList with your own single entry. To remove yourself, send unassign=true (without assignmentStatusList). Response is filtered to your own assignment entry.',
         params: { $ref: 'InviteItemParams#' },
         body: { $ref: 'UpdateInviteItemBody#' },
         response: {
@@ -847,7 +847,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         tags: ['invite'],
         summary: 'Bulk update items as a guest via invite token',
         description:
-          'Updates multiple items. No top-level status field — to update your status per item, send assignmentStatusList with your own entry: [{ participantId: "your-id", status: "purchased" }]. Backend merges into the full list for each item. Only allowed for items assigned to the guest or unassigned. Response returns each item\'s assignmentStatusList filtered to only your entry.',
+          "Updates multiple items for the invite participant. No top-level status field exists. For each item, send assignmentStatusList with your own single entry to update status/self-assign, or send unassign=true to remove yourself. Updates are allowed only for items currently unassigned or assigned to this participant. Response returns each item's assignmentStatusList filtered to the caller entry.",
         params: { $ref: 'InviteParams#' },
         body: { $ref: 'BulkUpdateInviteItemBody#' },
         response: {

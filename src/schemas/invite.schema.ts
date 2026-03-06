@@ -179,7 +179,7 @@ export const updateInviteItemBodySchema = {
     assignmentStatusList: {
       type: 'array',
       description:
-        'Send only your own entry with updated status. Backend merges into the full list.',
+        'Invite/guest PATCH rule: send only your own entry (participantId must be your participant) to update status or self-assign. Backend merges into the full assignment list.',
       items: {
         type: 'object',
         properties: {
@@ -192,7 +192,7 @@ export const updateInviteItemBodySchema = {
     unassign: {
       type: 'boolean',
       description:
-        'Set true to remove yourself from this item. Cannot be combined with assignmentStatusList.',
+        'Set true to remove your own assignment entry from this item. Cannot be combined with assignmentStatusList in the same request.',
     },
   },
 } as const
@@ -227,7 +227,7 @@ export const bulkUpdateInviteItemEntrySchema = {
     assignmentStatusList: {
       type: 'array',
       description:
-        'Send only your own entry with updated status. Backend merges into the full list.',
+        'Same invite/guest rule as single PATCH: each item may include only your own single assignment entry; backend merges into full list.',
       items: {
         type: 'object',
         properties: {
@@ -240,7 +240,7 @@ export const bulkUpdateInviteItemEntrySchema = {
     unassign: {
       type: 'boolean',
       description:
-        'Set true to remove yourself from this item. Cannot be combined with assignmentStatusList.',
+        'Bulk self-unassign helper. Set true to remove your own assignment entry. Cannot be combined with assignmentStatusList.',
     },
   },
   required: ['itemId'],

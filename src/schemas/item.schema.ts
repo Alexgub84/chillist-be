@@ -27,7 +27,7 @@ export const itemSchema = {
     assignmentStatusList: {
       type: 'array',
       description:
-        "Per-participant assignment and status tracking (replaces the old top-level status field). Each entry is { participantId, status } where status is one of: pending, purchased, packed, canceled. For non-owner responses, this array is filtered to only the requesting participant's entry.",
+        'Per-participant assignment and status tracking (replaces the old top-level status field). Each entry is { participantId, status } where status is one of: pending, purchased, packed, canceled. Response visibility: owner/admin sees full list; non-owner sees only their own entry.',
       items: {
         type: 'object',
         properties: {
@@ -77,7 +77,7 @@ export const createItemBodySchema = {
     assignmentStatusList: {
       type: 'array',
       description:
-        'The full list of participant assignments for this item. To assign to all participants: send every participant with status "pending" and set isAllParticipants=true. To assign a subset: send only those participants and set isAllParticipants=false (or omit it). To leave unassigned: omit this field or send []. Owner-only on create.',
+        'Owner-only on create. Send the full desired assignment list. Assign all: include every participant and set isAllParticipants=true. Assign subset/single: include only those participants and keep isAllParticipants=false (or omit it). Unassigned item: omit this field or send [].',
       items: {
         type: 'object',
         properties: {
@@ -90,7 +90,7 @@ export const createItemBodySchema = {
     isAllParticipants: {
       type: 'boolean',
       description:
-        'Set true when assigning to all participants (new joiners will be auto-added). Set false or omit for subset/single/no assignment. Owner-only on create.',
+        'Owner-only on create. true means this item is for all participants and new participants should be auto-added later. false (or omitted) means regular assignment list behavior.',
     },
   },
   required: ['name', 'category', 'quantity'],
@@ -113,7 +113,7 @@ export const updateItemBodySchema = {
     assignmentStatusList: {
       type: 'array',
       description:
-        'Owner: send the full desired assignment list. Non-owner: send only your own entry with updated status — backend merges into the full list. To toggle assign-all ON (owner): send all participants + isAllParticipants=true. To toggle assign-all OFF (owner): send [] + isAllParticipants=false.',
+        'PATCH behavior depends on caller role. Owner/admin: send the full desired list (replaces current list). Non-owner: send exactly one entry for yourself only (for status update or self-assign); backend merges it with current list. If using unassign=true, do not send assignmentStatusList.',
       items: {
         type: 'object',
         properties: {
@@ -126,12 +126,12 @@ export const updateItemBodySchema = {
     isAllParticipants: {
       type: 'boolean',
       description:
-        'Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Only the plan owner can change this flag.',
+        'Owner/admin only. true marks item as "assign to all participants" and future participants are auto-added. false removes that mode.',
     },
     unassign: {
       type: 'boolean',
       description:
-        'Non-owner only: set true to remove yourself from this item. Cannot be combined with assignmentStatusList.',
+        'Participant self-unassign helper. Set true to remove your own entry from assignmentStatusList. Cannot be combined with assignmentStatusList in the same request.',
     },
   },
 } as const
@@ -177,7 +177,7 @@ export const bulkUpdateItemEntrySchema = {
     assignmentStatusList: {
       type: 'array',
       description:
-        'Owner: send the full desired assignment list. Non-owner: send only your own entry — backend merges. Same rules as single-item PATCH.',
+        'Same rules as single-item PATCH. Owner/admin sends full desired list. Non-owner sends only their own single entry; backend merges.',
       items: {
         type: 'object',
         properties: {
@@ -190,12 +190,12 @@ export const bulkUpdateItemEntrySchema = {
     isAllParticipants: {
       type: 'boolean',
       description:
-        'Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Owner-only.',
+        'Owner/admin only. true enables assign-to-all mode; false disables it.',
     },
     unassign: {
       type: 'boolean',
       description:
-        'Non-owner only: set true to remove yourself from this item. Cannot be combined with assignmentStatusList.',
+        'Participant self-unassign helper for bulk PATCH. Set true to remove your own entry. Cannot be combined with assignmentStatusList.',
     },
   },
   required: ['itemId'],
