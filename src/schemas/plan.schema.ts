@@ -31,6 +31,16 @@ export const planSchema = {
     startDate: { type: 'string', format: 'date-time', nullable: true },
     endDate: { type: 'string', format: 'date-time', nullable: true },
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    defaultLang: {
+      type: 'string',
+      description: 'ISO 639-1 language code for the plan UI (e.g. en, he)',
+      nullable: true,
+    },
+    currency: {
+      type: 'string',
+      description: 'ISO 4217 currency code (e.g. USD, EUR, ILS)',
+      nullable: true,
+    },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
   },
@@ -98,6 +108,16 @@ export const createPlanBodySchema = {
     startDate: { type: 'string', format: 'date-time', nullable: true },
     endDate: { type: 'string', format: 'date-time', nullable: true },
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    defaultLang: {
+      type: 'string',
+      maxLength: 10,
+      description: 'ISO 639-1 language code (e.g. en, he)',
+    },
+    currency: {
+      type: 'string',
+      maxLength: 10,
+      description: 'ISO 4217 currency code (e.g. USD, EUR, ILS)',
+    },
     owner: { $ref: 'OwnerBody#' },
     participants: {
       type: 'array',
@@ -121,6 +141,19 @@ export const updatePlanBodySchema = {
     startDate: { type: 'string', format: 'date-time', nullable: true },
     endDate: { type: 'string', format: 'date-time', nullable: true },
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    defaultLang: {
+      type: 'string',
+      maxLength: 10,
+      nullable: true,
+      description: 'ISO 639-1 language code (e.g. en, he). Send null to clear.',
+    },
+    currency: {
+      type: 'string',
+      maxLength: 10,
+      nullable: true,
+      description:
+        'ISO 4217 currency code (e.g. USD, EUR, ILS). Send null to clear.',
+    },
   },
 } as const
 
@@ -159,6 +192,16 @@ export const planWithDetailsSchema = {
     startDate: { type: 'string', format: 'date-time', nullable: true },
     endDate: { type: 'string', format: 'date-time', nullable: true },
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    defaultLang: {
+      type: 'string',
+      description: 'ISO 639-1 language code for the plan UI (e.g. en, he)',
+      nullable: true,
+    },
+    currency: {
+      type: 'string',
+      description: 'ISO 4217 currency code (e.g. USD, EUR, ILS)',
+      nullable: true,
+    },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
     items: { $ref: 'ItemList#' },

@@ -50,6 +50,8 @@ interface UpdatePlanBody {
   startDate?: string | null
   endDate?: string | null
   tags?: string[] | null
+  defaultLang?: string | null
+  currency?: string | null
 }
 
 export async function plansRoutes(fastify: FastifyInstance) {

@@ -1,6 +1,6 @@
 {
-  "id": "05390126-b31a-46fd-9803-208044bdcc7a",
-  "prevId": "111add5b-549d-40cf-b52a-e4050a40df6e",
+  "id": "7aad50aa-6a8e-4e96-8954-d5cda26edb9b",
+  "prevId": "65ee0a1b-eb3e-46ce-a7f0-98efe5c2f177",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -261,6 +261,97 @@
         "items_plan_id_plans_plan_id_fk": {
           "name": "items_plan_id_plans_plan_id_fk",
           "tableFrom": "items",
+          "tableTo": "plans",
+          "columnsFrom": [
+            "plan_id"
+          ],
+          "columnsTo": [
+            "plan_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.participant_expenses": {
+      "name": "participant_expenses",
+      "schema": "",
+      "columns": {
+        "expense_id": {
+          "name": "expense_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "participant_id": {
+          "name": "participant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "participant_expenses_participant_id_participants_participant_id_fk": {
+          "name": "participant_expenses_participant_id_participants_participant_id_fk",
+          "tableFrom": "participant_expenses",
+          "tableTo": "participants",
+          "columnsFrom": [
+            "participant_id"
+          ],
+          "columnsTo": [
+            "participant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "participant_expenses_plan_id_plans_plan_id_fk": {
+          "name": "participant_expenses_plan_id_plans_plan_id_fk",
+          "tableFrom": "participant_expenses",
           "tableTo": "plans",
           "columnsFrom": [
             "plan_id"
@@ -780,6 +871,18 @@
         "tags": {
           "name": "tags",
           "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "default_lang": {
+          "name": "default_lang",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(10)",
           "primaryKey": false,
           "notNull": false
         },

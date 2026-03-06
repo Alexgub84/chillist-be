@@ -1,6 +1,6 @@
 {
-  "id": "05390126-b31a-46fd-9803-208044bdcc7a",
-  "prevId": "111add5b-549d-40cf-b52a-e4050a40df6e",
+  "id": "65ee0a1b-eb3e-46ce-a7f0-98efe5c2f177",
+  "prevId": "05390126-b31a-46fd-9803-208044bdcc7a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -780,6 +780,18 @@
         "tags": {
           "name": "tags",
           "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "default_lang": {
+          "name": "default_lang",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(10)",
           "primaryKey": false,
           "notNull": false
         },

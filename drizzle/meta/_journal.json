@@ -113,6 +113,20 @@
       "when": 1772870400000,
       "tag": "0015_drop_items_status_column",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1772786553368,
+      "tag": "0016_rainy_annihilus",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1772787288411,
+      "tag": "0017_previous_red_hulk",
+      "breakpoints": true
     }
   ]
 }

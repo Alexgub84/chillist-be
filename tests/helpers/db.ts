@@ -39,6 +39,7 @@ export async function getTestDb(): Promise<Database> {
 export async function cleanupTestDatabase() {
   const testDb = await getTestDb()
 
+  await testDb.delete(schema.participantExpenses)
   await testDb.delete(schema.itemChanges)
   await testDb.delete(schema.items)
   await testDb.delete(schema.planInvites)
@@ -175,6 +176,31 @@ export async function seedTestJoinRequests(
       status: 'pending',
       ...overrides,
     })
+    .returning()
+  return inserted
+}
+
+export async function seedTestExpenses(
+  planId: string,
+  participantId: string,
+  count: number = 1,
+  options?: { createdByUserId?: string }
+): Promise<schema.ParticipantExpense[]> {
+  const testDb = await getTestDb()
+
+  const expenses = Array.from({ length: count }, (_, i) => ({
+    planId,
+    participantId,
+    amount: String((i + 1) * 25.5),
+    description: `Expense ${i + 1}`,
+    ...(options?.createdByUserId && {
+      createdByUserId: options.createdByUserId,
+    }),
+  }))
+
+  const inserted = await testDb
+    .insert(schema.participantExpenses)
+    .values(expenses)
     .returning()
   return inserted
 }

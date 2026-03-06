@@ -9,6 +9,7 @@ import {
   pgEnum,
   unique,
   boolean,
+  numeric,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -130,6 +131,8 @@ export const plans = pgTable('plans', {
   startDate: timestamp('start_date', { withTimezone: true }),
   endDate: timestamp('end_date', { withTimezone: true }),
   tags: text('tags').array(),
+  defaultLang: varchar('default_lang', { length: 10 }),
+  currency: varchar('currency', { length: 10 }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -271,6 +274,25 @@ export const participantJoinRequests = pgTable(
   ]
 )
 
+export const participantExpenses = pgTable('participant_expenses', {
+  expenseId: uuid('expense_id').primaryKey().defaultRandom(),
+  participantId: uuid('participant_id')
+    .notNull()
+    .references(() => participants.participantId, { onDelete: 'cascade' }),
+  planId: uuid('plan_id')
+    .notNull()
+    .references(() => plans.planId, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  description: text('description'),
+  createdByUserId: uuid('created_by_user_id'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+})
+
 export const guestProfilesRelations = relations(guestProfiles, ({ many }) => ({
   participants: many(participants),
 }))
@@ -280,6 +302,7 @@ export const plansRelations = relations(plans, ({ many }) => ({
   participants: many(participants),
   invites: many(planInvites),
   joinRequests: many(participantJoinRequests),
+  expenses: many(participantExpenses),
 }))
 
 export const itemsRelations = relations(items, ({ one, many }) => ({
@@ -297,17 +320,21 @@ export const itemChangesRelations = relations(itemChanges, ({ one }) => ({
   }),
 }))
 
-export const participantsRelations = relations(participants, ({ one }) => ({
-  plan: one(plans, {
-    fields: [participants.planId],
-    references: [plans.planId],
-  }),
-  guestProfile: one(guestProfiles, {
-    fields: [participants.guestProfileId],
-    references: [guestProfiles.guestId],
-  }),
-  invite: one(planInvites),
-}))
+export const participantsRelations = relations(
+  participants,
+  ({ one, many }) => ({
+    plan: one(plans, {
+      fields: [participants.planId],
+      references: [plans.planId],
+    }),
+    guestProfile: one(guestProfiles, {
+      fields: [participants.guestProfileId],
+      references: [guestProfiles.guestId],
+    }),
+    invite: one(planInvites),
+    expenses: many(participantExpenses),
+  })
+)
 
 export const planInvitesRelations = relations(planInvites, ({ one }) => ({
   plan: one(plans, {
@@ -325,6 +352,20 @@ export const participantJoinRequestsRelations = relations(
   ({ one }) => ({
     plan: one(plans, {
       fields: [participantJoinRequests.planId],
+      references: [plans.planId],
+    }),
+  })
+)
+
+export const participantExpensesRelations = relations(
+  participantExpenses,
+  ({ one }) => ({
+    participant: one(participants, {
+      fields: [participantExpenses.participantId],
+      references: [participants.participantId],
+    }),
+    plan: one(plans, {
+      fields: [participantExpenses.planId],
       references: [plans.planId],
     }),
   })
@@ -348,3 +389,5 @@ export type NewParticipantJoinRequest =
   typeof participantJoinRequests.$inferInsert
 export type ItemChange = typeof itemChanges.$inferSelect
 export type NewItemChange = typeof itemChanges.$inferInsert
+export type ParticipantExpense = typeof participantExpenses.$inferSelect
+export type NewParticipantExpense = typeof participantExpenses.$inferInsert

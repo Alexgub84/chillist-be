@@ -71,6 +71,17 @@ import {
   updateProfileBodySchema,
   updateProfileResponseSchema,
 } from './auth.schema.js'
+import {
+  expenseSchema,
+  expenseListSchema,
+  expenseSummarySchema,
+  expenseSummaryListSchema,
+  expensesResponseSchema,
+  createExpenseBodySchema,
+  updateExpenseBodySchema,
+  expenseIdParamSchema,
+  deleteExpenseResponseSchema,
+} from './expense.schema.js'
 
 const schemas = [
   errorResponseSchema,
@@ -131,6 +142,15 @@ const schemas = [
   profileResponseSchema,
   updateProfileBodySchema,
   updateProfileResponseSchema,
+  expenseSchema,
+  expenseListSchema,
+  expenseSummarySchema,
+  expenseSummaryListSchema,
+  expensesResponseSchema,
+  createExpenseBodySchema,
+  updateExpenseBodySchema,
+  expenseIdParamSchema,
+  deleteExpenseResponseSchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
@@ -147,3 +167,4 @@ export * from './participant.schema.js'
 export * from './invite.schema.js'
 export * from './auth.schema.js'
 export * from './join-request.schema.js'
+export * from './expense.schema.js'
