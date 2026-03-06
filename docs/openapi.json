@@ -199,6 +199,16 @@
             },
             "nullable": true
           },
+          "defaultLang": {
+            "type": "string",
+            "description": "ISO 639-1 language code for the plan UI (e.g. en, he)",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code (e.g. USD, EUR, ILS)",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -354,6 +364,16 @@
             },
             "nullable": true
           },
+          "defaultLang": {
+            "type": "string",
+            "maxLength": 10,
+            "description": "ISO 639-1 language code (e.g. en, he)"
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 10,
+            "description": "ISO 4217 currency code (e.g. USD, EUR, ILS)"
+          },
           "owner": {
             "$ref": "#/components/schemas/def-9"
           },
@@ -424,6 +444,18 @@
               "type": "string"
             },
             "nullable": true
+          },
+          "defaultLang": {
+            "type": "string",
+            "maxLength": 10,
+            "nullable": true,
+            "description": "ISO 639-1 language code (e.g. en, he). Send null to clear."
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 10,
+            "nullable": true,
+            "description": "ISO 4217 currency code (e.g. USD, EUR, ILS). Send null to clear."
           }
         },
         "title": "UpdatePlanBody"
@@ -1083,6 +1115,16 @@
             "items": {
               "type": "string"
             },
+            "nullable": true
+          },
+          "defaultLang": {
+            "type": "string",
+            "description": "ISO 639-1 language code for the plan UI (e.g. en, he)",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code (e.g. USD, EUR, ILS)",
             "nullable": true
           },
           "createdAt": {
@@ -2193,6 +2235,171 @@
           "preferences"
         ],
         "title": "UpdateProfileResponse"
+      },
+      "def-58": {
+        "type": "object",
+        "properties": {
+          "expenseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The participant who made this expense"
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string",
+            "description": "Expense amount as a decimal string (e.g. \"29.99\"). Stored as numeric(10,2) in the database."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional description of what the expense was for"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "expenseId",
+          "participantId",
+          "planId",
+          "amount",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "Expense"
+      },
+      "def-59": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-58"
+        },
+        "title": "ExpenseList"
+      },
+      "def-60": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Sum of all expenses for this participant"
+          }
+        },
+        "required": [
+          "participantId",
+          "totalAmount"
+        ],
+        "title": "ExpenseSummary"
+      },
+      "def-61": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-60"
+        },
+        "title": "ExpenseSummaryList"
+      },
+      "def-62": {
+        "type": "object",
+        "description": "All expenses for a plan plus per-participant totals. Currency is defined on the plan itself.",
+        "properties": {
+          "expenses": {
+            "$ref": "#/components/schemas/def-59"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/def-61"
+          }
+        },
+        "required": [
+          "expenses",
+          "summary"
+        ],
+        "title": "ExpensesResponse"
+      },
+      "def-63": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The participant this expense belongs to"
+          },
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Expense amount (must be greater than 0)"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Optional description of what the expense was for"
+          }
+        },
+        "required": [
+          "participantId",
+          "amount"
+        ],
+        "title": "CreateExpenseBody"
+      },
+      "def-64": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Updated expense amount (must be greater than 0)"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "description": "Updated description (send null to clear)"
+          }
+        },
+        "title": "UpdateExpenseBody"
+      },
+      "def-65": {
+        "type": "object",
+        "properties": {
+          "expenseId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "expenseId"
+        ],
+        "title": "ExpenseIdParam"
+      },
+      "def-66": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "DeleteExpenseResponse"
       }
     }
   },
@@ -4880,6 +5087,383 @@
               "application/json": {
                 "schema": {
                   "description": "Conflict — request already approved or rejected",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/expenses": {
+      "get": {
+        "summary": "List all expenses for a plan with per-participant totals",
+        "tags": [
+          "expenses"
+        ],
+        "description": "Returns every expense entry for the plan plus a summary array with the total amount per participant.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expenses list and per-participant summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Expenses list and per-participant summary",
+                  "$ref": "#/components/schemas/def-62"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan not found or access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan not found or access denied",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add an expense to a plan",
+        "tags": [
+          "expenses"
+        ],
+        "description": "Create a new expense entry for a participant. Owner/admin can add expenses for any participant; linked participants can only add expenses for themselves.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-63"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created expense",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Created expense",
+                  "$ref": "#/components/schemas/def-58"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — check the message field for details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan or participant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan or participant not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/expenses/{expenseId}": {
+      "patch": {
+        "summary": "Update an expense",
+        "tags": [
+          "expenses"
+        ],
+        "description": "Update an existing expense. Owner/admin can update any expense; the participant it belongs to can update their own.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-64"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "expenseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated expense",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Updated expense",
+                  "$ref": "#/components/schemas/def-58"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — check the message field for details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expense not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Expense not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete an expense",
+        "tags": [
+          "expenses"
+        ],
+        "description": "Delete an expense. Owner/admin can delete any expense; the participant it belongs to can delete their own.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "expenseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expense deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Expense deleted",
+                  "$ref": "#/components/schemas/def-66"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expense not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Expense not found",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
