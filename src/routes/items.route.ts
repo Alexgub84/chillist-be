@@ -47,6 +47,7 @@ interface UpdateItemBody {
   notes?: string | null
   assignmentStatusList?: Assignment[]
   isAllParticipants?: boolean
+  unassign?: boolean
 }
 
 interface BulkItemError {
@@ -322,14 +323,24 @@ export async function itemsRoutes(fastify: FastifyInstance) {
       const {
         assignmentStatusList: bodyAssignments,
         isAllParticipants: bodyIsAll,
+        unassign,
         ...fieldUpdates
       } = request.body
 
       const hasAssignmentFields =
-        bodyAssignments !== undefined || bodyIsAll !== undefined
+        bodyAssignments !== undefined ||
+        bodyIsAll !== undefined ||
+        unassign === true
 
       if (Object.keys(fieldUpdates).length === 0 && !hasAssignmentFields) {
         return reply.status(400).send({ message: 'No fields to update' })
+      }
+
+      if (unassign && bodyAssignments !== undefined) {
+        return reply.status(400).send({
+          message:
+            'Cannot set both unassign and assignmentStatusList. Use one or the other.',
+        })
       }
 
       try {
@@ -359,16 +370,18 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           access.participant?.role === 'owner' || !access.participant
 
         if (hasAssignmentFields && !isOwner) {
-          const incomingList = bodyAssignments ?? []
+          if (!unassign) {
+            const incomingList = bodyAssignments ?? []
 
-          const validation = validateParticipantAssignmentChange(
-            incomingList,
-            bodyIsAll,
-            existingItem.isAllParticipants,
-            access.participant!.participantId
-          )
-          if (!validation.valid) {
-            return reply.status(400).send({ message: validation.message! })
+            const validation = validateParticipantAssignmentChange(
+              incomingList,
+              bodyIsAll,
+              existingItem.isAllParticipants,
+              access.participant!.participantId
+            )
+            if (!validation.valid) {
+              return reply.status(400).send({ message: validation.message! })
+            }
           }
         }
 
@@ -404,6 +417,12 @@ export async function itemsRoutes(fastify: FastifyInstance) {
               bodyAssignments !== undefined
                 ? resolveAssignments(bodyAssignments)
                 : currentList
+          } else if (unassign) {
+            finalList = mergeParticipantAssignment(
+              currentList,
+              [],
+              access.participant!.participantId
+            )
           } else {
             finalList = mergeParticipantAssignment(
               currentList,
@@ -675,6 +694,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             itemId,
             assignmentStatusList: bodyAssignments,
             isAllParticipants: bodyIsAll,
+            unassign,
             ...fieldUpdates
           } = entry
           const existing = itemMap.get(itemId)
@@ -696,12 +716,23 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           }
 
           const hasAssignmentFields =
-            bodyAssignments !== undefined || bodyIsAll !== undefined
+            bodyAssignments !== undefined ||
+            bodyIsAll !== undefined ||
+            unassign === true
 
           if (Object.keys(fieldUpdates).length === 0 && !hasAssignmentFields) {
             errors.push({
               name: existing.name,
               message: 'No fields to update',
+            })
+            continue
+          }
+
+          if (unassign && bodyAssignments !== undefined) {
+            errors.push({
+              name: existing.name,
+              message:
+                'Cannot set both unassign and assignmentStatusList. Use one or the other.',
             })
             continue
           }
@@ -714,7 +745,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          if (hasAssignmentFields && !isOwner) {
+          if (hasAssignmentFields && !isOwner && !unassign) {
             const incomingList = bodyAssignments ?? []
 
             const validation = validateParticipantAssignmentChange(
@@ -769,6 +800,12 @@ export async function itemsRoutes(fastify: FastifyInstance) {
                   bodyAssignments !== undefined
                     ? resolveAssignments(bodyAssignments)
                     : currentList
+              } else if (unassign) {
+                finalList = mergeParticipantAssignment(
+                  currentList,
+                  [],
+                  access.participant!.participantId
+                )
               } else {
                 finalList = mergeParticipantAssignment(
                   currentList,

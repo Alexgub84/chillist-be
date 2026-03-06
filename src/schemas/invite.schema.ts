@@ -189,6 +189,11 @@ export const updateInviteItemBodySchema = {
         required: ['participantId', 'status'],
       },
     },
+    unassign: {
+      type: 'boolean',
+      description:
+        'Set true to remove yourself from this item. Cannot be combined with assignmentStatusList.',
+    },
   },
 } as const
 
@@ -231,6 +236,11 @@ export const bulkUpdateInviteItemEntrySchema = {
         },
         required: ['participantId', 'status'],
       },
+    },
+    unassign: {
+      type: 'boolean',
+      description:
+        'Set true to remove yourself from this item. Cannot be combined with assignmentStatusList.',
     },
   },
   required: ['itemId'],

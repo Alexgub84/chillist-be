@@ -718,6 +718,10 @@
           "isAllParticipants": {
             "type": "boolean",
             "description": "Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Only the plan owner can change this flag."
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Non-owner only: set true to remove yourself from this item. Cannot be combined with assignmentStatusList."
           }
         },
         "title": "UpdateItemBody"
@@ -1808,6 +1812,10 @@
                 "status"
               ]
             }
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Set true to remove yourself from this item. Cannot be combined with assignmentStatusList."
           }
         },
         "title": "UpdateInviteItemBody"
@@ -1907,6 +1915,10 @@
           "isAllParticipants": {
             "type": "boolean",
             "description": "Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Owner-only."
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Non-owner only: set true to remove yourself from this item. Cannot be combined with assignmentStatusList."
           }
         },
         "required": [
@@ -2055,6 +2067,10 @@
                 "status"
               ]
             }
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Set true to remove yourself from this item. Cannot be combined with assignmentStatusList."
           }
         },
         "required": [
@@ -4068,7 +4084,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Updates an existing item. Allowed if the item is assigned to the guest or unassigned. Returns 403 if assigned to a different participant. No top-level status field — to update your status, send assignmentStatusList with your own entry: [{ participantId: \"your-id\", status: \"purchased\" }]. Backend merges into the full list. Response returns assignmentStatusList filtered to only your entry.",
+        "description": "Updates an existing item. Allowed if the item is assigned to the guest or unassigned. Returns 403 if assigned to a different participant. No top-level status field — to update your status, send assignmentStatusList with your own entry: [{ participantId: \"your-id\", status: \"purchased\" }]. Backend merges into the full list. Send unassign: true to remove yourself. Response returns assignmentStatusList filtered to only your entry.",
         "requestBody": {
           "content": {
             "application/json": {

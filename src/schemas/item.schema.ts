@@ -128,6 +128,11 @@ export const updateItemBodySchema = {
       description:
         'Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Only the plan owner can change this flag.',
     },
+    unassign: {
+      type: 'boolean',
+      description:
+        'Non-owner only: set true to remove yourself from this item. Cannot be combined with assignmentStatusList.',
+    },
   },
 } as const
 
@@ -186,6 +191,11 @@ export const bulkUpdateItemEntrySchema = {
       type: 'boolean',
       description:
         'Set true to mark as assigned to all (new joiners auto-added). Set false to unmark. Owner-only.',
+    },
+    unassign: {
+      type: 'boolean',
+      description:
+        'Non-owner only: set true to remove yourself from this item. Cannot be combined with assignmentStatusList.',
     },
   },
   required: ['itemId'],

@@ -47,18 +47,30 @@ export function validateParticipantAssignmentChange(
 
 export function mergeParticipantAssignment(
   currentList: Assignment[],
-  incomingEntries: Assignment[]
+  incomingEntries: Assignment[],
+  unassignSelf?: string
 ): Assignment[] {
+  if (unassignSelf) {
+    return currentList.filter((a) => a.participantId !== unassignSelf)
+  }
+
   const incoming = dedupeAssignments(incomingEntries)
   const incomingMap = new Map<string, Assignment>()
   for (const entry of incoming) {
     incomingMap.set(entry.participantId, entry)
   }
 
-  return currentList.map((a) => {
+  const merged = currentList.map((a) => {
     const override = incomingMap.get(a.participantId)
+    if (override) incomingMap.delete(a.participantId)
     return override ?? a
   })
+
+  for (const entry of incomingMap.values()) {
+    merged.push(entry)
+  }
+
+  return merged
 }
 
 export function filterAssignmentForParticipant(

@@ -166,11 +166,33 @@ describe('mergeParticipantAssignment', () => {
     expect(result).toEqual(current)
   })
 
-  it('does not add entries for participants not in current list', () => {
+  it('appends self-assignment when participant is not in current list', () => {
     const incoming: Assignment[] = [
-      { participantId: 'not-in-list', status: 'purchased' },
+      { participantId: 'new-participant', status: 'pending' },
     ]
     const result = mergeParticipantAssignment(current, incoming)
+    expect(result).toEqual([
+      ...current,
+      { participantId: 'new-participant', status: 'pending' },
+    ])
+  })
+
+  it('self-assigns to an empty list', () => {
+    const incoming: Assignment[] = [{ participantId: pid1, status: 'pending' }]
+    const result = mergeParticipantAssignment([], incoming)
+    expect(result).toEqual([{ participantId: pid1, status: 'pending' }])
+  })
+
+  it('unassigns participant when unassignSelf is provided', () => {
+    const result = mergeParticipantAssignment(current, [], pid2)
+    expect(result).toEqual([
+      { participantId: pid1, status: 'pending' },
+      { participantId: pid3, status: 'pending' },
+    ])
+  })
+
+  it('returns unchanged list when unassignSelf target not found', () => {
+    const result = mergeParticipantAssignment(current, [], 'not-in-list')
     expect(result).toEqual(current)
   })
 
