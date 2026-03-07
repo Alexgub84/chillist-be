@@ -5,6 +5,8 @@ import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
 import type { Database } from '../db/index.js'
 
+type TransactionClient = Parameters<Parameters<Database['transaction']>[0]>[0]
+
 interface CreateExpenseBody {
   participantId: string
   amount: number
@@ -38,6 +40,38 @@ async function validateItemIds(
   }
 
   return null
+}
+
+async function advanceItemStatusOnExpense(
+  db: Database | TransactionClient,
+  itemIds: string[],
+  planId: string,
+  participantId: string
+): Promise<void> {
+  if (itemIds.length === 0) return
+
+  const linkedItems = await db
+    .select()
+    .from(items)
+    .where(and(inArray(items.itemId, itemIds), eq(items.planId, planId)))
+
+  for (const item of linkedItems) {
+    const updatedList = item.assignmentStatusList.map((entry) =>
+      entry.participantId === participantId && entry.status === 'pending'
+        ? { ...entry, status: 'purchased' as const }
+        : entry
+    )
+
+    const changed =
+      JSON.stringify(updatedList) !== JSON.stringify(item.assignmentStatusList)
+
+    if (changed) {
+      await db
+        .update(items)
+        .set({ assignmentStatusList: updatedList, updatedAt: new Date() })
+        .where(eq(items.itemId, item.itemId))
+    }
+  }
 }
 
 export async function expensesRoutes(fastify: FastifyInstance) {
@@ -248,17 +282,25 @@ export async function expensesRoutes(fastify: FastifyInstance) {
           }
         }
 
-        const [created] = await fastify.db
-          .insert(participantExpenses)
-          .values({
-            participantId,
-            planId,
-            amount: String(amount),
-            description: description ?? null,
-            itemIds: itemIds ?? [],
-            createdByUserId: userId,
-          })
-          .returning()
+        const created = await fastify.db.transaction(async (tx) => {
+          const [expense] = await tx
+            .insert(participantExpenses)
+            .values({
+              participantId,
+              planId,
+              amount: String(amount),
+              description: description ?? null,
+              itemIds: itemIds ?? [],
+              createdByUserId: userId,
+            })
+            .returning()
+
+          if (itemIds && itemIds.length > 0) {
+            await advanceItemStatusOnExpense(tx, itemIds, planId, participantId)
+          }
+
+          return expense
+        })
 
         request.log.info(
           { expenseId: created.expenseId, planId, participantId },
@@ -404,11 +446,28 @@ export async function expensesRoutes(fastify: FastifyInstance) {
           setValues.itemIds = updates.itemIds
         }
 
-        const [updated] = await fastify.db
-          .update(participantExpenses)
-          .set(setValues)
-          .where(eq(participantExpenses.expenseId, expenseId))
-          .returning()
+        const updated = await fastify.db.transaction(async (tx) => {
+          const [expense] = await tx
+            .update(participantExpenses)
+            .set(setValues)
+            .where(eq(participantExpenses.expenseId, expenseId))
+            .returning()
+
+          if (updates.itemIds !== undefined) {
+            const oldIds = new Set(existing.itemIds)
+            const newlyAdded = updates.itemIds.filter((id) => !oldIds.has(id))
+            if (newlyAdded.length > 0) {
+              await advanceItemStatusOnExpense(
+                tx,
+                newlyAdded,
+                existing.planId,
+                existing.participantId
+              )
+            }
+          }
+
+          return expense
+        })
 
         request.log.info(
           { expenseId, changes: Object.keys(updates) },
