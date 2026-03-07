@@ -284,6 +284,7 @@ export const participantExpenses = pgTable('participant_expenses', {
     .references(() => plans.planId, { onDelete: 'cascade' }),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
   description: text('description'),
+  itemIds: jsonb('item_ids').$type<string[]>().notNull().default([]),
   createdByUserId: uuid('created_by_user_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()

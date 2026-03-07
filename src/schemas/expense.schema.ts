@@ -19,6 +19,12 @@ export const expenseSchema = {
       nullable: true,
       description: 'Optional description of what the expense was for',
     },
+    itemIds: {
+      type: 'array',
+      items: { type: 'string', format: 'uuid' },
+      description:
+        'List of item IDs associated with this expense. Empty array if no items linked.',
+    },
     createdByUserId: { type: 'string', format: 'uuid', nullable: true },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
@@ -28,6 +34,7 @@ export const expenseSchema = {
     'participantId',
     'planId',
     'amount',
+    'itemIds',
     'createdAt',
     'updatedAt',
   ],
@@ -89,6 +96,12 @@ export const createExpenseBodySchema = {
       maxLength: 500,
       description: 'Optional description of what the expense was for',
     },
+    itemIds: {
+      type: 'array',
+      items: { type: 'string', format: 'uuid' },
+      description:
+        'Optional list of item IDs this expense is for. All items must belong to the same plan.',
+    },
   },
   required: ['participantId', 'amount'],
 } as const
@@ -107,6 +120,12 @@ export const updateExpenseBodySchema = {
       maxLength: 500,
       nullable: true,
       description: 'Updated description (send null to clear)',
+    },
+    itemIds: {
+      type: 'array',
+      items: { type: 'string', format: 'uuid' },
+      description:
+        'Updated list of item IDs. Replaces the existing list entirely. All items must belong to the same plan.',
     },
   },
 } as const
