@@ -4,13 +4,17 @@ import { FastifyInstance } from 'fastify'
 import {
   cleanupTestDatabase,
   closeTestDatabase,
+  getTestDb,
   seedTestExpenses,
   seedTestItems,
+  seedTestItemWithAssignment,
   seedTestParticipants,
   seedTestParticipantWithUser,
   seedTestPlans,
   setupTestDatabase,
 } from '../helpers/db.js'
+import { eq } from 'drizzle-orm'
+import { items as itemsTable } from '../../src/db/schema.js'
 import {
   setupTestKeys,
   getTestJWKS,
@@ -912,6 +916,236 @@ describe('Expenses Route', () => {
 
       expect(response.statusCode).toBe(200)
       expect(response.json()).toEqual({ ok: true })
+    })
+  })
+
+  describe('item status advancement on expense creation', () => {
+    it('advances pending items to purchased when expense is created with itemIds', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const p1 = participants[0]
+      const p2 = participants[1]
+
+      const item1 = await seedTestItemWithAssignment(
+        plan.planId,
+        [
+          { participantId: p1.participantId, status: 'pending' },
+          { participantId: p2.participantId, status: 'pending' },
+        ],
+        { name: 'Item A' }
+      )
+      const item2 = await seedTestItemWithAssignment(
+        plan.planId,
+        [{ participantId: p1.participantId, status: 'pending' }],
+        { name: 'Item B' }
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/expenses`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          participantId: p1.participantId,
+          amount: 100,
+          itemIds: [item1.itemId, item2.itemId],
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+
+      const db = await getTestDb()
+      const [updatedItem1] = await db
+        .select()
+        .from(itemsTable)
+        .where(eq(itemsTable.itemId, item1.itemId))
+      const [updatedItem2] = await db
+        .select()
+        .from(itemsTable)
+        .where(eq(itemsTable.itemId, item2.itemId))
+
+      expect(
+        updatedItem1.assignmentStatusList.find(
+          (e) => e.participantId === p1.participantId
+        )?.status
+      ).toBe('purchased')
+      expect(
+        updatedItem1.assignmentStatusList.find(
+          (e) => e.participantId === p2.participantId
+        )?.status
+      ).toBe('pending')
+      expect(
+        updatedItem2.assignmentStatusList.find(
+          (e) => e.participantId === p1.participantId
+        )?.status
+      ).toBe('purchased')
+    })
+
+    it('does not change packed items when expense is created', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const p1 = participants[0]
+
+      const item = await seedTestItemWithAssignment(
+        plan.planId,
+        [{ participantId: p1.participantId, status: 'packed' }],
+        { name: 'Packed Item' }
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/expenses`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          participantId: p1.participantId,
+          amount: 50,
+          itemIds: [item.itemId],
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+
+      const db = await getTestDb()
+      const [updatedItem] = await db
+        .select()
+        .from(itemsTable)
+        .where(eq(itemsTable.itemId, item.itemId))
+
+      expect(
+        updatedItem.assignmentStatusList.find(
+          (e) => e.participantId === p1.participantId
+        )?.status
+      ).toBe('packed')
+    })
+
+    it('does not change canceled items when expense is created', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const p1 = participants[0]
+
+      const item = await seedTestItemWithAssignment(
+        plan.planId,
+        [{ participantId: p1.participantId, status: 'canceled' }],
+        { name: 'Canceled Item' }
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/expenses`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          participantId: p1.participantId,
+          amount: 30,
+          itemIds: [item.itemId],
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+
+      const db = await getTestDb()
+      const [updatedItem] = await db
+        .select()
+        .from(itemsTable)
+        .where(eq(itemsTable.itemId, item.itemId))
+
+      expect(
+        updatedItem.assignmentStatusList.find(
+          (e) => e.participantId === p1.participantId
+        )?.status
+      ).toBe('canceled')
+    })
+
+    it('does not change items when participant is not in assignmentStatusList', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const p1 = participants[0]
+      const p2 = participants[1]
+
+      const item = await seedTestItemWithAssignment(
+        plan.planId,
+        [{ participantId: p2.participantId, status: 'pending' }],
+        { name: 'Not Assigned to P1' }
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/expenses`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          participantId: p1.participantId,
+          amount: 20,
+          itemIds: [item.itemId],
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+
+      const db = await getTestDb()
+      const [updatedItem] = await db
+        .select()
+        .from(itemsTable)
+        .where(eq(itemsTable.itemId, item.itemId))
+
+      expect(
+        updatedItem.assignmentStatusList.find(
+          (e) => e.participantId === p2.participantId
+        )?.status
+      ).toBe('pending')
+    })
+
+    it('does not change items when expense has no itemIds', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const p1 = participants[0]
+
+      const item = await seedTestItemWithAssignment(
+        plan.planId,
+        [{ participantId: p1.participantId, status: 'pending' }],
+        { name: 'Untouched Item' }
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/expenses`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          participantId: p1.participantId,
+          amount: 15,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+
+      const db = await getTestDb()
+      const [updatedItem] = await db
+        .select()
+        .from(itemsTable)
+        .where(eq(itemsTable.itemId, item.itemId))
+
+      expect(
+        updatedItem.assignmentStatusList.find(
+          (e) => e.participantId === p1.participantId
+        )?.status
+      ).toBe('pending')
     })
   })
 })

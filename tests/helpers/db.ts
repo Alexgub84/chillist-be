@@ -180,6 +180,27 @@ export async function seedTestJoinRequests(
   return inserted
 }
 
+export async function seedTestItemWithAssignment(
+  planId: string,
+  assignmentStatusList: Array<{ participantId: string; status: string }>,
+  overrides?: Partial<schema.NewItem>
+): Promise<schema.Item> {
+  const testDb = await getTestDb()
+  const [inserted] = await testDb
+    .insert(schema.items)
+    .values({
+      planId,
+      name: 'Assigned Item',
+      category: 'equipment',
+      quantity: 1,
+      unit: 'pcs',
+      assignmentStatusList,
+      ...overrides,
+    })
+    .returning()
+  return inserted
+}
+
 export async function seedTestExpenses(
   planId: string,
   participantId: string,
