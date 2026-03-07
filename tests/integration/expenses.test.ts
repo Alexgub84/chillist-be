@@ -5,6 +5,7 @@ import {
   cleanupTestDatabase,
   closeTestDatabase,
   seedTestExpenses,
+  seedTestItems,
   seedTestParticipants,
   seedTestParticipantWithUser,
   seedTestPlans,
@@ -151,6 +152,7 @@ describe('Expenses Route', () => {
       expect(expense.planId).toBe(plan.planId)
       expect(expense.amount).toBe('42.50')
       expect(expense.description).toBe('Firewood')
+      expect(expense.itemIds).toEqual([])
       expect(expense.createdByUserId).toBe(TEST_USER_ID)
     })
 
@@ -355,6 +357,104 @@ describe('Expenses Route', () => {
       })
 
       expect(response.statusCode).toBe(400)
+    })
+
+    it('creates an expense with itemIds', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const items = await seedTestItems(plan.planId, 2)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/expenses`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          participantId: participants[0].participantId,
+          amount: 50,
+          description: 'Bought items',
+          itemIds: items.map((i) => i.itemId),
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const expense = response.json()
+      expect(expense.itemIds).toHaveLength(2)
+      expect(expense.itemIds).toContain(items[0].itemId)
+      expect(expense.itemIds).toContain(items[1].itemId)
+    })
+
+    it('returns 400 when itemIds reference items from a different plan', async () => {
+      const [plan1, plan2] = await seedTestPlans(2, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan1.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const otherPlanItems = await seedTestItems(plan2.planId, 1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan1.planId}/expenses`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          participantId: participants[0].participantId,
+          amount: 25,
+          itemIds: [otherPlanItems[0].itemId],
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toMatch(/Items not found in this plan/)
+    })
+
+    it('returns 400 when itemIds reference non-existent items', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/expenses`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          participantId: participants[0].participantId,
+          amount: 25,
+          itemIds: ['00000000-0000-0000-0000-000000000000'],
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toMatch(/Items not found in this plan/)
+    })
+
+    it('creates an expense with empty itemIds', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/expenses`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          participantId: participants[0].participantId,
+          amount: 10,
+          itemIds: [],
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().itemIds).toEqual([])
     })
   })
 
@@ -576,6 +676,94 @@ describe('Expenses Route', () => {
 
       expect(response.statusCode).toBe(200)
       expect(response.json().amount).toBe('500.00')
+    })
+
+    it('updates itemIds on an expense', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const [expense] = await seedTestExpenses(
+        plan.planId,
+        participants[0].participantId,
+        1,
+        { createdByUserId: TEST_USER_ID }
+      )
+      const items = await seedTestItems(plan.planId, 3)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/expenses/${expense.expenseId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { itemIds: [items[0].itemId, items[2].itemId] },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.itemIds).toHaveLength(2)
+      expect(updated.itemIds).toContain(items[0].itemId)
+      expect(updated.itemIds).toContain(items[2].itemId)
+    })
+
+    it('clears itemIds by sending empty array', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const items = await seedTestItems(plan.planId, 1)
+      const [expense] = await seedTestExpenses(
+        plan.planId,
+        participants[0].participantId,
+        1,
+        { createdByUserId: TEST_USER_ID }
+      )
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/expenses/${expense.expenseId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { itemIds: [items[0].itemId] },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/expenses/${expense.expenseId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { itemIds: [] },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().itemIds).toEqual([])
+    })
+
+    it('returns 400 when updating itemIds with items from a different plan', async () => {
+      const [plan1, plan2] = await seedTestPlans(2, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const participants = await seedTestParticipants(plan1.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const [expense] = await seedTestExpenses(
+        plan1.planId,
+        participants[0].participantId,
+        1,
+        { createdByUserId: TEST_USER_ID }
+      )
+      const otherPlanItems = await seedTestItems(plan2.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/expenses/${expense.expenseId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { itemIds: [otherPlanItems[0].itemId] },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toMatch(/Items not found in this plan/)
     })
   })
 

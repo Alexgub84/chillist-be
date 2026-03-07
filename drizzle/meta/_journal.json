@@ -127,6 +127,13 @@
       "when": 1772870400002,
       "tag": "0017_previous_red_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1772884024788,
+      "tag": "0018_lush_lord_hawal",
+      "breakpoints": true
     }
   ]
 }

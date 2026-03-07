@@ -1,18 +1,43 @@
 import { FastifyInstance } from 'fastify'
-import { eq, sql } from 'drizzle-orm'
-import { participantExpenses, participants } from '../db/schema.js'
+import { eq, sql, and, inArray } from 'drizzle-orm'
+import { participantExpenses, participants, items } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
+import type { Database } from '../db/index.js'
 
 interface CreateExpenseBody {
   participantId: string
   amount: number
   description?: string
+  itemIds?: string[]
 }
 
 interface UpdateExpenseBody {
   amount?: number
   description?: string | null
+  itemIds?: string[]
+}
+
+async function validateItemIds(
+  db: Database,
+  itemIds: string[],
+  planId: string
+): Promise<string | null> {
+  if (itemIds.length === 0) return null
+
+  const uniqueIds = [...new Set(itemIds)]
+  const found = await db
+    .select({ itemId: items.itemId })
+    .from(items)
+    .where(and(inArray(items.itemId, uniqueIds), eq(items.planId, planId)))
+
+  if (found.length !== uniqueIds.length) {
+    const foundIds = new Set(found.map((r) => r.itemId))
+    const missing = uniqueIds.filter((id) => !foundIds.has(id))
+    return `Items not found in this plan: ${missing.join(', ')}`
+  }
+
+  return null
 }
 
 export async function expensesRoutes(fastify: FastifyInstance) {
@@ -171,7 +196,7 @@ export async function expensesRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { planId } = request.params
-      const { participantId, amount, description } = request.body
+      const { participantId, amount, description, itemIds } = request.body
       const userId = request.user!.id
 
       try {
@@ -212,6 +237,17 @@ export async function expensesRoutes(fastify: FastifyInstance) {
             .send({ message: 'You can only add expenses for yourself' })
         }
 
+        if (itemIds && itemIds.length > 0) {
+          const validationError = await validateItemIds(
+            fastify.db,
+            itemIds,
+            planId
+          )
+          if (validationError) {
+            return reply.status(400).send({ message: validationError })
+          }
+        }
+
         const [created] = await fastify.db
           .insert(participantExpenses)
           .values({
@@ -219,6 +255,7 @@ export async function expensesRoutes(fastify: FastifyInstance) {
             planId,
             amount: String(amount),
             description: description ?? null,
+            itemIds: itemIds ?? [],
             createdByUserId: userId,
           })
           .returning()
@@ -345,12 +382,26 @@ export async function expensesRoutes(fastify: FastifyInstance) {
           }
         }
 
+        if (updates.itemIds !== undefined && updates.itemIds.length > 0) {
+          const validationError = await validateItemIds(
+            fastify.db,
+            updates.itemIds,
+            existing.planId
+          )
+          if (validationError) {
+            return reply.status(400).send({ message: validationError })
+          }
+        }
+
         const setValues: Record<string, unknown> = { updatedAt: new Date() }
         if (updates.amount !== undefined) {
           setValues.amount = String(updates.amount)
         }
         if (updates.description !== undefined) {
           setValues.description = updates.description
+        }
+        if (updates.itemIds !== undefined) {
+          setValues.itemIds = updates.itemIds
         }
 
         const [updated] = await fastify.db

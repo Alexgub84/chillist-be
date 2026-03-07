@@ -1,0 +1,1 @@
+ALTER TABLE "participant_expenses" ADD COLUMN "item_ids" jsonb DEFAULT '[]'::jsonb NOT NULL;
