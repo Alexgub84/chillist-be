@@ -8,6 +8,7 @@ import {
   plans,
   participants,
   items,
+  participantExpenses,
   participantJoinRequests,
   type Location,
   type Assignment,
@@ -49,7 +50,7 @@ async function seed() {
 
   try {
     await db.execute(
-      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, guest_profiles, user_details CASCADE`
+      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, user_details CASCADE`
     )
     console.log('Cleared all tables')
 
@@ -386,9 +387,64 @@ async function seed() {
       }
     })
 
-    await db.insert(items).values(negevItemValues)
+    const negevItems = await db
+      .insert(items)
+      .values(negevItemValues)
+      .returning()
 
     console.log('Created 20 items')
+
+    const tent = negevItems.find((i) => i.name === 'Tent')!
+    const sleepingBag = negevItems.find((i) => i.name === 'Sleeping Bag')!
+    const campingStove = negevItems.find((i) => i.name === 'Camping Stove')!
+    const cooler = negevItems.find((i) => i.name === 'Cooler')!
+    const water = negevItems.find((i) => i.name === 'Water')!
+    const eggs = negevItems.find((i) => i.name === 'Eggs')!
+
+    await db.insert(participantExpenses).values([
+      {
+        participantId: negevOwner.participantId,
+        planId: negevPlan.planId,
+        amount: '350.00',
+        description: 'Tent and sleeping bags from camping store',
+        itemIds: [tent.itemId, sleepingBag.itemId],
+        createdByUserId: seedOwnerUserId,
+      },
+      {
+        participantId: negevP1.participantId,
+        planId: negevPlan.planId,
+        amount: '120.50',
+        description: 'Portable camping stove + gas canisters',
+        itemIds: [campingStove.itemId],
+        createdByUserId: seedOwnerUserId,
+      },
+      {
+        participantId: negevP2.participantId,
+        planId: negevPlan.planId,
+        amount: '85.00',
+        description: 'Coolers and ice packs',
+        itemIds: [cooler.itemId],
+        createdByUserId: seedOwnerUserId,
+      },
+      {
+        participantId: negevP3.participantId,
+        planId: negevPlan.planId,
+        amount: '65.00',
+        description: 'Water and eggs from supermarket',
+        itemIds: [water.itemId, eggs.itemId],
+        createdByUserId: seedOwnerUserId,
+      },
+      {
+        participantId: negevP4.participantId,
+        planId: negevPlan.planId,
+        amount: '45.00',
+        description: 'Gas for the drive',
+        itemIds: [],
+        createdByUserId: seedOwnerUserId,
+      },
+    ])
+
+    console.log('Created 5 expenses (4 with linked items, 1 without)')
 
     const beachLocation: Location = {
       locationId: crypto.randomUUID(),
@@ -530,7 +586,7 @@ async function seed() {
     console.log('Negev Plan ID:', negevPlan.planId)
     console.log('  Title:', negevPlan.title)
     console.log('  Owner:', negevOwner.name, negevOwner.lastName)
-    console.log('  Participants: 5, Items: 20')
+    console.log('  Participants: 5, Items: 20, Expenses: 5')
     console.log('')
     console.log('Join Request Test Plan ID:', joinTestPlan.planId)
     console.log('  Title:', joinTestPlan.title)
