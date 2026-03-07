@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate migration timestamp order
+        run: npm run db:check-migration-order
+
       - name: Run migrations
         run: npm run db:migrate
 
