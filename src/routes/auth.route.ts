@@ -20,6 +20,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           'Returns the authenticated user identity extracted from the JWT. Returns 401 if no valid JWT is provided.',
         response: {
           200: {
+            description: 'Authenticated user identity',
             type: 'object',
             properties: {
               user: {
@@ -33,6 +34,10 @@ export async function authRoutes(fastify: FastifyInstance) {
               },
             },
             required: ['user'],
+          },
+          401: {
+            description: 'JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
           },
         },
       },
@@ -56,7 +61,14 @@ export async function authRoutes(fastify: FastifyInstance) {
         description:
           'Returns user identity from JWT and app preferences from the database. Returns 401 if no valid JWT is provided.',
         response: {
-          200: { $ref: 'ProfileResponse#' },
+          200: {
+            description: 'User identity and preferences',
+            $ref: 'ProfileResponse#',
+          },
+          401: {
+            description: 'JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -94,7 +106,14 @@ export async function authRoutes(fastify: FastifyInstance) {
           "Creates or updates the authenticated user's app preferences. Returns 401 if no valid JWT is provided.",
         body: { $ref: 'UpdateProfileBody#' },
         response: {
-          200: { $ref: 'UpdateProfileResponse#' },
+          200: {
+            description: 'Updated preferences',
+            $ref: 'UpdateProfileResponse#',
+          },
+          401: {
+            description: 'JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -155,14 +174,21 @@ export async function authRoutes(fastify: FastifyInstance) {
           'Updates all participant records linked to the authenticated user with identity fields from the JWT (name, email, phone, avatar). Call this after updating the user profile in Supabase so all plans reflect the latest data.',
         response: {
           200: {
+            description: 'Number of participant records synced',
             type: 'object',
             properties: {
               synced: { type: 'integer' },
             },
             required: ['synced'],
           },
-          401: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
+          401: {
+            description: 'JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },

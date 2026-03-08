@@ -1,8 +1,34 @@
 import { randomBytes } from 'node:crypto'
-import { sql } from 'drizzle-orm'
+import { readFileSync, existsSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { plans, participants, items, type Location } from './schema.js'
+import {
+  plans,
+  participants,
+  items,
+  participantExpenses,
+  participantJoinRequests,
+  type Location,
+  type Assignment,
+} from './schema.js'
+
+function loadEnvLocal() {
+  const path = resolve(process.cwd(), '.env.local')
+  if (!existsSync(path)) return
+  const content = readFileSync(path, 'utf-8')
+  for (const line of content.split('\n')) {
+    const match = line.match(/^([^#=]+)=(.*)$/)
+    if (match) {
+      const key = match[1].trim()
+      const value = match[2].trim().replace(/^["']|["']$/g, '')
+      if (!process.env[key]) process.env[key] = value
+    }
+  }
+}
+
+loadEnvLocal()
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -24,7 +50,7 @@ async function seed() {
 
   try {
     await db.execute(
-      sql`TRUNCATE plans, participants, items, plan_invites, guest_profiles, user_details CASCADE`
+      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, user_details CASCADE`
     )
     console.log('Cleared all tables')
 
@@ -81,7 +107,10 @@ async function seed() {
       })
       .returning()
 
-    await db.update(plans).set({ ownerParticipantId: negevOwner.participantId })
+    await db
+      .update(plans)
+      .set({ ownerParticipantId: negevOwner.participantId })
+      .where(eq(plans.planId, negevPlan.planId))
 
     const [negevP1] = await db
       .insert(participants)
@@ -308,7 +337,7 @@ async function seed() {
       },
     ]
 
-    const participantsForAssignment = [
+    const pIds = [
       negevOwner.participantId,
       negevP1.participantId,
       negevP2.participantId,
@@ -316,27 +345,257 @@ async function seed() {
       negevP4.participantId,
     ]
 
-    await db.insert(items).values(
-      seedItems.map((item, i) => ({
+    const negevItemValues = seedItems.map((item, i) => {
+      if (i === 0) {
+        return {
+          planId: negevPlan.planId,
+          name: item.name,
+          category: item.category,
+          subcategory: item.subcategory,
+          quantity: item.quantity,
+          unit: item.unit,
+          isAllParticipants: true,
+          assignmentStatusList: pIds.map((participantId) => ({
+            participantId,
+            status: 'pending' as const,
+          })),
+        }
+      }
+      if (i === 5 || i === 10) {
+        return {
+          planId: negevPlan.planId,
+          name: item.name,
+          category: item.category,
+          subcategory: item.subcategory,
+          quantity: item.quantity,
+          unit: item.unit,
+          isAllParticipants: false,
+          assignmentStatusList: [] as Assignment[],
+        }
+      }
+      return {
         planId: negevPlan.planId,
         name: item.name,
         category: item.category,
         subcategory: item.subcategory,
         quantity: item.quantity,
         unit: item.unit,
-        status: 'pending' as const,
-        assignedParticipantId: participantsForAssignment[i % 5],
-      }))
-    )
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: pIds[i % 5], status: 'pending' as const },
+        ],
+      }
+    })
+
+    const negevItems = await db
+      .insert(items)
+      .values(negevItemValues)
+      .returning()
 
     console.log('Created 20 items')
 
+    const tent = negevItems.find((i) => i.name === 'Tent')!
+    const sleepingBag = negevItems.find((i) => i.name === 'Sleeping Bag')!
+    const campingStove = negevItems.find((i) => i.name === 'Camping Stove')!
+    const cooler = negevItems.find((i) => i.name === 'Cooler')!
+    const water = negevItems.find((i) => i.name === 'Water')!
+    const eggs = negevItems.find((i) => i.name === 'Eggs')!
+
+    await db.insert(participantExpenses).values([
+      {
+        participantId: negevOwner.participantId,
+        planId: negevPlan.planId,
+        amount: '350.00',
+        description: 'Tent and sleeping bags from camping store',
+        itemIds: [tent.itemId, sleepingBag.itemId],
+        createdByUserId: seedOwnerUserId,
+      },
+      {
+        participantId: negevP1.participantId,
+        planId: negevPlan.planId,
+        amount: '120.50',
+        description: 'Portable camping stove + gas canisters',
+        itemIds: [campingStove.itemId],
+        createdByUserId: seedOwnerUserId,
+      },
+      {
+        participantId: negevP2.participantId,
+        planId: negevPlan.planId,
+        amount: '85.00',
+        description: 'Coolers and ice packs',
+        itemIds: [cooler.itemId],
+        createdByUserId: seedOwnerUserId,
+      },
+      {
+        participantId: negevP3.participantId,
+        planId: negevPlan.planId,
+        amount: '65.00',
+        description: 'Water and eggs from supermarket',
+        itemIds: [water.itemId, eggs.itemId],
+        createdByUserId: seedOwnerUserId,
+      },
+      {
+        participantId: negevP4.participantId,
+        planId: negevPlan.planId,
+        amount: '45.00',
+        description: 'Gas for the drive',
+        itemIds: [],
+        createdByUserId: seedOwnerUserId,
+      },
+    ])
+
+    console.log('Created 5 expenses (4 with linked items, 1 without)')
+
+    const beachLocation: Location = {
+      locationId: crypto.randomUUID(),
+      name: 'Sunset Beach',
+      country: 'USA',
+      region: 'California',
+      city: 'Santa Monica',
+      latitude: 34.0195,
+      longitude: -118.4912,
+      timezone: 'America/Los_Angeles',
+    }
+
+    const [joinTestPlan] = await db
+      .insert(plans)
+      .values({
+        title: 'Request to join test — Beach BBQ',
+        description:
+          'Invite-only plan for testing the join request flow. ' +
+          'Sign in as owner to see pending requests, or as another user to request to join.',
+        status: 'active',
+        visibility: 'invite_only',
+        location: beachLocation,
+        startDate: new Date('2026-05-15T12:00:00-07:00'),
+        endDate: new Date('2026-05-15T20:00:00-07:00'),
+        tags: ['bbq', 'beach', 'test', 'join-request'],
+        ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
+      })
+      .returning()
+
+    const [joinTestOwner] = await db
+      .insert(participants)
+      .values({
+        planId: joinTestPlan.planId,
+        name: 'Alex',
+        lastName: 'Owner',
+        contactPhone: '+1-555-111-0000',
+        displayName: 'Alex O.',
+        role: 'owner',
+        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex',
+        contactEmail: 'alex.owner@example.com',
+        inviteToken: generateInviteToken(),
+        rsvpStatus: 'confirmed',
+        adultsCount: 2,
+        kidsCount: 0,
+        ...(seedOwnerUserId && { userId: seedOwnerUserId }),
+      })
+      .returning()
+
+    await db
+      .update(plans)
+      .set({ ownerParticipantId: joinTestOwner.participantId })
+      .where(eq(plans.planId, joinTestPlan.planId))
+
+    const requester1UserId = 'bbbbbbbb-1111-2222-3333-444444444444'
+    const requester2UserId = 'cccccccc-1111-2222-3333-444444444444'
+
+    await db.insert(participantJoinRequests).values([
+      {
+        planId: joinTestPlan.planId,
+        supabaseUserId: requester1UserId,
+        name: 'Jordan',
+        lastName: 'Requester',
+        contactPhone: '+1-555-222-0000',
+        contactEmail: 'jordan@example.com',
+        displayName: 'Jordan R.',
+        adultsCount: 1,
+        kidsCount: 0,
+        foodPreferences: 'vegan',
+        allergies: 'shellfish',
+        notes: 'Excited to join!',
+        status: 'pending',
+      },
+      {
+        planId: joinTestPlan.planId,
+        supabaseUserId: requester2UserId,
+        name: 'Sam',
+        lastName: 'Pending',
+        contactPhone: '+1-555-333-0000',
+        adultsCount: 2,
+        kidsCount: 1,
+        status: 'pending',
+      },
+    ])
+
+    await db.insert(items).values([
+      {
+        planId: joinTestPlan.planId,
+        name: 'Grill',
+        category: 'equipment',
+        subcategory: 'Cooking and Heating Equipment',
+        quantity: 1,
+        unit: 'pcs',
+        isAllParticipants: false,
+        assignmentStatusList: [
+          {
+            participantId: joinTestOwner.participantId,
+            status: 'pending' as const,
+          },
+        ],
+      },
+      {
+        planId: joinTestPlan.planId,
+        name: 'Burgers',
+        category: 'food',
+        subcategory: 'Meat and Proteins',
+        quantity: 12,
+        unit: 'pcs',
+        isAllParticipants: false,
+        assignmentStatusList: [] as Assignment[],
+      },
+      {
+        planId: joinTestPlan.planId,
+        name: 'Veggie Burgers',
+        category: 'food',
+        subcategory: 'Vegan',
+        quantity: 6,
+        unit: 'pcs',
+        isAllParticipants: false,
+        assignmentStatusList: [] as Assignment[],
+      },
+      {
+        planId: joinTestPlan.planId,
+        name: 'Charcoal',
+        category: 'equipment',
+        subcategory: 'Cooking and Heating Equipment',
+        quantity: 2,
+        unit: 'pack',
+        isAllParticipants: false,
+        assignmentStatusList: [] as Assignment[],
+      },
+    ])
+
+    console.log('Created plan:', joinTestPlan.planId)
+    console.log('  Title:', joinTestPlan.title)
+    console.log('  Join requests: 2 (pending)')
+    console.log('  Items: 4')
+
     console.log('\n--- Seed Summary ---')
-    console.log('Plan ID:', negevPlan.planId)
-    console.log('Title:', negevPlan.title)
-    console.log('Owner:', negevOwner.name, negevOwner.lastName)
-    console.log('Participants: 5')
-    console.log('Items: 20 (from common-items.json)')
+    console.log('Negev Plan ID:', negevPlan.planId)
+    console.log('  Title:', negevPlan.title)
+    console.log('  Owner:', negevOwner.name, negevOwner.lastName)
+    console.log('  Participants: 5, Items: 20, Expenses: 5')
+    console.log('')
+    console.log('Join Request Test Plan ID:', joinTestPlan.planId)
+    console.log('  Title:', joinTestPlan.title)
+    console.log('  Owner: Alex Owner (link with SEED_OWNER_USER_ID)')
+    console.log('  Join requests: 2 pending (Jordan, Sam)')
+    console.log('  Items: 4')
+    console.log(
+      '  To test: SEED_OWNER_USER_ID=your-supabase-uuid, sign in as owner'
+    )
     console.log('--------------------\n')
 
     console.log('Seeding completed successfully')

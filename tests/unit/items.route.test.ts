@@ -15,13 +15,31 @@ function createMockDb() {
   return {
     select: vi.fn(),
     insert: vi.fn(),
+    update: vi.fn(),
   }
 }
 
-function mockSelectPlanFound(mockDb: ReturnType<typeof createMockDb>) {
+function mockAccessCheckWithError(
+  mockDb: ReturnType<typeof createMockDb>,
+  error: unknown
+) {
   mockDb.select.mockReturnValue({
     from: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue([{ planId: VALID_UUID }]),
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockRejectedValue(error),
+      }),
+    }),
+  })
+}
+
+function mockAccessCheckSuccess(mockDb: ReturnType<typeof createMockDb>) {
+  mockDb.select.mockReturnValueOnce({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi
+          .fn()
+          .mockResolvedValue([{ participantId: VALID_UUID, role: 'owner' }]),
+      }),
     }),
   })
 }
@@ -41,7 +59,6 @@ const validEquipmentPayload = {
   name: 'Tent',
   category: 'equipment',
   quantity: 1,
-  status: 'pending',
 }
 
 describe('Items Route - Error Scenarios', () => {
@@ -68,19 +85,15 @@ describe('Items Route - Error Scenarios', () => {
     await app.close()
   })
 
-  describe('POST /plans/:planId/items - Plan Lookup Errors', () => {
+  describe('POST /plans/:planId/items - Access Check Errors', () => {
     it.each([
       ['connect ECONNREFUSED', 503, 'Database connection error'],
       ['connection timeout', 503, 'Database connection error'],
       ['Unknown database error', 500, 'Failed to create item'],
     ])(
-      'returns correct status when plan lookup fails with "%s"',
+      'returns correct status when access check fails with "%s"',
       async (errorMessage, expectedStatus, expectedMessage) => {
-        mockDb.select.mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockRejectedValue(new Error(errorMessage)),
-          }),
-        })
+        mockAccessCheckWithError(mockDb, new Error(errorMessage))
 
         const response = await app.inject({
           method: 'POST',
@@ -94,12 +107,8 @@ describe('Items Route - Error Scenarios', () => {
       }
     )
 
-    it('returns 500 when non-Error is thrown on plan lookup', async () => {
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue('string error'),
-        }),
-      })
+    it('returns 500 when non-Error is thrown on access check', async () => {
+      mockAccessCheckWithError(mockDb, 'string error')
 
       const response = await app.inject({
         method: 'POST',
@@ -121,7 +130,7 @@ describe('Items Route - Error Scenarios', () => {
     ])(
       'returns correct status when item insert fails with "%s"',
       async (errorMessage, expectedStatus, expectedMessage) => {
-        mockSelectPlanFound(mockDb)
+        mockAccessCheckSuccess(mockDb)
         mockInsertError(mockDb, new Error(errorMessage))
 
         const response = await app.inject({
@@ -137,7 +146,7 @@ describe('Items Route - Error Scenarios', () => {
     )
 
     it('returns 500 when non-Error is thrown on item insert', async () => {
-      mockSelectPlanFound(mockDb)
+      mockAccessCheckSuccess(mockDb)
       mockInsertError(mockDb, 'string error')
 
       const response = await app.inject({

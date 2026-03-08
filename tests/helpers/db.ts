@@ -39,8 +39,11 @@ export async function getTestDb(): Promise<Database> {
 export async function cleanupTestDatabase() {
   const testDb = await getTestDb()
 
+  await testDb.delete(schema.participantExpenses)
+  await testDb.delete(schema.itemChanges)
   await testDb.delete(schema.items)
   await testDb.delete(schema.planInvites)
+  await testDb.delete(schema.participantJoinRequests)
   await testDb.delete(schema.participants)
   await testDb.delete(schema.plans)
   await testDb.delete(schema.guestProfiles)
@@ -95,7 +98,6 @@ export async function seedTestItems(
     category: 'equipment' as const,
     quantity: i + 1,
     unit: 'pcs' as const,
-    status: 'pending' as const,
     notes: i % 2 === 0 ? `Notes for item ${i + 1}` : null,
   }))
 
@@ -106,9 +108,32 @@ export async function seedTestItems(
   return inserted
 }
 
+export async function seedTestParticipantWithUser(
+  planId: string,
+  userId: string,
+  overrides?: Partial<schema.NewParticipant>
+): Promise<schema.Participant> {
+  const testDb = await getTestDb()
+  const [inserted] = await testDb
+    .insert(schema.participants)
+    .values({
+      planId,
+      userId,
+      name: 'Linked',
+      lastName: 'Participant',
+      contactPhone: '+1-555-000-0002',
+      role: 'participant',
+      inviteToken: randomBytes(32).toString('hex'),
+      ...overrides,
+    })
+    .returning()
+  return inserted
+}
+
 export async function seedTestParticipants(
   planId: string,
-  count: number = 3
+  count: number = 3,
+  options?: { ownerUserId?: string }
 ): Promise<schema.Participant[]> {
   const testDb = await getTestDb()
 
@@ -123,11 +148,80 @@ export async function seedTestParticipants(
       | 'participant'
       | 'viewer',
     inviteToken: randomBytes(32).toString('hex'),
+    ...(i === 0 && options?.ownerUserId ? { userId: options.ownerUserId } : {}),
   }))
 
   const inserted = await testDb
     .insert(schema.participants)
     .values(testParticipants)
+    .returning()
+  return inserted
+}
+
+export async function seedTestJoinRequests(
+  planId: string,
+  supabaseUserId: string,
+  overrides?: Partial<schema.NewParticipantJoinRequest>
+): Promise<schema.ParticipantJoinRequest> {
+  const testDb = await getTestDb()
+
+  const [inserted] = await testDb
+    .insert(schema.participantJoinRequests)
+    .values({
+      planId,
+      supabaseUserId,
+      name: 'TestFirst',
+      lastName: 'TestLast',
+      contactPhone: '+1-555-000-0000',
+      status: 'pending',
+      ...overrides,
+    })
+    .returning()
+  return inserted
+}
+
+export async function seedTestItemWithAssignment(
+  planId: string,
+  assignmentStatusList: Array<{ participantId: string; status: string }>,
+  overrides?: Partial<schema.NewItem>
+): Promise<schema.Item> {
+  const testDb = await getTestDb()
+  const [inserted] = await testDb
+    .insert(schema.items)
+    .values({
+      planId,
+      name: 'Assigned Item',
+      category: 'equipment',
+      quantity: 1,
+      unit: 'pcs',
+      assignmentStatusList,
+      ...overrides,
+    })
+    .returning()
+  return inserted
+}
+
+export async function seedTestExpenses(
+  planId: string,
+  participantId: string,
+  count: number = 1,
+  options?: { createdByUserId?: string }
+): Promise<schema.ParticipantExpense[]> {
+  const testDb = await getTestDb()
+
+  const expenses = Array.from({ length: count }, (_, i) => ({
+    planId,
+    participantId,
+    amount: String((i + 1) * 25.5),
+    description: `Expense ${i + 1}`,
+    ...(options?.createdByUserId && {
+      createdByUserId: options.createdByUserId,
+    }),
+  }))
+
+  const inserted = await testDb
+    .insert(schema.participantExpenses)
+    .values(expenses)
     .returning()
   return inserted
 }

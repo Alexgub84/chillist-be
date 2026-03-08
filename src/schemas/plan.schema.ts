@@ -31,6 +31,16 @@ export const planSchema = {
     startDate: { type: 'string', format: 'date-time', nullable: true },
     endDate: { type: 'string', format: 'date-time', nullable: true },
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    defaultLang: {
+      type: 'string',
+      description: 'ISO 639-1 language code for the plan UI (e.g. en, he)',
+      nullable: true,
+    },
+    currency: {
+      type: 'string',
+      description: 'ISO 4217 currency code (e.g. USD, EUR, ILS)',
+      nullable: true,
+    },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
   },
@@ -48,6 +58,27 @@ export const planListSchema = {
   $id: 'PlanList',
   type: 'array',
   items: { $ref: 'Plan#' },
+} as const
+
+export const pendingJoinRequestPreviewSchema = {
+  $id: 'PendingJoinRequestPreview',
+  type: 'object',
+  properties: {
+    planId: { type: 'string', format: 'uuid' },
+    title: { type: 'string' },
+    startDate: { type: 'string', format: 'date-time', nullable: true },
+    endDate: { type: 'string', format: 'date-time', nullable: true },
+    location: {
+      oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
+    },
+  },
+  required: ['planId', 'title'],
+} as const
+
+export const pendingJoinRequestPreviewListSchema = {
+  $id: 'PendingJoinRequestPreviewList',
+  type: 'array',
+  items: { $ref: 'PendingJoinRequestPreview#' },
 } as const
 
 export const ownerBodySchema = {
@@ -77,6 +108,16 @@ export const createPlanBodySchema = {
     startDate: { type: 'string', format: 'date-time', nullable: true },
     endDate: { type: 'string', format: 'date-time', nullable: true },
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    defaultLang: {
+      type: 'string',
+      maxLength: 10,
+      description: 'ISO 639-1 language code (e.g. en, he)',
+    },
+    currency: {
+      type: 'string',
+      maxLength: 10,
+      description: 'ISO 4217 currency code (e.g. USD, EUR, ILS)',
+    },
     owner: { $ref: 'OwnerBody#' },
     participants: {
       type: 'array',
@@ -100,6 +141,19 @@ export const updatePlanBodySchema = {
     startDate: { type: 'string', format: 'date-time', nullable: true },
     endDate: { type: 'string', format: 'date-time', nullable: true },
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    defaultLang: {
+      type: 'string',
+      maxLength: 10,
+      nullable: true,
+      description: 'ISO 639-1 language code (e.g. en, he). Send null to clear.',
+    },
+    currency: {
+      type: 'string',
+      maxLength: 10,
+      nullable: true,
+      description:
+        'ISO 4217 currency code (e.g. USD, EUR, ILS). Send null to clear.',
+    },
   },
 } as const
 
@@ -138,10 +192,21 @@ export const planWithDetailsSchema = {
     startDate: { type: 'string', format: 'date-time', nullable: true },
     endDate: { type: 'string', format: 'date-time', nullable: true },
     tags: { type: 'array', items: { type: 'string' }, nullable: true },
+    defaultLang: {
+      type: 'string',
+      description: 'ISO 639-1 language code for the plan UI (e.g. en, he)',
+      nullable: true,
+    },
+    currency: {
+      type: 'string',
+      description: 'ISO 4217 currency code (e.g. USD, EUR, ILS)',
+      nullable: true,
+    },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
     items: { $ref: 'ItemList#' },
     participants: { $ref: 'ParticipantList#' },
+    joinRequests: { $ref: 'JoinRequestList#' },
   },
   required: [
     'planId',
@@ -153,4 +218,41 @@ export const planWithDetailsSchema = {
     'items',
     'participants',
   ],
+} as const
+
+export const planNotLoggedInResponseSchema = {
+  $id: 'PlanNotLoggedInResponse',
+  type: 'object',
+  properties: {
+    status: { type: 'string', enum: ['not_logged_in'] },
+  },
+  required: ['status'],
+} as const
+
+export const planPreviewFieldsSchema = {
+  $id: 'PlanPreviewFields',
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    description: { type: 'string', nullable: true },
+    location: {
+      oneOf: [{ $ref: 'Location#' }, { type: 'null' }],
+    },
+    startDate: { type: 'string', format: 'date-time', nullable: true },
+    endDate: { type: 'string', format: 'date-time', nullable: true },
+  },
+  required: ['title'],
+} as const
+
+export const planNotParticipantResponseSchema = {
+  $id: 'PlanNotParticipantResponse',
+  type: 'object',
+  properties: {
+    status: { type: 'string', enum: ['not_participant'] },
+    preview: { $ref: 'PlanPreviewFields#' },
+    joinRequest: {
+      oneOf: [{ $ref: 'JoinRequest#' }, { type: 'null' }],
+    },
+  },
+  required: ['status', 'preview', 'joinRequest'],
 } as const

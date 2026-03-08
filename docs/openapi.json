@@ -199,6 +199,16 @@
             },
             "nullable": true
           },
+          "defaultLang": {
+            "type": "string",
+            "description": "ISO 639-1 language code for the plan UI (e.g. en, he)",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code (e.g. USD, EUR, ILS)",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -226,6 +236,50 @@
         "title": "PlanList"
       },
       "def-7": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "location": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-4"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "planId",
+          "title"
+        ],
+        "title": "PendingJoinRequestPreview"
+      },
+      "def-8": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-7"
+        },
+        "title": "PendingJoinRequestPreviewList"
+      },
+      "def-9": {
         "type": "object",
         "properties": {
           "name": {
@@ -263,7 +317,7 @@
         ],
         "title": "OwnerBody"
       },
-      "def-8": {
+      "def-10": {
         "type": "object",
         "properties": {
           "title": {
@@ -310,13 +364,23 @@
             },
             "nullable": true
           },
+          "defaultLang": {
+            "type": "string",
+            "maxLength": 10,
+            "description": "ISO 639-1 language code (e.g. en, he)"
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 10,
+            "description": "ISO 4217 currency code (e.g. USD, EUR, ILS)"
+          },
           "owner": {
-            "$ref": "#/components/schemas/def-7"
+            "$ref": "#/components/schemas/def-9"
           },
           "participants": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-19"
+              "$ref": "#/components/schemas/def-21"
             }
           }
         },
@@ -326,7 +390,7 @@
         ],
         "title": "CreatePlanBody"
       },
-      "def-9": {
+      "def-11": {
         "type": "object",
         "properties": {
           "title": {
@@ -380,11 +444,23 @@
               "type": "string"
             },
             "nullable": true
+          },
+          "defaultLang": {
+            "type": "string",
+            "maxLength": 10,
+            "nullable": true,
+            "description": "ISO 639-1 language code (e.g. en, he). Send null to clear."
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 10,
+            "nullable": true,
+            "description": "ISO 4217 currency code (e.g. USD, EUR, ILS). Send null to clear."
           }
         },
         "title": "UpdatePlanBody"
       },
-      "def-10": {
+      "def-12": {
         "type": "object",
         "properties": {
           "planId": {
@@ -397,7 +473,7 @@
         ],
         "title": "PlanIdParam"
       },
-      "def-11": {
+      "def-13": {
         "type": "object",
         "properties": {
           "ok": {
@@ -409,7 +485,7 @@
         ],
         "title": "DeletePlanResponse"
       },
-      "def-12": {
+      "def-14": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -449,15 +525,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "nullable": true
@@ -466,10 +533,35 @@
             "type": "string",
             "nullable": true
           },
-          "assignedParticipantId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+          "isAllParticipants": {
+            "type": "boolean",
+            "description": "True when this item is assigned to all participants. When a new participant joins the plan, they are automatically added to items with this flag."
+          },
+          "assignmentStatusList": {
+            "type": "array",
+            "description": "Per-participant assignment and status tracking (replaces the old top-level status field). Each entry is { participantId, status } where status is one of: pending, purchased, packed, canceled. Response visibility: owner/admin sees full list; non-owner sees only their own entry.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
           },
           "createdAt": {
             "type": "string",
@@ -487,21 +579,23 @@
           "category",
           "quantity",
           "unit",
-          "status",
+          "isAllParticipants",
+          "assignmentStatusList",
           "createdAt",
           "updatedAt"
         ],
         "title": "Item"
       },
-      "def-13": {
+      "def-15": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-12"
+          "$ref": "#/components/schemas/def-14"
         },
         "title": "ItemList"
       },
-      "def-14": {
+      "def-16": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -535,15 +629,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -553,22 +638,47 @@
             "type": "string",
             "nullable": true
           },
-          "assignedParticipantId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+          "assignmentStatusList": {
+            "type": "array",
+            "description": "Owner-only on create. Send the full desired assignment list. Assign all: include every participant and set isAllParticipants=true. Assign subset/single: include only those participants and keep isAllParticipants=false (or omit it). Unassigned item: omit this field or send [].",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
+          },
+          "isAllParticipants": {
+            "type": "boolean",
+            "description": "Owner-only on create. true means this item is for all participants and new participants should be auto-added later. false (or omitted) means regular assignment list behavior."
           }
         },
         "required": [
           "name",
           "category",
-          "quantity",
-          "status"
+          "quantity"
         ],
         "title": "CreateItemBody"
       },
-      "def-15": {
+      "def-17": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -602,15 +712,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -620,15 +721,44 @@
             "type": "string",
             "nullable": true
           },
-          "assignedParticipantId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+          "assignmentStatusList": {
+            "type": "array",
+            "description": "PATCH behavior depends on caller role. Owner/admin: send the full desired list (replaces current list). Non-owner: send exactly one entry for yourself only (for status update or self-assign); backend merges it with current list. If using unassign=true, do not send assignmentStatusList.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
+          },
+          "isAllParticipants": {
+            "type": "boolean",
+            "description": "Owner/admin only. true marks item as \"assign to all participants\" and future participants are auto-added. false removes that mode."
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Participant self-unassign helper. Set true to remove your own entry from assignmentStatusList. Cannot be combined with assignmentStatusList in the same request."
           }
         },
         "title": "UpdateItemBody"
       },
-      "def-16": {
+      "def-18": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -641,7 +771,7 @@
         ],
         "title": "ItemIdParam"
       },
-      "def-17": {
+      "def-19": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -754,14 +884,14 @@
         ],
         "title": "Participant"
       },
-      "def-18": {
+      "def-20": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-17"
+          "$ref": "#/components/schemas/def-19"
         },
         "title": "ParticipantList"
       },
-      "def-19": {
+      "def-21": {
         "type": "object",
         "properties": {
           "name": {
@@ -823,7 +953,7 @@
         ],
         "title": "CreateParticipantBody"
       },
-      "def-20": {
+      "def-22": {
         "type": "object",
         "properties": {
           "name": {
@@ -895,7 +1025,7 @@
         },
         "title": "UpdateParticipantBody"
       },
-      "def-21": {
+      "def-23": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -908,7 +1038,7 @@
         ],
         "title": "ParticipantIdParam"
       },
-      "def-22": {
+      "def-24": {
         "type": "object",
         "properties": {
           "ok": {
@@ -920,7 +1050,7 @@
         ],
         "title": "DeleteParticipantResponse"
       },
-      "def-23": {
+      "def-25": {
         "type": "object",
         "properties": {
           "planId": {
@@ -987,6 +1117,16 @@
             },
             "nullable": true
           },
+          "defaultLang": {
+            "type": "string",
+            "description": "ISO 639-1 language code for the plan UI (e.g. en, he)",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code (e.g. USD, EUR, ILS)",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -996,10 +1136,13 @@
             "format": "date-time"
           },
           "items": {
-            "$ref": "#/components/schemas/def-13"
+            "$ref": "#/components/schemas/def-15"
           },
           "participants": {
-            "$ref": "#/components/schemas/def-18"
+            "$ref": "#/components/schemas/def-20"
+          },
+          "joinRequests": {
+            "$ref": "#/components/schemas/def-32"
           }
         },
         "required": [
@@ -1014,7 +1157,263 @@
         ],
         "title": "PlanWithDetails"
       },
-      "def-24": {
+      "def-26": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_logged_in"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PlanNotLoggedInResponse"
+      },
+      "def-27": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-4"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "PlanPreviewFields"
+      },
+      "def-28": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supabaseUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "contactPhone": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "adultsCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "kidsCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "foodPreferences": {
+            "type": "string",
+            "nullable": true
+          },
+          "allergies": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "requestId",
+          "planId",
+          "supabaseUserId",
+          "name",
+          "lastName",
+          "contactPhone",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "JoinRequest"
+      },
+      "def-29": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "planId",
+          "requestId"
+        ],
+        "title": "JoinRequestActionParams"
+      },
+      "def-30": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "UpdateJoinRequestStatusBody"
+      },
+      "def-31": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_participant"
+            ]
+          },
+          "preview": {
+            "$ref": "#/components/schemas/def-27"
+          },
+          "joinRequest": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/def-28"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "preview",
+          "joinRequest"
+        ],
+        "title": "PlanNotParticipantResponse"
+      },
+      "def-32": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-28"
+        },
+        "title": "JoinRequestList"
+      },
+      "def-33": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contactPhone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contactEmail": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "adultsCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kidsCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "foodPreferences": {
+            "type": "string"
+          },
+          "allergies": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "lastName",
+          "contactPhone"
+        ],
+        "title": "CreateJoinRequestBody"
+      },
+      "def-34": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1033,7 +1432,7 @@
         ],
         "title": "InviteParams"
       },
-      "def-25": {
+      "def-35": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -1059,14 +1458,14 @@
         ],
         "title": "InviteParticipant"
       },
-      "def-26": {
+      "def-36": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-25"
+          "$ref": "#/components/schemas/def-35"
         },
         "title": "InviteParticipantList"
       },
-      "def-27": {
+      "def-37": {
         "type": "object",
         "properties": {
           "adultsCount": {
@@ -1092,7 +1491,7 @@
         },
         "title": "InviteMyPreferences"
       },
-      "def-28": {
+      "def-38": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1150,10 +1549,10 @@
             "format": "date-time"
           },
           "items": {
-            "$ref": "#/components/schemas/def-13"
+            "$ref": "#/components/schemas/def-15"
           },
           "participants": {
-            "$ref": "#/components/schemas/def-26"
+            "$ref": "#/components/schemas/def-36"
           },
           "myParticipantId": {
             "type": "string",
@@ -1168,7 +1567,7 @@
             ]
           },
           "myPreferences": {
-            "$ref": "#/components/schemas/def-27"
+            "$ref": "#/components/schemas/def-37"
           }
         },
         "required": [
@@ -1185,7 +1584,7 @@
         ],
         "title": "InvitePlanResponse"
       },
-      "def-29": {
+      "def-39": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1203,7 +1602,7 @@
         ],
         "title": "RegenerateTokenParams"
       },
-      "def-30": {
+      "def-40": {
         "type": "object",
         "properties": {
           "inviteToken": {
@@ -1215,7 +1614,7 @@
         ],
         "title": "RegenerateTokenResponse"
       },
-      "def-31": {
+      "def-41": {
         "type": "object",
         "properties": {
           "displayName": {
@@ -1255,7 +1654,7 @@
         },
         "title": "UpdateInvitePreferencesBody"
       },
-      "def-32": {
+      "def-42": {
         "type": "object",
         "properties": {
           "participantId": {
@@ -1310,7 +1709,7 @@
         ],
         "title": "InvitePreferencesResponse"
       },
-      "def-33": {
+      "def-43": {
         "type": "object",
         "properties": {
           "planId": {
@@ -1334,7 +1733,7 @@
         ],
         "title": "InviteItemParams"
       },
-      "def-34": {
+      "def-44": {
         "type": "object",
         "properties": {
           "name": {
@@ -1386,7 +1785,7 @@
         ],
         "title": "CreateInviteItemBody"
       },
-      "def-35": {
+      "def-45": {
         "type": "object",
         "properties": {
           "name": {
@@ -1421,15 +1820,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -1438,19 +1828,50 @@
           "notes": {
             "type": "string",
             "nullable": true
+          },
+          "assignmentStatusList": {
+            "type": "array",
+            "description": "Invite/guest PATCH rule: send only your own entry (participantId must be your participant) to update status or self-assign. Backend merges into the full assignment list.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Set true to remove your own assignment entry from this item. Cannot be combined with assignmentStatusList in the same request."
           }
         },
         "title": "UpdateInviteItemBody"
       },
-      "def-36": {
+      "def-46": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-14"
+              "$ref": "#/components/schemas/def-16"
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 100
           }
         },
         "required": [
@@ -1458,8 +1879,9 @@
         ],
         "title": "BulkCreateItemBody"
       },
-      "def-37": {
+      "def-47": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "itemId": {
             "type": "string",
@@ -1497,15 +1919,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -1515,10 +1928,39 @@
             "type": "string",
             "nullable": true
           },
-          "assignedParticipantId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+          "assignmentStatusList": {
+            "type": "array",
+            "description": "Same rules as single-item PATCH. Owner/admin sends full desired list. Non-owner sends only their own single entry; backend merges.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
+          },
+          "isAllParticipants": {
+            "type": "boolean",
+            "description": "Owner/admin only. true enables assign-to-all mode; false disables it."
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Participant self-unassign helper for bulk PATCH. Set true to remove your own entry. Cannot be combined with assignmentStatusList."
           }
         },
         "required": [
@@ -1526,15 +1968,16 @@
         ],
         "title": "BulkUpdateItemEntry"
       },
-      "def-38": {
+      "def-48": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-37"
+              "$ref": "#/components/schemas/def-47"
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 100
           }
         },
         "required": [
@@ -1542,7 +1985,7 @@
         ],
         "title": "BulkUpdateItemBody"
       },
-      "def-39": {
+      "def-49": {
         "type": "object",
         "properties": {
           "name": {
@@ -1558,16 +2001,16 @@
         ],
         "title": "BulkItemError"
       },
-      "def-40": {
+      "def-50": {
         "type": "object",
         "properties": {
           "items": {
-            "$ref": "#/components/schemas/def-13"
+            "$ref": "#/components/schemas/def-15"
           },
           "errors": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-39"
+              "$ref": "#/components/schemas/def-49"
             }
           }
         },
@@ -1577,13 +2020,13 @@
         ],
         "title": "BulkItemResponse"
       },
-      "def-41": {
+      "def-51": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-34"
+              "$ref": "#/components/schemas/def-44"
             },
             "minItems": 1
           }
@@ -1593,7 +2036,7 @@
         ],
         "title": "BulkCreateInviteItemBody"
       },
-      "def-42": {
+      "def-52": {
         "type": "object",
         "properties": {
           "itemId": {
@@ -1632,15 +2075,6 @@
               "set"
             ]
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "purchased",
-              "packed",
-              "canceled"
-            ]
-          },
           "subcategory": {
             "type": "string",
             "maxLength": 255,
@@ -1649,6 +2083,36 @@
           "notes": {
             "type": "string",
             "nullable": true
+          },
+          "assignmentStatusList": {
+            "type": "array",
+            "description": "Same invite/guest rule as single PATCH: each item may include only your own single assignment entry; backend merges into full list.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "purchased",
+                    "packed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "status"
+              ]
+            }
+          },
+          "unassign": {
+            "type": "boolean",
+            "description": "Bulk self-unassign helper. Set true to remove your own assignment entry. Cannot be combined with assignmentStatusList."
           }
         },
         "required": [
@@ -1656,13 +2120,13 @@
         ],
         "title": "BulkUpdateInviteItemEntry"
       },
-      "def-43": {
+      "def-53": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-42"
+              "$ref": "#/components/schemas/def-52"
             },
             "minItems": 1
           }
@@ -1672,7 +2136,7 @@
         ],
         "title": "BulkUpdateInviteItemBody"
       },
-      "def-44": {
+      "def-54": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -1696,7 +2160,7 @@
         },
         "title": "UserPreferences"
       },
-      "def-45": {
+      "def-55": {
         "type": "object",
         "properties": {
           "user": {
@@ -1721,7 +2185,7 @@
           "preferences": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-44"
+                "$ref": "#/components/schemas/def-54"
               },
               {
                 "type": "null"
@@ -1736,7 +2200,7 @@
         ],
         "title": "ProfileResponse"
       },
-      "def-46": {
+      "def-56": {
         "type": "object",
         "properties": {
           "foodPreferences": {
@@ -1760,17 +2224,207 @@
         },
         "title": "UpdateProfileBody"
       },
-      "def-47": {
+      "def-57": {
         "type": "object",
         "properties": {
           "preferences": {
-            "$ref": "#/components/schemas/def-44"
+            "$ref": "#/components/schemas/def-54"
           }
         },
         "required": [
           "preferences"
         ],
         "title": "UpdateProfileResponse"
+      },
+      "def-58": {
+        "type": "object",
+        "properties": {
+          "expenseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The participant who made this expense"
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string",
+            "description": "Expense amount as a decimal string (e.g. \"29.99\"). Stored as numeric(10,2) in the database."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional description of what the expense was for"
+          },
+          "itemIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "List of item IDs associated with this expense. Empty array if no items linked."
+          },
+          "createdByUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "expenseId",
+          "participantId",
+          "planId",
+          "amount",
+          "itemIds",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "Expense"
+      },
+      "def-59": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-58"
+        },
+        "title": "ExpenseList"
+      },
+      "def-60": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Sum of all expenses for this participant"
+          }
+        },
+        "required": [
+          "participantId",
+          "totalAmount"
+        ],
+        "title": "ExpenseSummary"
+      },
+      "def-61": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-60"
+        },
+        "title": "ExpenseSummaryList"
+      },
+      "def-62": {
+        "type": "object",
+        "description": "All expenses for a plan plus per-participant totals. Currency is defined on the plan itself.",
+        "properties": {
+          "expenses": {
+            "$ref": "#/components/schemas/def-59"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/def-61"
+          }
+        },
+        "required": [
+          "expenses",
+          "summary"
+        ],
+        "title": "ExpensesResponse"
+      },
+      "def-63": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The participant this expense belongs to"
+          },
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Expense amount (must be greater than 0)"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Optional description of what the expense was for"
+          },
+          "itemIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Optional list of item IDs this expense is for. All items must belong to the same plan."
+          }
+        },
+        "required": [
+          "participantId",
+          "amount"
+        ],
+        "title": "CreateExpenseBody"
+      },
+      "def-64": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Updated expense amount (must be greater than 0)"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "description": "Updated description (send null to clear)"
+          },
+          "itemIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Updated list of item IDs. Replaces the existing list entirely. All items must belong to the same plan."
+          }
+        },
+        "title": "UpdateExpenseBody"
+      },
+      "def-65": {
+        "type": "object",
+        "properties": {
+          "expenseId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "expenseId"
+        ],
+        "title": "ExpenseIdParam"
+      },
+      "def-66": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "DeleteExpenseResponse"
       }
     }
   },
@@ -1784,10 +2438,22 @@
         "description": "Check if the server and database are healthy",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Server and database are healthy",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Server and database are healthy",
+                  "$ref": "#/components/schemas/def-3"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Database unreachable",
                   "$ref": "#/components/schemas/def-3"
                 }
               }
@@ -1807,57 +2473,62 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-8"
+                "$ref": "#/components/schemas/def-10"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Default Response",
+            "description": "Plan created successfully with owner and participants",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-23"
+                  "description": "Plan created successfully with owner and participants",
+                  "$ref": "#/components/schemas/def-25"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -1866,37 +2537,51 @@
         }
       },
       "get": {
-        "summary": "List all plans",
+        "summary": "List plans the user participates in",
         "tags": [
           "plans"
         ],
-        "description": "Retrieve all plans ordered by creation date",
+        "description": "Retrieve plans where the authenticated user is a participant (owner or member), ordered by creation date",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "List of plans owned by the authenticated user",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "List of plans owned by the authenticated user",
                   "$ref": "#/components/schemas/def-6"
                 }
               }
             }
           },
-          "500": {
-            "description": "Default Response",
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -1905,13 +2590,135 @@
         }
       }
     },
-    "/plans/{planId}": {
+    "/admin/plans": {
       "get": {
-        "summary": "Get plan by ID (now includes participants)",
+        "summary": "Admin: list all plans",
+        "tags": [
+          "admin",
+          "plans"
+        ],
+        "description": "Returns all plans in the system. Admin only. JWT required.",
+        "responses": {
+          "200": {
+            "description": "List of all plans (admin only)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "List of all plans (admin only)",
+                  "$ref": "#/components/schemas/def-6"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/pending-requests": {
+      "get": {
+        "summary": "List plans with pending join requests",
         "tags": [
           "plans"
         ],
-        "description": "Retrieve a single plan by its ID with associated items and participants. Response now includes participants[] array alongside items[].",
+        "description": "Returns minimal plan details (planId, title, dates, location) for plans where the user has a pending join request. JWT required.",
+        "responses": {
+          "200": {
+            "description": "List of plans with pending join requests for the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "List of plans with pending join requests for the user",
+                  "$ref": "#/components/schemas/def-8"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/preview": {
+      "get": {
+        "summary": "Get plan preview",
+        "tags": [
+          "plans"
+        ],
+        "description": "Returns minimal plan info when user is authed but not a participant (needs to create join request). JWT required. 400 if already a participant.",
         "parameters": [
           {
             "schema": {
@@ -1925,50 +2732,150 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Plan preview for non-participant",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-23"
+                  "description": "Plan preview for non-participant",
+                  "$ref": "#/components/schemas/def-27"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan does not exist or you do not have access",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan does not exist or you do not have access",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}": {
+      "get": {
+        "summary": "Get plan by ID",
+        "tags": [
+          "plans"
+        ],
+        "description": "Returns full plan for participants, or preview+joinRequest for non-participants. JWT required.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full plan for participants, or preview+joinRequest for non-participants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Full plan for participants, or preview+joinRequest for non-participants",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/def-25"
+                    },
+                    {
+                      "$ref": "#/components/schemas/def-31"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan does not exist or you do not have access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan does not exist or you do not have access",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -1986,7 +2893,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-9"
+                "$ref": "#/components/schemas/def-11"
               }
             }
           }
@@ -2004,50 +2911,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Updated plan",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Updated plan",
                   "$ref": "#/components/schemas/def-5"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan does not exist or you do not have access",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan does not exist or you do not have access",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2074,50 +2997,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Plan deleted successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-11"
+                  "description": "Plan deleted successfully",
+                  "$ref": "#/components/schemas/def-13"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan does not exist or you do not have access",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan does not exist or you do not have access",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2146,40 +3074,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "List of participants",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-18"
+                  "description": "List of participants",
+                  "$ref": "#/components/schemas/def-20"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — participant or plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2197,7 +3140,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-19"
+                "$ref": "#/components/schemas/def-21"
               }
             }
           }
@@ -2215,50 +3158,66 @@
         ],
         "responses": {
           "201": {
-            "description": "Default Response",
+            "description": "Created participant",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-17"
+                  "description": "Created participant",
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — participant or plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2287,40 +3246,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Participant details",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-17"
+                  "description": "Participant details",
+                  "$ref": "#/components/schemas/def-19"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — participant or plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2338,7 +3312,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-20"
+                "$ref": "#/components/schemas/def-22"
               }
             }
           }
@@ -2356,60 +3330,77 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Updated participant",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-17"
+                  "description": "Updated participant",
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "403": {
-            "description": "Default Response",
+            "description": "Forbidden — insufficient permissions",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Forbidden — insufficient permissions",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — participant or plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2436,50 +3427,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Participant deleted",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-22"
+                  "description": "Participant deleted",
+                  "$ref": "#/components/schemas/def-24"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — participant or plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2517,40 +3524,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Regenerated invite token",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-30"
+                  "description": "Regenerated invite token",
+                  "$ref": "#/components/schemas/def-40"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — participant or plan does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — participant or plan does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2565,12 +3587,12 @@
         "tags": [
           "items"
         ],
-        "description": "Create a new item in the specified plan. Equipment items always use pcs as the unit. Food items require a unit.",
+        "description": "Create a new item. No top-level status field exists; status is tracked per participant in assignmentStatusList. Equipment items always use pcs. Assignment payload on create is owner/admin only: send full assignmentStatusList + isAllParticipants=true for assign-to-all, or subset list + isAllParticipants=false for normal assignment. Omit assignment fields to create unassigned item.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-14"
+                "$ref": "#/components/schemas/def-16"
               }
             }
           }
@@ -2588,50 +3610,66 @@
         ],
         "responses": {
           "201": {
-            "description": "Default Response",
+            "description": "Created item",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-12"
+                  "description": "Created item",
+                  "$ref": "#/components/schemas/def-14"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan or item does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan or item does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2644,7 +3682,7 @@
         "tags": [
           "items"
         ],
-        "description": "Retrieve all items belonging to a specific plan",
+        "description": "Retrieve all items belonging to a specific plan. Response filtering: owners see the full assignmentStatusList for each item; non-owners (participants) see only their own entry in assignmentStatusList. There is no top-level status field — check assignmentStatusList entries for per-participant status.",
         "parameters": [
           {
             "schema": {
@@ -2658,40 +3696,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "List of items",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-13"
+                  "description": "List of items",
+                  "$ref": "#/components/schemas/def-15"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan or item does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan or item does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2706,12 +3759,12 @@
         "tags": [
           "items"
         ],
-        "description": "Update an existing item by its ID",
+        "description": "Update an item. No top-level status field exists; use assignmentStatusList for per-participant status. Owner/admin: assignmentStatusList is treated as full desired list (replace semantics) and may update isAllParticipants. Non-owner: send only your own assignment entry to update status or self-assign, or send unassign=true to remove yourself. Response visibility: owner/admin sees full assignmentStatusList, non-owner sees only own entry.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-15"
+                "$ref": "#/components/schemas/def-17"
               }
             }
           }
@@ -2729,50 +3782,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Updated item",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-12"
+                  "description": "Updated item",
+                  "$ref": "#/components/schemas/def-14"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan or item does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan or item does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2787,12 +3856,12 @@
         "tags": [
           "items"
         ],
-        "description": "Create multiple items at once. Each item is validated independently — valid items are created, invalid items are reported in the errors array with their name.",
+        "description": "Create multiple items at once. Each item is validated independently. No top-level status field — per-participant status lives in assignmentStatusList. Assignment fields (owner-only): send assignmentStatusList and isAllParticipants per item.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-36"
+                "$ref": "#/components/schemas/def-46"
               }
             }
           }
@@ -2810,50 +3879,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Bulk operation results — all succeeded",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "description": "Bulk operation results — all succeeded",
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "207": {
-            "description": "Default Response",
+            "description": "Partial success — some items failed, check errors array",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "description": "Partial success — some items failed, check errors array",
+                  "$ref": "#/components/schemas/def-50"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan or item does not exist",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan or item does not exist",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2866,12 +3951,12 @@
         "tags": [
           "items"
         ],
-        "description": "Update multiple items at once. Each item is validated independently — valid items are updated, invalid items are reported in the errors array with their name.",
+        "description": "Update multiple items at once. Each item is validated independently. No top-level status field exists; use assignmentStatusList per item. Owner/admin uses full-list replace semantics and may set isAllParticipants. Non-owner sends only their own assignment entry per item (merge semantics) or unassign=true. Response for non-owners is filtered to their own assignment entries.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-38"
+                "$ref": "#/components/schemas/def-48"
               }
             }
           }
@@ -2889,40 +3974,66 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Bulk operation results — all succeeded",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "description": "Bulk operation results — all succeeded",
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "207": {
-            "description": "Default Response",
+            "description": "Partial success — some items failed, check errors array",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "description": "Partial success — some items failed, check errors array",
+                  "$ref": "#/components/schemas/def-50"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan or item does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan or item does not exist",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -2937,7 +4048,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Public endpoint. Validates the invite token and returns plan data with items. Participant PII is stripped — only displayName and role are included.",
+        "description": "Public endpoint. Validates the invite token and returns plan data with items. Items are filtered to only those assigned to the guest or unassigned. Each item's assignmentStatusList is filtered to show only the guest's own entry. Participant PII is stripped — only displayName and role are included. There is no top-level status on items — check assignmentStatusList for per-participant status.",
         "parameters": [
           {
             "schema": {
@@ -2961,40 +4072,44 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Plan and items returned for the invite token",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-28"
+                  "description": "Plan and items returned for the invite token",
+                  "$ref": "#/components/schemas/def-38"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan, item, or invite token is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3010,298 +4125,6 @@
           "invite"
         ],
         "description": "Allows a guest to update their per-plan preferences (display name, group size, dietary info) using the invite token in the URL. All fields are optional — send only what changed. Send null to clear a field.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/def-31"
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
-            "name": "planId",
-            "required": true
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 64
-            },
-            "in": "path",
-            "name": "inviteToken",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-32"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/plans/{planId}/invite/{inviteToken}/items": {
-      "post": {
-        "summary": "Create an item as a guest via invite token",
-        "tags": [
-          "invite"
-        ],
-        "description": "Creates a new item auto-assigned to the participant matched by the invite token. Equipment items default to pcs; food items require a unit.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/def-34"
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
-            "name": "planId",
-            "required": true
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 64
-            },
-            "in": "path",
-            "name": "inviteToken",
-            "required": true
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-12"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/plans/{planId}/invite/{inviteToken}/items/{itemId}": {
-      "patch": {
-        "summary": "Update an item as a guest via invite token",
-        "tags": [
-          "invite"
-        ],
-        "description": "Updates an existing item. Allowed if the item is assigned to the participant matched by the invite token OR unassigned. Returns 403 if the item belongs to another participant.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/def-35"
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
-            "name": "planId",
-            "required": true
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 64
-            },
-            "in": "path",
-            "name": "inviteToken",
-            "required": true
-          },
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
-            "name": "itemId",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-12"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/plans/{planId}/invite/{inviteToken}/items/bulk": {
-      "post": {
-        "summary": "Bulk create items as a guest via invite token",
-        "tags": [
-          "invite"
-        ],
-        "description": "Creates multiple items auto-assigned to the participant matched by the invite token. Each item is validated independently — valid items are created, invalid items are reported in the errors array.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3334,68 +4157,287 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Guest preferences updated",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "description": "Guest preferences updated",
+                  "$ref": "#/components/schemas/def-42"
                 }
               }
             }
           },
-          "207": {
-            "description": "Default Response",
+          "400": {
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan, item, or invite token is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           }
         }
-      },
-      "patch": {
-        "summary": "Bulk update items as a guest via invite token",
+      }
+    },
+    "/plans/{planId}/invite/{inviteToken}/items": {
+      "post": {
+        "summary": "Create an item as a guest via invite token",
         "tags": [
           "invite"
         ],
-        "description": "Updates multiple items. Only allowed for items assigned to the participant matched by the invite token or unassigned items. Items assigned to other participants are reported in errors.",
+        "description": "Creates a new item (no top-level status field). Equipment items default to pcs; food items require a unit. The item is not auto-assigned — send assignmentStatusList separately via PATCH if needed.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-43"
+                "$ref": "#/components/schemas/def-44"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Item created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Item created",
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — check the message field for details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan, item, or invite token is invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/invite/{inviteToken}/items/{itemId}": {
+      "patch": {
+        "summary": "Update an item as a guest via invite token",
+        "tags": [
+          "invite"
+        ],
+        "description": "Updates an existing item for the invite participant. Allowed only when item is currently unassigned or assigned to this participant; returns 403 if assigned only to others. No top-level status field exists. To update status or self-assign, send assignmentStatusList with your own single entry. To remove yourself, send unassign=true (without assignmentStatusList). Response is filtered to your own assignment entry.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-45"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "itemId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Item updated",
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — check the message field for details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan, item, or invite token is invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/invite/{inviteToken}/items/bulk": {
+      "post": {
+        "summary": "Bulk create items as a guest via invite token",
+        "tags": [
+          "invite"
+        ],
+        "description": "Creates multiple items (no top-level status field). Each item is validated independently — valid items are created, invalid items are reported in the errors array. Items are not auto-assigned.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-51"
               }
             }
           }
@@ -3423,50 +4465,149 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "All items created successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "description": "All items created successfully",
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "207": {
-            "description": "Default Response",
+            "description": "Partial success — some items created, some had validation errors",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-40"
+                  "description": "Partial success — some items created, some had validation errors",
+                  "$ref": "#/components/schemas/def-50"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — plan, item, or invite token is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Bulk update items as a guest via invite token",
+        "tags": [
+          "invite"
+        ],
+        "description": "Updates multiple items for the invite participant. No top-level status field exists. For each item, send assignmentStatusList with your own single entry to update status/self-assign, or send unassign=true to remove yourself. Updates are allowed only for items currently unassigned or assigned to this participant. Response returns each item's assignmentStatusList filtered to the caller entry.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-53"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "inviteToken",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All items updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "All items updated successfully",
+                  "$ref": "#/components/schemas/def-50"
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some items updated, some had validation or permission errors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Partial success — some items updated, some had validation or permission errors",
+                  "$ref": "#/components/schemas/def-50"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan, item, or invite token is invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan, item, or invite token is invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3484,10 +4625,11 @@
         "description": "Returns the authenticated user identity extracted from the JWT. Returns 401 if no valid JWT is provided.",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Authenticated user identity",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authenticated user identity",
                   "type": "object",
                   "properties": {
                     "user": {
@@ -3516,6 +4658,17 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
           }
         }
       }
@@ -3529,11 +4682,23 @@
         "description": "Returns user identity from JWT and app preferences from the database. Returns 401 if no valid JWT is provided.",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "User identity and preferences",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-45"
+                  "description": "User identity and preferences",
+                  "$ref": "#/components/schemas/def-55"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
@@ -3550,18 +4715,30 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-46"
+                "$ref": "#/components/schemas/def-56"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Updated preferences",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-47"
+                  "description": "Updated preferences",
+                  "$ref": "#/components/schemas/def-57"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
@@ -3578,10 +4755,11 @@
         "description": "Updates all participant records linked to the authenticated user with identity fields from the JWT (name, email, phone, avatar). Call this after updating the user profile in Supabase so all plans reflect the latest data.",
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Number of participant records synced",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Number of participant records synced",
                   "type": "object",
                   "properties": {
                     "synced": {
@@ -3596,20 +4774,22 @@
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -3648,60 +4828,689 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Participant claimed successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-17"
+                  "description": "Participant claimed successfully",
+                  "$ref": "#/components/schemas/def-19"
                 }
               }
             }
           },
           "400": {
-            "description": "Default Response",
+            "description": "Bad request — check the message field for details",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Bad request — check the message field for details",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Authentication required — JWT token missing or invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "Not found — invite token or plan is invalid",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Not found — invite token or plan is invalid",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "503": {
-            "description": "Default Response",
+            "description": "Service temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/join-requests": {
+      "post": {
+        "summary": "Request to join a plan",
+        "tags": [
+          "plans"
+        ],
+        "description": "Creates a join request for the authenticated user. Idempotent: returns existing request if one already exists. Plan must exist and user must not already be a participant.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-33"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Join request already exists — returned existing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Join request already exists — returned existing",
+                  "$ref": "#/components/schemas/def-28"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Join request created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Join request created",
+                  "$ref": "#/components/schemas/def-28"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — check the message field for details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan does not exist",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — duplicate join request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Conflict — duplicate join request",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/join-requests/{requestId}": {
+      "patch": {
+        "summary": "Approve or reject a join request",
+        "tags": [
+          "plans"
+        ],
+        "description": "Owner or admin updates a pending join request. Approved requests create a new participant linked to the requester. Rejected requests update status only.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-30"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "requestId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Join request approved or rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Join request approved or rejected"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — check the message field for details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — only the plan owner can manage requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — only the plan owner can manage requests",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan or join request does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan or join request does not exist",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — request already approved or rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Conflict — request already approved or rejected",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/expenses": {
+      "get": {
+        "summary": "List all expenses for a plan with per-participant totals",
+        "tags": [
+          "expenses"
+        ],
+        "description": "Returns every expense entry for the plan plus a summary array with the total amount per participant.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expenses list and per-participant summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Expenses list and per-participant summary",
+                  "$ref": "#/components/schemas/def-62"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan not found or access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan not found or access denied",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add an expense to a plan",
+        "tags": [
+          "expenses"
+        ],
+        "description": "Create a new expense entry for a participant. Owner/admin can add expenses for any participant; linked participants can only add expenses for themselves.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-63"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created expense",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Created expense",
+                  "$ref": "#/components/schemas/def-58"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — check the message field for details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan or participant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan or participant not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/expenses/{expenseId}": {
+      "patch": {
+        "summary": "Update an expense",
+        "tags": [
+          "expenses"
+        ],
+        "description": "Update an existing expense. Owner/admin can update any expense; the participant it belongs to can update their own.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-64"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "expenseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated expense",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Updated expense",
+                  "$ref": "#/components/schemas/def-58"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — check the message field for details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request — check the message field for details",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expense not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Expense not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete an expense",
+        "tags": [
+          "expenses"
+        ],
+        "description": "Delete an expense. Owner/admin can delete any expense; the participant it belongs to can delete their own.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "expenseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expense deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Expense deleted",
+                  "$ref": "#/components/schemas/def-66"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expense not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Expense not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }

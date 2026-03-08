@@ -4,11 +4,14 @@ import { FastifyInstance } from 'fastify'
 import {
   cleanupTestDatabase,
   closeTestDatabase,
+  getTestDb,
   seedTestItems,
   seedTestParticipants,
   seedTestPlans,
   setupTestDatabase,
 } from '../helpers/db.js'
+import { itemChanges } from '../../src/db/schema.js'
+import { eq } from 'drizzle-orm'
 import {
   setupTestKeys,
   getTestJWKS,
@@ -46,7 +49,8 @@ describe('Items Route', () => {
 
   describe('POST /plans/:planId/items', () => {
     it('creates equipment item with required fields and returns 201', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -55,7 +59,6 @@ describe('Items Route', () => {
           name: 'Tent',
           category: 'equipment',
           quantity: 2,
-          status: 'pending',
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -69,16 +72,17 @@ describe('Items Route', () => {
       expect(item.category).toBe('equipment')
       expect(item.quantity).toBe(2)
       expect(item.unit).toBe('pcs')
-      expect(item.status).toBe('pending')
       expect(item.subcategory).toBeNull()
       expect(item.notes).toBeNull()
-      expect(item.assignedParticipantId).toBeNull()
+      expect(item.assignmentStatusList).toEqual([])
+      expect(item.isAllParticipants).toBe(false)
       expect(item.createdAt).toBeDefined()
       expect(item.updatedAt).toBeDefined()
     })
 
     it('creates equipment item with optional notes', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -87,7 +91,6 @@ describe('Items Route', () => {
           name: 'Sleeping Bag',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
           notes: 'Bring the warm one',
         },
         headers: { authorization: `Bearer ${token}` },
@@ -102,7 +105,8 @@ describe('Items Route', () => {
     })
 
     it('creates food item with required unit and returns 201', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -112,7 +116,6 @@ describe('Items Route', () => {
           category: 'food',
           quantity: 2,
           unit: 'kg',
-          status: 'pending',
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -124,11 +127,11 @@ describe('Items Route', () => {
       expect(item.category).toBe('food')
       expect(item.quantity).toBe(2)
       expect(item.unit).toBe('kg')
-      expect(item.status).toBe('pending')
     })
 
     it('creates food item with all optional fields', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -138,7 +141,6 @@ describe('Items Route', () => {
           category: 'food',
           quantity: 5,
           unit: 'l',
-          status: 'purchased',
           subcategory: 'beverages',
           notes: 'Spring water preferred',
         },
@@ -150,13 +152,13 @@ describe('Items Route', () => {
       const item = response.json()
       expect(item.name).toBe('Water')
       expect(item.unit).toBe('l')
-      expect(item.status).toBe('purchased')
       expect(item.subcategory).toBe('beverages')
       expect(item.notes).toBe('Spring water preferred')
     })
 
     it('allows food item with any valid unit', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const validUnits = [
         'pcs',
         'kg',
@@ -178,7 +180,6 @@ describe('Items Route', () => {
             category: 'food',
             quantity: 1,
             unit,
-            status: 'pending',
           },
           headers: { authorization: `Bearer ${token}` },
         })
@@ -189,7 +190,8 @@ describe('Items Route', () => {
     })
 
     it('returns 400 when food item is missing unit', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -198,7 +200,6 @@ describe('Items Route', () => {
           name: 'Rice',
           category: 'food',
           quantity: 2,
-          status: 'pending',
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -216,7 +217,6 @@ describe('Items Route', () => {
           name: 'Tent',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -228,12 +228,12 @@ describe('Items Route', () => {
     })
 
     it.each([
-      ['name', { category: 'equipment', quantity: 1, status: 'pending' }],
-      ['category', { name: 'Tent', quantity: 1, status: 'pending' }],
-      ['quantity', { name: 'Tent', category: 'equipment', status: 'pending' }],
-      ['status', { name: 'Tent', category: 'equipment', quantity: 1 }],
+      ['name', { category: 'equipment', quantity: 1 }],
+      ['category', { name: 'Tent', quantity: 1 }],
+      ['quantity', { name: 'Tent', category: 'equipment' }],
     ])('returns 400 when %s is missing', async (_field, payload) => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -246,10 +246,7 @@ describe('Items Route', () => {
     })
 
     it.each([
-      [
-        'category',
-        { name: 'X', category: 'clothing', quantity: 1, status: 'pending' },
-      ],
+      ['category', { name: 'X', category: 'clothing', quantity: 1 }],
       [
         'unit',
         {
@@ -257,15 +254,11 @@ describe('Items Route', () => {
           category: 'food',
           quantity: 1,
           unit: 'cups',
-          status: 'pending',
         },
       ],
-      [
-        'status',
-        { name: 'X', category: 'equipment', quantity: 1, status: 'lost' },
-      ],
     ])('returns 400 for invalid %s value', async (_field, payload) => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -278,7 +271,8 @@ describe('Items Route', () => {
     })
 
     it.each([0, -1])('returns 400 when quantity is %i', async (quantity) => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -287,7 +281,6 @@ describe('Items Route', () => {
           name: 'Tent',
           category: 'equipment',
           quantity,
-          status: 'pending',
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -296,7 +289,8 @@ describe('Items Route', () => {
     })
 
     it('returns 400 when name is empty string', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -305,7 +299,6 @@ describe('Items Route', () => {
           name: '',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -321,7 +314,6 @@ describe('Items Route', () => {
           name: 'Tent',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -330,7 +322,8 @@ describe('Items Route', () => {
     })
 
     it('created item is retrievable via GET /plans/:planId', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const createResponse = await app.inject({
         method: 'POST',
@@ -339,7 +332,6 @@ describe('Items Route', () => {
           name: 'Backpack',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -364,7 +356,8 @@ describe('Items Route', () => {
 
   describe('GET /plans/:planId/items', () => {
     it('returns 200 with empty array when plan has no items', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'GET',
@@ -377,7 +370,8 @@ describe('Items Route', () => {
     })
 
     it('returns 200 with all items for a plan', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const seededItems = await seedTestItems(plan.planId, 3)
 
       const response = await app.inject({
@@ -398,13 +392,16 @@ describe('Items Route', () => {
       expect(firstItem.category).toBe('equipment')
       expect(firstItem.quantity).toBe(1)
       expect(firstItem.unit).toBe('pcs')
-      expect(firstItem.status).toBe('pending')
       expect(firstItem.createdAt).toBeDefined()
       expect(firstItem.updatedAt).toBeDefined()
     })
 
     it('returns only items belonging to the requested plan', async () => {
-      const [plan1, plan2] = await seedTestPlans(2)
+      const [plan1, plan2] = await seedTestPlans(2, {
+        createdByUserId: TEST_USER_ID,
+      })
+      await seedTestParticipants(plan1.planId, 1, { ownerUserId: TEST_USER_ID })
+      await seedTestParticipants(plan2.planId, 1, { ownerUserId: TEST_USER_ID })
       await seedTestItems(plan1.planId, 2)
       await seedTestItems(plan2.planId, 3)
 
@@ -451,7 +448,8 @@ describe('Items Route', () => {
 
   describe('PATCH /items/:itemId', () => {
     it('updates item name and returns 200', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const [item] = await seedTestItems(plan.planId, 1)
 
       const response = await app.inject({
@@ -469,14 +467,14 @@ describe('Items Route', () => {
       expect(updated.category).toBe(item.category)
       expect(updated.quantity).toBe(item.quantity)
       expect(updated.unit).toBe(item.unit)
-      expect(updated.status).toBe(item.status)
       expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(
         new Date(item.updatedAt).getTime()
       )
     })
 
     it('updates multiple fields at once', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const [item] = await seedTestItems(plan.planId, 1)
 
       const response = await app.inject({
@@ -487,7 +485,6 @@ describe('Items Route', () => {
           category: 'food',
           quantity: 5,
           unit: 'pack',
-          status: 'purchased',
           subcategory: 'snacks',
           notes: 'Chocolate flavor',
         },
@@ -501,28 +498,48 @@ describe('Items Route', () => {
       expect(updated.category).toBe('food')
       expect(updated.quantity).toBe(5)
       expect(updated.unit).toBe('pack')
-      expect(updated.status).toBe('purchased')
       expect(updated.subcategory).toBe('snacks')
       expect(updated.notes).toBe('Chocolate flavor')
     })
 
-    it('updates status only', async () => {
-      const [plan] = await seedTestPlans(1)
+    it('updates assignmentStatusList only', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const [participant] = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
       const [item] = await seedTestItems(plan.planId, 1)
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: {
+          assignmentStatusList: [
+            { participantId: participant.participantId, status: 'pending' },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
-        payload: { status: 'packed' },
+        payload: {
+          assignmentStatusList: [
+            { participantId: participant.participantId, status: 'packed' },
+          ],
+        },
         headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
-      expect(response.json().status).toBe('packed')
+      expect(response.json().assignmentStatusList).toEqual([
+        { participantId: participant.participantId, status: 'packed' },
+      ])
     })
 
     it('sets notes to null', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const [item] = await seedTestItems(plan.planId, 1)
 
       await app.inject({
@@ -544,7 +561,8 @@ describe('Items Route', () => {
     })
 
     it('sets subcategory and clears it with null', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const [item] = await seedTestItems(plan.planId, 1)
 
       const setResponse = await app.inject({
@@ -598,9 +616,9 @@ describe('Items Route', () => {
     it.each([
       ['category', { category: 'clothing' }],
       ['unit', { unit: 'cups' }],
-      ['status', { status: 'lost' }],
     ])('returns 400 for invalid %s value', async (_field, payload) => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const [item] = await seedTestItems(plan.planId, 1)
 
       const response = await app.inject({
@@ -614,7 +632,8 @@ describe('Items Route', () => {
     })
 
     it.each([0, -1])('returns 400 when quantity is %i', async (quantity) => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const [item] = await seedTestItems(plan.planId, 1)
 
       const response = await app.inject({
@@ -628,7 +647,8 @@ describe('Items Route', () => {
     })
 
     it('returns 400 when name is empty string', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const [item] = await seedTestItems(plan.planId, 1)
 
       const response = await app.inject({
@@ -642,13 +662,14 @@ describe('Items Route', () => {
     })
 
     it('persists update when fetched via GET', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
       const [item] = await seedTestItems(plan.planId, 1)
 
       await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
-        payload: { name: 'Persisted Name', status: 'purchased' },
+        payload: { name: 'Persisted Name' },
         headers: { authorization: `Bearer ${token}` },
       })
 
@@ -664,14 +685,15 @@ describe('Items Route', () => {
         (i: { itemId: string }) => i.itemId === item.itemId
       )
       expect(found.name).toBe('Persisted Name')
-      expect(found.status).toBe('purchased')
     })
   })
 
-  describe('Item assignment (assignedParticipantId)', () => {
-    it('creates item with assignedParticipantId', async () => {
-      const [plan] = await seedTestPlans(1)
-      const [participant] = await seedTestParticipants(plan.planId, 1)
+  describe('Item assignment (assignmentStatusList)', () => {
+    it('creates item with assignmentStatusList', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const [participant] = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
 
       const response = await app.inject({
         method: 'POST',
@@ -680,39 +702,48 @@ describe('Items Route', () => {
           name: 'Tent',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
-          assignedParticipantId: participant.participantId,
+          assignmentStatusList: [
+            { participantId: participant.participantId, status: 'pending' },
+          ],
         },
         headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(201)
-      expect(response.json().assignedParticipantId).toBe(
-        participant.participantId
-      )
+      expect(response.json().assignmentStatusList).toEqual([
+        { participantId: participant.participantId, status: 'pending' },
+      ])
     })
 
     it('assigns participant to item via PATCH', async () => {
-      const [plan] = await seedTestPlans(1)
-      const [participant] = await seedTestParticipants(plan.planId, 1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const [participant] = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
       const [item] = await seedTestItems(plan.planId, 1)
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
-        payload: { assignedParticipantId: participant.participantId },
+        payload: {
+          assignmentStatusList: [
+            { participantId: participant.participantId, status: 'pending' },
+          ],
+        },
         headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
-      expect(response.json().assignedParticipantId).toBe(
-        participant.participantId
-      )
+      expect(response.json().assignmentStatusList).toEqual([
+        { participantId: participant.participantId, status: 'pending' },
+      ])
     })
 
-    it('unassigns participant from item via PATCH with null', async () => {
-      const [plan] = await seedTestPlans(1)
-      const [participant] = await seedTestParticipants(plan.planId, 1)
+    it('unassigns participant from item via PATCH with empty list', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const [participant] = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
 
       const createResponse = await app.inject({
         method: 'POST',
@@ -721,8 +752,9 @@ describe('Items Route', () => {
           name: 'Tent',
           category: 'equipment',
           quantity: 1,
-          status: 'pending',
-          assignedParticipantId: participant.participantId,
+          assignmentStatusList: [
+            { participantId: participant.participantId, status: 'pending' },
+          ],
         },
         headers: { authorization: `Bearer ${token}` },
       })
@@ -731,98 +763,19 @@ describe('Items Route', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/items/${item.itemId}`,
-        payload: { assignedParticipantId: null },
+        payload: { assignmentStatusList: [] },
         headers: { authorization: `Bearer ${token}` },
       })
 
       expect(response.statusCode).toBe(200)
-      expect(response.json().assignedParticipantId).toBeNull()
-    })
-
-    it('returns 400 when assignedParticipantId does not exist on POST', async () => {
-      const [plan] = await seedTestPlans(1)
-      const nonExistentId = '00000000-0000-0000-0000-000000000000'
-
-      const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/items`,
-        payload: {
-          name: 'Tent',
-          category: 'equipment',
-          quantity: 1,
-          status: 'pending',
-          assignedParticipantId: nonExistentId,
-        },
-        headers: { authorization: `Bearer ${token}` },
-      })
-
-      expect(response.statusCode).toBe(400)
-      expect(response.json()).toEqual({ message: 'Participant not found' })
-    })
-
-    it('returns 400 when assignedParticipantId does not exist on PATCH', async () => {
-      const [plan] = await seedTestPlans(1)
-      const [item] = await seedTestItems(plan.planId, 1)
-      const nonExistentId = '00000000-0000-0000-0000-000000000000'
-
-      const response = await app.inject({
-        method: 'PATCH',
-        url: `/items/${item.itemId}`,
-        payload: { assignedParticipantId: nonExistentId },
-        headers: { authorization: `Bearer ${token}` },
-      })
-
-      expect(response.statusCode).toBe(400)
-      expect(response.json()).toEqual({ message: 'Participant not found' })
-    })
-
-    it('returns 400 when participant belongs to a different plan', async () => {
-      const [plan1, plan2] = await seedTestPlans(2)
-      const [participantFromPlan2] = await seedTestParticipants(plan2.planId, 1)
-      const [item] = await seedTestItems(plan1.planId, 1)
-
-      const response = await app.inject({
-        method: 'PATCH',
-        url: `/items/${item.itemId}`,
-        payload: {
-          assignedParticipantId: participantFromPlan2.participantId,
-        },
-        headers: { authorization: `Bearer ${token}` },
-      })
-
-      expect(response.statusCode).toBe(400)
-      expect(response.json()).toEqual({
-        message: 'Participant does not belong to this plan',
-      })
-    })
-
-    it('returns 400 when participant belongs to a different plan on POST', async () => {
-      const [plan1, plan2] = await seedTestPlans(2)
-      const [participantFromPlan2] = await seedTestParticipants(plan2.planId, 1)
-
-      const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan1.planId}/items`,
-        payload: {
-          name: 'Tent',
-          category: 'equipment',
-          quantity: 1,
-          status: 'pending',
-          assignedParticipantId: participantFromPlan2.participantId,
-        },
-        headers: { authorization: `Bearer ${token}` },
-      })
-
-      expect(response.statusCode).toBe(400)
-      expect(response.json()).toEqual({
-        message: 'Participant does not belong to this plan',
-      })
+      expect(response.json().assignmentStatusList).toEqual([])
     })
   })
 
   describe('POST /plans/:planId/items/bulk', () => {
     it('creates multiple items and returns 200 with all items', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -833,14 +786,12 @@ describe('Items Route', () => {
               name: 'Tent',
               category: 'equipment',
               quantity: 2,
-              status: 'pending',
             },
             {
               name: 'Water',
               category: 'food',
               quantity: 5,
               unit: 'l',
-              status: 'pending',
             },
           ],
         },
@@ -858,7 +809,8 @@ describe('Items Route', () => {
     })
 
     it('returns 207 with partial success when some items fail validation', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -869,9 +821,8 @@ describe('Items Route', () => {
               name: 'Tent',
               category: 'equipment',
               quantity: 1,
-              status: 'pending',
             },
-            { name: 'Rice', category: 'food', quantity: 2, status: 'pending' },
+            { name: 'Rice', category: 'food', quantity: 2 },
           ],
         },
         headers: { authorization: `Bearer ${token}` },
@@ -900,7 +851,6 @@ describe('Items Route', () => {
               name: 'Tent',
               category: 'equipment',
               quantity: 1,
-              status: 'pending',
             },
           ],
         },
@@ -911,7 +861,8 @@ describe('Items Route', () => {
     })
 
     it('returns 400 when items array is empty', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'POST',
@@ -922,42 +873,14 @@ describe('Items Route', () => {
 
       expect(response.statusCode).toBe(400)
     })
-
-    it('reports participant not found in errors', async () => {
-      const [plan] = await seedTestPlans(1)
-      const nonExistentId = '00000000-0000-0000-0000-000000000000'
-
-      const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/items/bulk`,
-        payload: {
-          items: [
-            {
-              name: 'Tent',
-              category: 'equipment',
-              quantity: 1,
-              status: 'pending',
-              assignedParticipantId: nonExistentId,
-            },
-          ],
-        },
-        headers: { authorization: `Bearer ${token}` },
-      })
-
-      expect(response.statusCode).toBe(207)
-      const body = response.json()
-      expect(body.items).toHaveLength(0)
-      expect(body.errors).toHaveLength(1)
-      expect(body.errors[0]).toEqual({
-        name: 'Tent',
-        message: 'Participant not found',
-      })
-    })
   })
 
   describe('PATCH /plans/:planId/items/bulk', () => {
     it('updates multiple items and returns 200', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const [participant] = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
       const seededItems = await seedTestItems(plan.planId, 2)
 
       const response = await app.inject({
@@ -965,7 +888,15 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items/bulk`,
         payload: {
           items: [
-            { itemId: seededItems[0].itemId, status: 'purchased' },
+            {
+              itemId: seededItems[0].itemId,
+              assignmentStatusList: [
+                {
+                  participantId: participant.participantId,
+                  status: 'purchased',
+                },
+              ],
+            },
             { itemId: seededItems[1].itemId, name: 'Updated Name' },
           ],
         },
@@ -976,12 +907,17 @@ describe('Items Route', () => {
       const body = response.json()
       expect(body.items).toHaveLength(2)
       expect(body.errors).toHaveLength(0)
-      expect(body.items[0].status).toBe('purchased')
+      expect(body.items[0].assignmentStatusList).toEqual([
+        { participantId: participant.participantId, status: 'purchased' },
+      ])
       expect(body.items[1].name).toBe('Updated Name')
     })
 
     it('returns 207 when some items are not found', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const [participant] = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
       const [item] = await seedTestItems(plan.planId, 1)
       const fakeId = '00000000-0000-0000-0000-000000000000'
 
@@ -990,8 +926,16 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items/bulk`,
         payload: {
           items: [
-            { itemId: item.itemId, status: 'packed' },
-            { itemId: fakeId, name: 'Ghost', status: 'pending' },
+            {
+              itemId: item.itemId,
+              assignmentStatusList: [
+                {
+                  participantId: participant.participantId,
+                  status: 'packed',
+                },
+              ],
+            },
+            { itemId: fakeId, name: 'Ghost' },
           ],
         },
         headers: { authorization: `Bearer ${token}` },
@@ -1000,7 +944,9 @@ describe('Items Route', () => {
       expect(response.statusCode).toBe(207)
       const body = response.json()
       expect(body.items).toHaveLength(1)
-      expect(body.items[0].status).toBe('packed')
+      expect(body.items[0].assignmentStatusList).toEqual([
+        { participantId: participant.participantId, status: 'packed' },
+      ])
       expect(body.errors).toHaveLength(1)
       expect(body.errors[0]).toEqual({
         name: 'Ghost',
@@ -1009,7 +955,13 @@ describe('Items Route', () => {
     })
 
     it('reports items from another plan in errors', async () => {
-      const [plan1, plan2] = await seedTestPlans(2)
+      const [plan1, plan2] = await seedTestPlans(2, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const [participant1] = await seedTestParticipants(plan1.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+      await seedTestParticipants(plan2.planId, 1, { ownerUserId: TEST_USER_ID })
       const [itemPlan1] = await seedTestItems(plan1.planId, 1)
       const [itemPlan2] = await seedTestItems(plan2.planId, 1)
 
@@ -1018,8 +970,24 @@ describe('Items Route', () => {
         url: `/plans/${plan1.planId}/items/bulk`,
         payload: {
           items: [
-            { itemId: itemPlan1.itemId, status: 'purchased' },
-            { itemId: itemPlan2.itemId, status: 'purchased' },
+            {
+              itemId: itemPlan1.itemId,
+              assignmentStatusList: [
+                {
+                  participantId: participant1.participantId,
+                  status: 'purchased',
+                },
+              ],
+            },
+            {
+              itemId: itemPlan2.itemId,
+              assignmentStatusList: [
+                {
+                  participantId: participant1.participantId,
+                  status: 'purchased',
+                },
+              ],
+            },
           ],
         },
         headers: { authorization: `Bearer ${token}` },
@@ -1033,7 +1001,8 @@ describe('Items Route', () => {
     })
 
     it('returns 400 when items array is empty', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
 
       const response = await app.inject({
         method: 'PATCH',
@@ -1043,6 +1012,168 @@ describe('Items Route', () => {
       })
 
       expect(response.statusCode).toBe(400)
+    })
+  })
+
+  describe('Item change tracking', () => {
+    it('records created row when creating item', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 2,
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const item = response.json()
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.itemId, item.itemId))
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0].changeType).toBe('created')
+      expect(changes[0].changedByUserId).toBe(TEST_USER_ID)
+      expect(changes[0].changedByParticipantId).toBeNull()
+      expect(changes[0].changes).toMatchObject({
+        snapshot: expect.objectContaining({
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 2,
+        }),
+      })
+    })
+
+    it('records updated row when changing item name', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { name: 'Updated Name' },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.itemId, item.itemId))
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0].changeType).toBe('updated')
+      expect(changes[0].changes).toMatchObject({
+        fields: [{ field: 'name', from: 'Test Item 1', to: 'Updated Name' }],
+      })
+    })
+
+    it('records multiple field changes in single updated row', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: {
+          quantity: 3,
+          notes: 'Ready to go',
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.itemId, item.itemId))
+
+      expect(changes).toHaveLength(1)
+      const fields = (
+        changes[0].changes as { fields: Array<{ field: string }> }
+      ).fields
+      expect(fields).toHaveLength(2)
+      expect(fields.map((f) => f.field).sort()).toEqual(
+        ['notes', 'quantity'].sort()
+      )
+    })
+
+    it('does not record change when update has no actual diff', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
+      const [item] = await seedTestItems(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/items/${item.itemId}`,
+        payload: { name: item.name },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.itemId, item.itemId))
+
+      expect(changes).toHaveLength(0)
+    })
+
+    it('records one row per item on bulk create', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            {
+              name: 'Item A',
+              category: 'equipment',
+              quantity: 1,
+            },
+            {
+              name: 'Item B',
+              category: 'equipment',
+              quantity: 1,
+            },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(2)
+
+      const db = await getTestDb()
+      const changes = await db
+        .select()
+        .from(itemChanges)
+        .where(eq(itemChanges.planId, plan.planId))
+
+      expect(changes).toHaveLength(2)
+      expect(changes.every((c) => c.changeType === 'created')).toBe(true)
     })
   })
 })

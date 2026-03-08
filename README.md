@@ -77,13 +77,23 @@ Server runs at `http://localhost:3333`. Swagger UI at `http://localhost:3333/doc
 
 - Routes: `src/routes/participants.route.ts`
 - Schemas: `src/schemas/participant.schema.ts`
+- Service: `src/services/participant.service.ts` (shared participant creation logic)
 - Invite interactions: `src/routes/invite.route.ts`
+
+### Join requests
+
+- Routes: `src/routes/join-request.route.ts`
+- Schemas: `src/schemas/join-request.schema.ts`
+- Service: `src/services/participant.service.ts` (participant creation from approved join request)
+- DB: `participantJoinRequests` in `src/db/schema.ts`
+- Tests: `tests/integration/join-request.test.ts`, `tests/integration/join-requests-schema.test.ts`
 
 ### Items
 
 - Routes: `src/routes/items.route.ts`
 - Schemas: `src/schemas/item.schema.ts`
 - Invite item routes: `src/routes/invite.route.ts`
+- Change tracking: `src/utils/item-changes.ts` (records creates/updates to `item_changes` table)
 
 ### OpenAPI
 
@@ -109,7 +119,8 @@ Server runs at `http://localhost:3333`. Swagger UI at `http://localhost:3333/doc
 1. Identify domain route file in `src/routes/`.
 2. Add or update schema in `src/schemas/` (do not inline complex schemas in route files).
 3. Register schema in `src/schemas/index.ts` if it is new.
-4. Implement or update the route handler in `src/routes/<domain>.route.ts`.
+4. Implement or update the route handler in `src/routes/<domain>.route.ts`. If the handler needs reusable business logic (e.g., creating a participant, syncing profiles), put it in `src/services/`. Services are pure functions that receive `db` as an argument (DI) — no Fastify coupling.
+
 5. If needed, update plugin/type wiring (`src/plugins/*`, `src/types/fastify.d.ts`, `src/app.ts` route/plugin registration).
 6. Add or update tests in `tests/integration/` (and unit tests where relevant).
 7. Regenerate OpenAPI: `npm run openapi:generate`.

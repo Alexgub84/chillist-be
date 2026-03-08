@@ -1,24 +1,41 @@
 import { FastifyInstance } from 'fastify'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 import {
   items,
-  plans,
   participants,
-  Unit,
   ItemCategory,
-  ItemStatus,
+  Unit,
+  Item,
+  Assignment,
 } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
+import { recordItemCreated, recordItemUpdated } from '../utils/item-changes.js'
+import {
+  resolveItemUnit,
+  resolveItemUnitForUpdate,
+  classifyDbError,
+} from '../utils/item-helpers.js'
+import {
+  checkItemMutationAccess,
+  canEditItem,
+  persistAssignments,
+} from '../services/item.service.js'
+import {
+  resolveAssignments,
+  validateParticipantAssignmentChange,
+  mergeParticipantAssignment,
+  filterAssignmentForParticipant,
+} from '../utils/assignment-helpers.js'
 
 interface CreateItemBody {
   name: string
   category: ItemCategory
   quantity: number
-  status: ItemStatus
   unit?: Unit
   subcategory?: string | null
   notes?: string | null
-  assignedParticipantId?: string | null
+  assignmentStatusList?: Assignment[]
+  isAllParticipants?: boolean
 }
 
 interface UpdateItemBody {
@@ -26,10 +43,11 @@ interface UpdateItemBody {
   category?: ItemCategory
   quantity?: number
   unit?: Unit
-  status?: ItemStatus
   subcategory?: string | null
   notes?: string | null
-  assignedParticipantId?: string | null
+  assignmentStatusList?: Assignment[]
+  isAllParticipants?: boolean
+  unassign?: boolean
 }
 
 interface BulkItemError {
@@ -58,98 +76,104 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Add an item to a plan',
         description:
-          'Create a new item in the specified plan. Equipment items always use pcs as the unit. Food items require a unit.',
+          'Create a new item. No top-level status field exists; status is tracked per participant in assignmentStatusList. Equipment items always use pcs. Assignment payload on create is owner/admin only: send full assignmentStatusList + isAllParticipants=true for assign-to-all, or subset list + isAllParticipants=false for normal assignment. Omit assignment fields to create unassigned item.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'CreateItemBody#' },
         response: {
-          201: { $ref: 'Item#' },
-          400: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          201: {
+            description: 'Created item',
+            $ref: 'Item#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
     async (request, reply) => {
       const { planId } = request.params
-      const { category, unit, assignedParticipantId, ...rest } = request.body
+      const {
+        category,
+        unit,
+        assignmentStatusList: bodyAssignments,
+        isAllParticipants: bodyIsAll,
+        ...rest
+      } = request.body
 
-      if (category === 'food' && !unit) {
-        return reply.status(400).send({
-          message: 'Unit is required for food items',
-        })
+      const unitResult = resolveItemUnit(category, unit)
+      if ('error' in unitResult) {
+        return reply.status(400).send({ message: unitResult.error })
       }
 
-      const resolvedUnit = category === 'equipment' ? 'pcs' : unit!
-
       try {
-        const [existingPlan] = await fastify.db
-          .select({ planId: plans.planId })
-          .from(plans)
-          .where(eq(plans.planId, planId))
+        const access = await checkItemMutationAccess(
+          fastify.db,
+          planId,
+          request.user
+        )
+        if (!access.allowed) {
+          return reply.status(404).send({ message: 'Plan not found' })
+        }
 
-        if (!existingPlan) {
-          return reply.status(404).send({
-            message: 'Plan not found',
+        const isOwner =
+          access.participant?.role === 'owner' || !access.participant
+        const hasAssignmentFields =
+          bodyAssignments !== undefined || bodyIsAll !== undefined
+
+        if (hasAssignmentFields && !isOwner) {
+          return reply.status(400).send({
+            message: 'Only the plan owner can set assignments on create',
           })
         }
 
-        if (assignedParticipantId) {
-          const [participant] = await fastify.db
-            .select({
-              participantId: participants.participantId,
-              planId: participants.planId,
-            })
-            .from(participants)
-            .where(eq(participants.participantId, assignedParticipantId))
-
-          if (!participant) {
-            return reply.status(400).send({
-              message: 'Participant not found',
-            })
-          }
-
-          if (participant.planId !== planId) {
-            return reply.status(400).send({
-              message: 'Participant does not belong to this plan',
-            })
-          }
-        }
+        const resolved = resolveAssignments(bodyAssignments)
 
         const [createdItem] = await fastify.db
           .insert(items)
           .values({
             planId,
             category,
-            unit: resolvedUnit,
-            assignedParticipantId: assignedParticipantId ?? null,
+            unit: unitResult.unit,
+            assignmentStatusList: resolved,
+            isAllParticipants: bodyIsAll ?? false,
             ...rest,
           })
           .returning()
 
-        request.log.info(
-          { itemId: createdItem.itemId, planId, assignedParticipantId },
-          'Item created'
-        )
+        request.log.info({ itemId: createdItem.itemId, planId }, 'Item created')
+        recordItemCreated(fastify.db, {
+          itemId: createdItem.itemId,
+          planId,
+          snapshot: createdItem as unknown as Record<string, unknown>,
+          changedByUserId: request.user?.id ?? null,
+        })
         fastify.notifyItemChange(planId)
+
         return reply.status(201).send(createdItem)
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to create item')
-
-        const isConnectionError =
-          error instanceof Error &&
-          (error.message.includes('connect') ||
-            error.message.includes('timeout'))
-
-        if (isConnectionError) {
-          return reply.status(503).send({
-            message: 'Database connection error',
-          })
-        }
-
-        return reply.status(500).send({
-          message: 'Failed to create item',
-        })
+        const classified = classifyDbError(error, 'Failed to create item')
+        return reply
+          .status(classified.statusCode)
+          .send({ message: classified.message })
       }
     }
   )
@@ -160,13 +184,31 @@ export async function itemsRoutes(fastify: FastifyInstance) {
       schema: {
         tags: ['items'],
         summary: 'List all items for a plan',
-        description: 'Retrieve all items belonging to a specific plan',
+        description:
+          'Retrieve all items belonging to a specific plan. Response filtering: owners see the full assignmentStatusList for each item; non-owners (participants) see only their own entry in assignmentStatusList. There is no top-level status field — check assignmentStatusList entries for per-participant status.',
         params: { $ref: 'PlanIdParam#' },
         response: {
-          200: { $ref: 'ItemList#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'List of items',
+            $ref: 'ItemList#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -181,9 +223,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         )
 
         if (!allowed) {
-          return reply.status(404).send({
-            message: 'Plan not found',
-          })
+          return reply.status(404).send({ message: 'Plan not found' })
         }
 
         const planItems = await fastify.db
@@ -191,6 +231,33 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           .from(items)
           .where(eq(items.planId, planId))
           .orderBy(items.createdAt)
+
+        const [myParticipant] = request.user
+          ? await fastify.db
+              .select({
+                participantId: participants.participantId,
+                role: participants.role,
+              })
+              .from(participants)
+              .where(
+                and(
+                  eq(participants.planId, planId),
+                  eq(participants.userId, request.user.id)
+                )
+              )
+              .limit(1)
+          : [undefined]
+
+        const isOwner = !myParticipant || myParticipant.role === 'owner'
+
+        if (!isOwner) {
+          for (const item of planItems) {
+            item.assignmentStatusList = filterAssignmentForParticipant(
+              item.assignmentStatusList as Assignment[],
+              myParticipant.participantId
+            )
+          }
+        }
 
         request.log.info(
           { planId, count: planItems.length },
@@ -202,21 +269,13 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           { err: error, planId },
           'Failed to retrieve plan items'
         )
-
-        const isConnectionError =
-          error instanceof Error &&
-          (error.message.includes('connect') ||
-            error.message.includes('timeout'))
-
-        if (isConnectionError) {
-          return reply.status(503).send({
-            message: 'Database connection error',
-          })
-        }
-
-        return reply.status(500).send({
-          message: 'Failed to retrieve plan items',
-        })
+        const classified = classifyDbError(
+          error,
+          'Failed to retrieve plan items'
+        )
+        return reply
+          .status(classified.statusCode)
+          .send({ message: classified.message })
       }
     }
   )
@@ -227,96 +286,193 @@ export async function itemsRoutes(fastify: FastifyInstance) {
       schema: {
         tags: ['items'],
         summary: 'Update an item',
-        description: 'Update an existing item by its ID',
+        description:
+          'Update an item. No top-level status field exists; use assignmentStatusList for per-participant status. Owner/admin: assignmentStatusList is treated as full desired list (replace semantics) and may update isAllParticipants. Non-owner: send only your own assignment entry to update status or self-assign, or send unassign=true to remove yourself. Response visibility: owner/admin sees full assignmentStatusList, non-owner sees only own entry.',
         params: { $ref: 'ItemIdParam#' },
         body: { $ref: 'UpdateItemBody#' },
         response: {
-          200: { $ref: 'Item#' },
-          400: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Updated item',
+            $ref: 'Item#',
+          },
+          400: {
+            description: 'Bad request — check the message field for details',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
     async (request, reply) => {
       const { itemId } = request.params
-      const updates = request.body
+      const {
+        assignmentStatusList: bodyAssignments,
+        isAllParticipants: bodyIsAll,
+        unassign,
+        ...fieldUpdates
+      } = request.body
 
-      if (Object.keys(updates).length === 0) {
+      const hasAssignmentFields =
+        bodyAssignments !== undefined ||
+        bodyIsAll !== undefined ||
+        unassign === true
+
+      if (Object.keys(fieldUpdates).length === 0 && !hasAssignmentFields) {
+        return reply.status(400).send({ message: 'No fields to update' })
+      }
+
+      if (unassign && bodyAssignments !== undefined) {
         return reply.status(400).send({
-          message: 'No fields to update',
+          message:
+            'Cannot set both unassign and assignmentStatusList. Use one or the other.',
         })
       }
 
       try {
         const [existingItem] = await fastify.db
-          .select({ itemId: items.itemId, planId: items.planId })
+          .select()
           .from(items)
           .where(eq(items.itemId, itemId))
 
         if (!existingItem) {
-          return reply.status(404).send({
-            message: 'Item not found',
-          })
+          return reply.status(404).send({ message: 'Item not found' })
         }
 
-        if (
-          updates.assignedParticipantId !== undefined &&
-          updates.assignedParticipantId !== null
-        ) {
-          const [participant] = await fastify.db
-            .select({
-              participantId: participants.participantId,
-              planId: participants.planId,
-            })
-            .from(participants)
-            .where(
-              eq(participants.participantId, updates.assignedParticipantId)
+        const access = await checkItemMutationAccess(
+          fastify.db,
+          existingItem.planId,
+          request.user
+        )
+        if (!access.allowed) {
+          return reply.status(404).send({ message: 'Item not found' })
+        }
+
+        if (!canEditItem(access, existingItem)) {
+          return reply.status(404).send({ message: 'Item not found' })
+        }
+
+        const isOwner =
+          access.participant?.role === 'owner' || !access.participant
+
+        if (hasAssignmentFields && !isOwner) {
+          if (!unassign) {
+            const incomingList = bodyAssignments ?? []
+
+            const validation = validateParticipantAssignmentChange(
+              incomingList,
+              bodyIsAll,
+              existingItem.isAllParticipants,
+              access.participant!.participantId
             )
-
-          if (!participant) {
-            return reply.status(400).send({
-              message: 'Participant not found',
-            })
-          }
-
-          if (participant.planId !== existingItem.planId) {
-            return reply.status(400).send({
-              message: 'Participant does not belong to this plan',
-            })
+            if (!validation.valid) {
+              return reply.status(400).send({ message: validation.message! })
+            }
           }
         }
 
-        const [updatedItem] = await fastify.db
-          .update(items)
-          .set({ ...updates, updatedAt: new Date() })
-          .where(eq(items.itemId, itemId))
-          .returning()
+        const unitResult = resolveItemUnitForUpdate(
+          existingItem.category,
+          existingItem.unit,
+          fieldUpdates
+        )
+        if (unitResult && 'error' in unitResult) {
+          return reply.status(400).send({ message: unitResult.error })
+        }
+        if (unitResult) {
+          fieldUpdates.unit = unitResult.unit
+        }
+
+        let finalItem: Item = existingItem
+
+        if (Object.keys(fieldUpdates).length > 0) {
+          const [updated] = await fastify.db
+            .update(items)
+            .set({ ...fieldUpdates, updatedAt: new Date() })
+            .where(eq(items.itemId, itemId))
+            .returning()
+          finalItem = updated
+        }
+
+        if (hasAssignmentFields) {
+          const currentList = existingItem.assignmentStatusList as Assignment[]
+
+          let finalList: Assignment[]
+          if (isOwner) {
+            finalList =
+              bodyAssignments !== undefined
+                ? resolveAssignments(bodyAssignments)
+                : currentList
+          } else if (unassign) {
+            finalList = mergeParticipantAssignment(
+              currentList,
+              [],
+              access.participant!.participantId
+            )
+          } else {
+            finalList = mergeParticipantAssignment(
+              currentList,
+              bodyAssignments ?? []
+            )
+          }
+
+          const finalIsAll = bodyIsAll ?? existingItem.isAllParticipants
+          finalItem = await persistAssignments(
+            fastify.db,
+            itemId,
+            finalList,
+            finalIsAll
+          )
+        }
+
+        if (!isOwner && access.participant) {
+          finalItem = {
+            ...finalItem,
+            assignmentStatusList: filterAssignmentForParticipant(
+              finalItem.assignmentStatusList as Assignment[],
+              access.participant.participantId
+            ),
+          }
+        }
 
         request.log.info(
-          { itemId, changes: Object.keys(updates) },
+          {
+            itemId,
+            fieldChanges: Object.keys(fieldUpdates),
+            assignmentChanged: hasAssignmentFields,
+          },
           'Item updated'
         )
+        recordItemUpdated(fastify.db, {
+          itemId,
+          planId: existingItem.planId,
+          existing: existingItem,
+          updates: fieldUpdates,
+          changedByUserId: request.user?.id ?? null,
+        })
         fastify.notifyItemChange(existingItem.planId)
-        return updatedItem
+        return finalItem
       } catch (error) {
         request.log.error({ err: error, itemId }, 'Failed to update item')
-
-        const isConnectionError =
-          error instanceof Error &&
-          (error.message.includes('connect') ||
-            error.message.includes('timeout'))
-
-        if (isConnectionError) {
-          return reply.status(503).send({
-            message: 'Database connection error',
-          })
-        }
-
-        return reply.status(500).send({
-          message: 'Failed to update item',
-        })
+        const classified = classifyDbError(error, 'Failed to update item')
+        return reply
+          .status(classified.statusCode)
+          .send({ message: classified.message })
       }
     }
   )
@@ -331,15 +487,36 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Bulk create items in a plan',
         description:
-          'Create multiple items at once. Each item is validated independently — valid items are created, invalid items are reported in the errors array with their name.',
+          'Create multiple items at once. Each item is validated independently. No top-level status field — per-participant status lives in assignmentStatusList. Assignment fields (owner-only): send assignmentStatusList and isAllParticipants per item.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'BulkCreateItemBody#' },
         response: {
-          200: { $ref: 'BulkItemResponse#' },
-          207: { $ref: 'BulkItemResponse#' },
-          404: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Bulk operation results — all succeeded',
+            $ref: 'BulkItemResponse#',
+          },
+          207: {
+            description:
+              'Partial success — some items failed, check errors array',
+            $ref: 'BulkItemResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -348,36 +525,17 @@ export async function itemsRoutes(fastify: FastifyInstance) {
       const { items: itemsToCreate } = request.body
 
       try {
-        const [existingPlan] = await fastify.db
-          .select({ planId: plans.planId })
-          .from(plans)
-          .where(eq(plans.planId, planId))
-
-        if (!existingPlan) {
+        const access = await checkItemMutationAccess(
+          fastify.db,
+          planId,
+          request.user
+        )
+        if (!access.allowed) {
           return reply.status(404).send({ message: 'Plan not found' })
         }
 
-        const participantIds = [
-          ...new Set(
-            itemsToCreate
-              .map((item) => item.assignedParticipantId)
-              .filter((id): id is string => !!id)
-          ),
-        ]
-
-        const participantMap = new Map<string, string>()
-        if (participantIds.length > 0) {
-          const found = await fastify.db
-            .select({
-              participantId: participants.participantId,
-              planId: participants.planId,
-            })
-            .from(participants)
-            .where(inArray(participants.participantId, participantIds))
-          for (const p of found) {
-            participantMap.set(p.participantId, p.planId)
-          }
-        }
+        const isOwner =
+          access.participant?.role === 'owner' || !access.participant
 
         const validValues: Array<{
           planId: string
@@ -385,58 +543,66 @@ export async function itemsRoutes(fastify: FastifyInstance) {
           category: ItemCategory
           quantity: number
           unit: Unit
-          status: ItemStatus
           subcategory?: string | null
           notes?: string | null
-          assignedParticipantId: string | null
+          assignmentStatusList: Assignment[]
+          isAllParticipants: boolean
         }> = []
         const errors: BulkItemError[] = []
 
         for (const item of itemsToCreate) {
-          const { category, unit, assignedParticipantId, ...rest } = item
+          const {
+            category,
+            unit,
+            assignmentStatusList: bodyAssignments,
+            isAllParticipants: bodyIsAll,
+            ...rest
+          } = item
 
-          if (category === 'food' && !unit) {
+          const unitResult = resolveItemUnit(category, unit)
+          if ('error' in unitResult) {
+            errors.push({ name: item.name, message: unitResult.error })
+            continue
+          }
+
+          const hasAssignmentFields =
+            bodyAssignments !== undefined || bodyIsAll !== undefined
+
+          if (hasAssignmentFields && !isOwner) {
             errors.push({
               name: item.name,
-              message: 'Unit is required for food items',
+              message: 'Only the plan owner can set assignments on create',
             })
             continue
           }
 
-          if (assignedParticipantId) {
-            const pPlanId = participantMap.get(assignedParticipantId)
-            if (!pPlanId) {
-              errors.push({
-                name: item.name,
-                message: 'Participant not found',
-              })
-              continue
-            }
-            if (pPlanId !== planId) {
-              errors.push({
-                name: item.name,
-                message: 'Participant does not belong to this plan',
-              })
-              continue
-            }
-          }
+          const resolved = resolveAssignments(bodyAssignments)
 
-          const resolvedUnit = category === 'equipment' ? 'pcs' : unit!
           validValues.push({
             planId,
             category,
-            unit: resolvedUnit,
-            assignedParticipantId: assignedParticipantId ?? null,
+            unit: unitResult.unit,
+            assignmentStatusList: resolved,
+            isAllParticipants: bodyIsAll ?? false,
             ...rest,
           })
         }
 
-        let createdItems: (typeof items.$inferSelect)[] = []
+        let createdItems: Item[] = []
         if (validValues.length > 0) {
           createdItems = await fastify.db
             .insert(items)
             .values(validValues)
             .returning()
+        }
+
+        for (const created of createdItems) {
+          recordItemCreated(fastify.db, {
+            itemId: created.itemId,
+            planId,
+            snapshot: created as unknown as Record<string, unknown>,
+            changedByUserId: request.user?.id ?? null,
+          })
         }
 
         const statusCode = errors.length === 0 ? 200 : 207
@@ -450,21 +616,10 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         return reply.status(statusCode).send({ items: createdItems, errors })
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to bulk create items')
-
-        const isConnectionError =
-          error instanceof Error &&
-          (error.message.includes('connect') ||
-            error.message.includes('timeout'))
-
-        if (isConnectionError) {
-          return reply
-            .status(503)
-            .send({ message: 'Database connection error' })
-        }
-
+        const classified = classifyDbError(error, 'Failed to bulk create items')
         return reply
-          .status(500)
-          .send({ message: 'Failed to bulk create items' })
+          .status(classified.statusCode)
+          .send({ message: classified.message })
       }
     }
   )
@@ -479,14 +634,36 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Bulk update items in a plan',
         description:
-          'Update multiple items at once. Each item is validated independently — valid items are updated, invalid items are reported in the errors array with their name.',
+          'Update multiple items at once. Each item is validated independently. No top-level status field exists; use assignmentStatusList per item. Owner/admin uses full-list replace semantics and may set isAllParticipants. Non-owner sends only their own assignment entry per item (merge semantics) or unassign=true. Response for non-owners is filtered to their own assignment entries.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'BulkUpdateItemBody#' },
         response: {
-          200: { $ref: 'BulkItemResponse#' },
-          207: { $ref: 'BulkItemResponse#' },
-          500: { $ref: 'ErrorResponse#' },
-          503: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Bulk operation results — all succeeded',
+            $ref: 'BulkItemResponse#',
+          },
+          207: {
+            description:
+              'Partial success — some items failed, check errors array',
+            $ref: 'BulkItemResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan or item does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -495,45 +672,36 @@ export async function itemsRoutes(fastify: FastifyInstance) {
       const { items: itemUpdates } = request.body
 
       try {
+        const access = await checkItemMutationAccess(
+          fastify.db,
+          planId,
+          request.user
+        )
+        if (!access.allowed) {
+          return reply.status(404).send({ message: 'Plan not found' })
+        }
+
+        const isOwner =
+          access.participant?.role === 'owner' || !access.participant
         const itemIds = itemUpdates.map((entry) => entry.itemId)
         const existingItems = await fastify.db
-          .select({
-            itemId: items.itemId,
-            planId: items.planId,
-            name: items.name,
-          })
+          .select()
           .from(items)
           .where(inArray(items.itemId, itemIds))
 
         const itemMap = new Map(existingItems.map((i) => [i.itemId, i]))
 
-        const participantIds = [
-          ...new Set(
-            itemUpdates
-              .map((entry) => entry.assignedParticipantId)
-              .filter((id): id is string => id !== undefined && id !== null)
-          ),
-        ]
-
-        const participantMap = new Map<string, string>()
-        if (participantIds.length > 0) {
-          const found = await fastify.db
-            .select({
-              participantId: participants.participantId,
-              planId: participants.planId,
-            })
-            .from(participants)
-            .where(inArray(participants.participantId, participantIds))
-          for (const p of found) {
-            participantMap.set(p.participantId, p.planId)
-          }
-        }
-
-        const updatedItems: (typeof items.$inferSelect)[] = []
+        const updatedItems: Item[] = []
         const errors: BulkItemError[] = []
 
         for (const entry of itemUpdates) {
-          const { itemId, ...updates } = entry
+          const {
+            itemId,
+            assignmentStatusList: bodyAssignments,
+            isAllParticipants: bodyIsAll,
+            unassign,
+            ...fieldUpdates
+          } = entry
           const existing = itemMap.get(itemId)
 
           if (!existing) {
@@ -552,7 +720,12 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          if (Object.keys(updates).length === 0) {
+          const hasAssignmentFields =
+            bodyAssignments !== undefined ||
+            bodyIsAll !== undefined ||
+            unassign === true
+
+          if (Object.keys(fieldUpdates).length === 0 && !hasAssignmentFields) {
             errors.push({
               name: existing.name,
               message: 'No fields to update',
@@ -560,34 +733,125 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             continue
           }
 
-          if (
-            updates.assignedParticipantId !== undefined &&
-            updates.assignedParticipantId !== null
-          ) {
-            const pPlanId = participantMap.get(updates.assignedParticipantId)
-            if (!pPlanId) {
+          if (unassign && bodyAssignments !== undefined) {
+            errors.push({
+              name: existing.name,
+              message:
+                'Cannot set both unassign and assignmentStatusList. Use one or the other.',
+            })
+            continue
+          }
+
+          if (!canEditItem(access, existing)) {
+            errors.push({
+              name: existing.name,
+              message: 'Item not found',
+            })
+            continue
+          }
+
+          if (hasAssignmentFields && !isOwner && !unassign) {
+            const incomingList = bodyAssignments ?? []
+
+            const validation = validateParticipantAssignmentChange(
+              incomingList,
+              bodyIsAll,
+              existing.isAllParticipants,
+              access.participant!.participantId
+            )
+            if (!validation.valid) {
               errors.push({
                 name: existing.name,
-                message: 'Participant not found',
-              })
-              continue
-            }
-            if (pPlanId !== planId) {
-              errors.push({
-                name: existing.name,
-                message: 'Participant does not belong to this plan',
+                message: validation.message!,
               })
               continue
             }
           }
 
-          const [updatedItem] = await fastify.db
-            .update(items)
-            .set({ ...updates, updatedAt: new Date() })
-            .where(eq(items.itemId, itemId))
-            .returning()
+          const unitResult = resolveItemUnitForUpdate(
+            existing.category,
+            existing.unit,
+            fieldUpdates
+          )
+          if (unitResult && 'error' in unitResult) {
+            errors.push({
+              name: existing.name,
+              message: unitResult.error,
+            })
+            continue
+          }
+          if (unitResult) {
+            fieldUpdates.unit = unitResult.unit
+          }
 
-          updatedItems.push(updatedItem)
+          try {
+            let finalItem: Item = existing
+
+            if (Object.keys(fieldUpdates).length > 0) {
+              const [updated] = await fastify.db
+                .update(items)
+                .set({ ...fieldUpdates, updatedAt: new Date() })
+                .where(eq(items.itemId, itemId))
+                .returning()
+              finalItem = updated
+            }
+
+            if (hasAssignmentFields) {
+              const currentList = existing.assignmentStatusList as Assignment[]
+
+              let finalList: Assignment[]
+              if (isOwner) {
+                finalList =
+                  bodyAssignments !== undefined
+                    ? resolveAssignments(bodyAssignments)
+                    : currentList
+              } else if (unassign) {
+                finalList = mergeParticipantAssignment(
+                  currentList,
+                  [],
+                  access.participant!.participantId
+                )
+              } else {
+                finalList = mergeParticipantAssignment(
+                  currentList,
+                  bodyAssignments ?? []
+                )
+              }
+
+              const finalIsAll = bodyIsAll ?? existing.isAllParticipants
+              finalItem = await persistAssignments(
+                fastify.db,
+                itemId,
+                finalList,
+                finalIsAll
+              )
+            }
+
+            if (!isOwner && access.participant) {
+              finalItem = {
+                ...finalItem,
+                assignmentStatusList: filterAssignmentForParticipant(
+                  finalItem.assignmentStatusList as Assignment[],
+                  access.participant.participantId
+                ),
+              }
+            }
+
+            updatedItems.push(finalItem)
+            recordItemUpdated(fastify.db, {
+              itemId,
+              planId: existing.planId,
+              existing,
+              updates: fieldUpdates,
+              changedByUserId: request.user?.id ?? null,
+            })
+          } catch (err) {
+            errors.push({
+              name: existing.name,
+              message:
+                err instanceof Error ? err.message : 'Failed to update item',
+            })
+          }
         }
 
         const statusCode = errors.length === 0 ? 200 : 207
@@ -601,21 +865,10 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         return reply.status(statusCode).send({ items: updatedItems, errors })
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to bulk update items')
-
-        const isConnectionError =
-          error instanceof Error &&
-          (error.message.includes('connect') ||
-            error.message.includes('timeout'))
-
-        if (isConnectionError) {
-          return reply
-            .status(503)
-            .send({ message: 'Database connection error' })
-        }
-
+        const classified = classifyDbError(error, 'Failed to bulk update items')
         return reply
-          .status(500)
-          .send({ message: 'Failed to bulk update items' })
+          .status(classified.statusCode)
+          .send({ message: classified.message })
       }
     }
   )

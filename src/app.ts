@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
-import rateLimit from '@fastify/rate-limit'
+import rateLimitPlugin from '@fastify/rate-limit'
 import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
 import { config } from './config.js'
@@ -13,6 +13,8 @@ import { participantsRoutes } from './routes/participants.route.js'
 import { inviteRoutes } from './routes/invite.route.js'
 import { authRoutes } from './routes/auth.route.js'
 import { claimRoutes } from './routes/claim.route.js'
+import { joinRequestRoutes } from './routes/join-request.route.js'
+import { expensesRoutes } from './routes/expenses.route.js'
 import { Database } from './db/index.js'
 import authPlugin, { AuthPluginOptions } from './plugins/auth.js'
 import guestAuthPlugin from './plugins/guest-auth.js'
@@ -27,13 +29,20 @@ export interface BuildAppOptions {
   logger?: false
   auth?: AuthPluginOptions
   websocket?: WebSocketPluginOptions
+  rateLimit?: { max: number; timeWindow: string } | false
 }
 
 export async function buildApp(
   deps: AppDependencies,
   options: BuildAppOptions = {}
 ) {
-  const { enableDocs = config.isDev, logger, auth, websocket } = options
+  const {
+    enableDocs = config.isDev,
+    logger,
+    auth,
+    websocket,
+    rateLimit,
+  } = options
 
   const fastify = Fastify({
     logger:
@@ -106,10 +115,16 @@ export async function buildApp(
     contentSecurityPolicy: config.isDev ? false : undefined,
   })
 
-  await fastify.register(rateLimit, {
-    max: 100,
-    timeWindow: '1 minute',
-  })
+  const rateLimitConfig =
+    rateLimit === false
+      ? false
+      : (rateLimit ?? {
+          max: logger === false ? 100_000 : 100,
+          timeWindow: '1 minute',
+        })
+  if (rateLimitConfig !== false) {
+    await fastify.register(rateLimitPlugin, rateLimitConfig)
+  }
 
   await fastify.register(authPlugin, auth ?? {})
   await fastify.register(guestAuthPlugin)
@@ -130,6 +145,31 @@ export async function buildApp(
       },
       'Incoming request'
     )
+  })
+
+  fastify.addHook('onSend', async (request, reply, payload) => {
+    const code = reply.statusCode
+    if (code >= 400 && code < 500 && !request.url.startsWith('/health')) {
+      let responseBody: unknown = payload
+      if (typeof payload === 'string') {
+        try {
+          responseBody = JSON.parse(payload)
+        } catch {
+          responseBody = payload
+        }
+      }
+      request.log.warn(
+        {
+          statusCode: code,
+          method: request.method,
+          url: request.url,
+          body: request.body ?? null,
+          responseBody,
+        },
+        'Client error response'
+      )
+    }
+    return payload
   })
 
   fastify.addHook('onResponse', async (request, reply) => {
@@ -158,6 +198,8 @@ export async function buildApp(
   await fastify.register(inviteRoutes)
   await fastify.register(authRoutes)
   await fastify.register(claimRoutes)
+  await fastify.register(joinRequestRoutes)
+  await fastify.register(expensesRoutes)
 
   return fastify
 }
