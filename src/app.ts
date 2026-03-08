@@ -18,6 +18,7 @@ import { expensesRoutes } from './routes/expenses.route.js'
 import { Database } from './db/index.js'
 import authPlugin, { AuthPluginOptions } from './plugins/auth.js'
 import guestAuthPlugin from './plugins/guest-auth.js'
+import websocketPlugin, { WebSocketPluginOptions } from './plugins/websocket.js'
 
 export interface AppDependencies {
   db: Database
@@ -27,6 +28,7 @@ export interface BuildAppOptions {
   enableDocs?: boolean
   logger?: false
   auth?: AuthPluginOptions
+  websocket?: WebSocketPluginOptions
   rateLimit?: { max: number; timeWindow: string } | false
 }
 
@@ -34,7 +36,13 @@ export async function buildApp(
   deps: AppDependencies,
   options: BuildAppOptions = {}
 ) {
-  const { enableDocs = config.isDev, logger, auth, rateLimit } = options
+  const {
+    enableDocs = config.isDev,
+    logger,
+    auth,
+    websocket,
+    rateLimit,
+  } = options
 
   const fastify = Fastify({
     logger:
@@ -120,6 +128,7 @@ export async function buildApp(
 
   await fastify.register(authPlugin, auth ?? {})
   await fastify.register(guestAuthPlugin)
+  await fastify.register(websocketPlugin, websocket ?? {})
 
   fastify.addHook('onRequest', async (request) => {
     if (request.url.startsWith('/health')) {

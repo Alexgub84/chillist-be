@@ -428,6 +428,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           snapshot: createdItem as unknown as Record<string, unknown>,
           changedByParticipantId: participant.participantId,
         })
+        fastify.notifyItemChange(planId)
         return reply.status(201).send(createdItem)
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to create guest item')
@@ -636,6 +637,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           updates: fieldUpdates,
           changedByParticipantId: participant.participantId,
         })
+        fastify.notifyItemChange(planId)
         return updatedItem
       } catch (error) {
         request.log.error(
@@ -800,6 +802,9 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           },
           'Guest bulk items created via invite token'
         )
+        if (createdItems.length > 0) {
+          fastify.notifyItemChange(planId)
+        }
         return reply.status(statusCode).send({ items: createdItems, errors })
       } catch (error) {
         request.log.error(
@@ -1043,6 +1048,9 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           },
           'Guest bulk items updated via invite token'
         )
+        if (updatedItems.length > 0) {
+          fastify.notifyItemChange(planId)
+        }
         return reply.status(statusCode).send({ items: updatedItems, errors })
       } catch (error) {
         request.log.error(

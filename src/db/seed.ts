@@ -582,20 +582,279 @@ async function seed() {
     console.log('  Join requests: 2 (pending)')
     console.log('  Items: 4')
 
+    const palmachimLocation: Location = {
+      locationId: crypto.randomUUID(),
+      name: 'Palmachim Beach',
+      country: 'Israel',
+      region: 'Central District',
+      city: 'Rishon LeZion',
+      latitude: 31.9275,
+      longitude: 34.6942,
+      timezone: 'Asia/Jerusalem',
+    }
+
+    const [bbqPlan] = await db
+      .insert(plans)
+      .values({
+        title: 'Beach BBQ — Friday Sunset',
+        description:
+          'Chill Friday evening BBQ at Palmachim beach. ' +
+          'Bring your own drinks, we handle the grill and meat. ' +
+          'Sunset at 19:30, arrive by 17:00 for setup.',
+        status: 'active',
+        visibility: 'invite_only',
+        location: palmachimLocation,
+        startDate: new Date('2026-04-10T17:00:00+03:00'),
+        endDate: new Date('2026-04-10T22:00:00+03:00'),
+        tags: ['bbq', 'beach', 'friday', 'sunset'],
+      })
+      .returning()
+
+    const [bbqOwner] = await db
+      .insert(participants)
+      .values({
+        planId: bbqPlan.planId,
+        name: 'Lior',
+        lastName: 'Katz',
+        contactPhone: '+972-50-777-8888',
+        displayName: 'Lior K.',
+        role: 'owner',
+        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=lior',
+        contactEmail: 'lior@example.com',
+        inviteToken: generateInviteToken(),
+        rsvpStatus: 'confirmed',
+        adultsCount: 2,
+        kidsCount: 0,
+      })
+      .returning()
+
+    await db
+      .update(plans)
+      .set({ ownerParticipantId: bbqOwner.participantId })
+      .where(eq(plans.planId, bbqPlan.planId))
+
+    const [bbqYou] = await db
+      .insert(participants)
+      .values({
+        planId: bbqPlan.planId,
+        name: 'Alex',
+        lastName: 'G.',
+        contactPhone: '+972-50-999-0000',
+        displayName: 'Alex G.',
+        role: 'participant',
+        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alexg',
+        contactEmail: 'alex@example.com',
+        inviteToken: generateInviteToken(),
+        rsvpStatus: 'confirmed',
+        adultsCount: 1,
+        kidsCount: 0,
+        ...(seedOwnerUserId && { userId: seedOwnerUserId }),
+      })
+      .returning()
+
+    const [bbqP2] = await db
+      .insert(participants)
+      .values({
+        planId: bbqPlan.planId,
+        name: 'Tal',
+        lastName: 'Alon',
+        contactPhone: '+972-52-888-1111',
+        displayName: 'Tal A.',
+        role: 'participant',
+        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=tal',
+        contactEmail: 'tal@example.com',
+        inviteToken: generateInviteToken(),
+        rsvpStatus: 'not_sure',
+        adultsCount: 2,
+        kidsCount: 1,
+      })
+      .returning()
+
+    const bbqPIds = [
+      bbqOwner.participantId,
+      bbqYou.participantId,
+      bbqP2.participantId,
+    ]
+
+    await db.insert(items).values([
+      {
+        planId: bbqPlan.planId,
+        name: 'Portable Grill',
+        category: 'equipment' as const,
+        subcategory: 'Cooking and Heating Equipment',
+        quantity: 1,
+        unit: 'pcs' as const,
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: bbqPIds[0], status: 'pending' as const },
+        ],
+      },
+      {
+        planId: bbqPlan.planId,
+        name: 'Charcoal',
+        category: 'equipment' as const,
+        subcategory: 'Cooking and Heating Equipment',
+        quantity: 2,
+        unit: 'pack' as const,
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: bbqPIds[0], status: 'purchased' as const },
+        ],
+      },
+      {
+        planId: bbqPlan.planId,
+        name: 'Beach Blanket',
+        category: 'equipment' as const,
+        subcategory: 'Comfort and Climate Control',
+        quantity: 3,
+        unit: 'pcs' as const,
+        isAllParticipants: true,
+        assignmentStatusList: bbqPIds.map((pid) => ({
+          participantId: pid,
+          status: 'pending' as const,
+        })),
+      },
+      {
+        planId: bbqPlan.planId,
+        name: 'Bluetooth Speaker',
+        category: 'equipment' as const,
+        subcategory: 'Games and Activities',
+        quantity: 1,
+        unit: 'pcs' as const,
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: bbqPIds[1], status: 'packed' as const },
+        ],
+      },
+      {
+        planId: bbqPlan.planId,
+        name: 'Burger Patties',
+        category: 'food' as const,
+        subcategory: 'Meat and Proteins',
+        quantity: 12,
+        unit: 'pcs' as const,
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: bbqPIds[0], status: 'purchased' as const },
+        ],
+      },
+      {
+        planId: bbqPlan.planId,
+        name: 'Burger Buns',
+        category: 'food' as const,
+        subcategory: 'Grains and Pasta',
+        quantity: 12,
+        unit: 'pcs' as const,
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: bbqPIds[1], status: 'pending' as const },
+        ],
+      },
+      {
+        planId: bbqPlan.planId,
+        name: 'Beer',
+        category: 'food' as const,
+        subcategory: 'Beverages (alcoholic)',
+        quantity: 12,
+        unit: 'pcs' as const,
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: bbqPIds[2], status: 'pending' as const },
+        ],
+      },
+      {
+        planId: bbqPlan.planId,
+        name: 'Lemonade',
+        category: 'food' as const,
+        subcategory: 'Beverages (non-alcoholic)',
+        quantity: 3,
+        unit: 'l' as const,
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: bbqPIds[1], status: 'purchased' as const },
+        ],
+      },
+      {
+        planId: bbqPlan.planId,
+        name: 'Watermelon',
+        category: 'food' as const,
+        subcategory: 'Fresh Produce',
+        quantity: 1,
+        unit: 'pcs' as const,
+        isAllParticipants: false,
+        assignmentStatusList: [] as Assignment[],
+      },
+      {
+        planId: bbqPlan.planId,
+        name: 'Paper Plates',
+        category: 'equipment' as const,
+        subcategory: 'Other',
+        quantity: 1,
+        unit: 'pack' as const,
+        isAllParticipants: false,
+        assignmentStatusList: [
+          { participantId: bbqPIds[2], status: 'pending' as const },
+        ],
+      },
+    ])
+
+    await db.insert(participantExpenses).values([
+      {
+        participantId: bbqOwner.participantId,
+        planId: bbqPlan.planId,
+        amount: '180.00',
+        description: 'Meat and buns from the butcher',
+        itemIds: [],
+        createdByUserId: null,
+      },
+      {
+        participantId: bbqYou.participantId,
+        planId: bbqPlan.planId,
+        amount: '55.00',
+        description: 'Lemonade and snacks',
+        itemIds: [],
+        createdByUserId: seedOwnerUserId,
+      },
+      {
+        participantId: bbqP2.participantId,
+        planId: bbqPlan.planId,
+        amount: '92.00',
+        description: 'Beer + watermelon',
+        itemIds: [],
+        createdByUserId: null,
+      },
+    ])
+
+    console.log('Created BBQ plan:', bbqPlan.planId)
+    console.log('  Title:', bbqPlan.title)
+    console.log('  Participants: 3, Items: 10, Expenses: 3')
+
     console.log('\n--- Seed Summary ---')
-    console.log('Negev Plan ID:', negevPlan.planId)
+    console.log('')
+    console.log('Plan 1 (you = OWNER):')
+    console.log('  ID:', negevPlan.planId)
     console.log('  Title:', negevPlan.title)
     console.log('  Owner:', negevOwner.name, negevOwner.lastName)
     console.log('  Participants: 5, Items: 20, Expenses: 5')
+    if (seedOwnerUserId) {
+      console.log('  → Your Supabase ID linked as owner')
+    }
     console.log('')
-    console.log('Join Request Test Plan ID:', joinTestPlan.planId)
+    console.log('Plan 2 (join request test):')
+    console.log('  ID:', joinTestPlan.planId)
     console.log('  Title:', joinTestPlan.title)
-    console.log('  Owner: Alex Owner (link with SEED_OWNER_USER_ID)')
     console.log('  Join requests: 2 pending (Jordan, Sam)')
     console.log('  Items: 4')
-    console.log(
-      '  To test: SEED_OWNER_USER_ID=your-supabase-uuid, sign in as owner'
-    )
+    console.log('')
+    console.log('Plan 3 (you = PARTICIPANT):')
+    console.log('  ID:', bbqPlan.planId)
+    console.log('  Title:', bbqPlan.title)
+    console.log('  Owner:', bbqOwner.name, bbqOwner.lastName, '(NPC)')
+    console.log('  Participants: 3, Items: 10, Expenses: 3')
+    if (seedOwnerUserId) {
+      console.log('  → Your Supabase ID linked as participant Alex G.')
+    }
+    console.log('')
     console.log('--------------------\n')
 
     console.log('Seeding completed successfully')
