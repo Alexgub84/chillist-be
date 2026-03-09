@@ -52,6 +52,8 @@ interface UpdatePlanBody {
   tags?: string[] | null
   defaultLang?: string | null
   currency?: string | null
+  estimatedAdults?: number | null
+  estimatedKids?: number | null
 }
 
 export async function plansRoutes(fastify: FastifyInstance) {

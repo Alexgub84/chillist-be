@@ -79,6 +79,8 @@ async function seed() {
         startDate: new Date('2026-04-03T08:00:00+03:00'),
         endDate: new Date('2026-04-04T16:00:00+03:00'),
         tags: ['camping', 'desert', 'negev', 'family', 'toddlers'],
+        estimatedAdults: 7,
+        estimatedKids: 5,
         ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
       })
       .returning()
