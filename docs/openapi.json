@@ -209,6 +209,16 @@
             "description": "ISO 4217 currency code (e.g. USD, EUR, ILS)",
             "nullable": true
           },
+          "estimatedAdults": {
+            "type": "integer",
+            "description": "Estimated number of adult participants for this plan",
+            "nullable": true
+          },
+          "estimatedKids": {
+            "type": "integer",
+            "description": "Estimated number of child participants for this plan",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -374,6 +384,16 @@
             "maxLength": 10,
             "description": "ISO 4217 currency code (e.g. USD, EUR, ILS)"
           },
+          "estimatedAdults": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Estimated number of adult participants for this plan"
+          },
+          "estimatedKids": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Estimated number of child participants for this plan"
+          },
           "owner": {
             "$ref": "#/components/schemas/def-9"
           },
@@ -456,6 +476,18 @@
             "maxLength": 10,
             "nullable": true,
             "description": "ISO 4217 currency code (e.g. USD, EUR, ILS). Send null to clear."
+          },
+          "estimatedAdults": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Estimated number of adult participants. Send null to clear."
+          },
+          "estimatedKids": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Estimated number of child participants. Send null to clear."
           }
         },
         "title": "UpdatePlanBody"
@@ -1125,6 +1157,16 @@
           "currency": {
             "type": "string",
             "description": "ISO 4217 currency code (e.g. USD, EUR, ILS)",
+            "nullable": true
+          },
+          "estimatedAdults": {
+            "type": "integer",
+            "description": "Estimated number of adult participants for this plan",
+            "nullable": true
+          },
+          "estimatedKids": {
+            "type": "integer",
+            "description": "Estimated number of child participants for this plan",
             "nullable": true
           },
           "createdAt": {
