@@ -15,6 +15,25 @@ The ONE exception: you MAY read and write files in ../chillist-docs/ (the shared
 
 When asked to create GitHub issues: see `../chillist-docs/guides/issue-management.md`.
 
+# Git Safety (NEVER BREAK THESE)
+
+- NEVER push directly to `main` or `staging`. Always create a feature branch.
+- **NEVER use `--no-verify`** (or `-n`) on `git push` or `git commit` without the user's explicit permission. If pre-push hooks fail, fix the underlying issue or ask the user first.
+- NEVER commit without creating a branch first: `git checkout -b feat/<name>`
+- Always push the feature branch and open a PR with `gh pr create`.
+- If the user says "commit and push", create a feature branch first — do NOT push to main.
+- **Before every push**, sync with main to prevent PR conflicts:
+  `git fetch origin main && git merge origin/main`
+  Resolve any conflicts, run validation, then push.
+
+# Completion and Review Protocol (MANDATORY)
+
+- **NEVER commit or push** until the user explicitly approves.
+- When implementation is done: run validation (typecheck, lint, tests), then tell the user "Done — ready for your review and testing."
+- **Wait for the user** to review the changes, test locally, and confirm everything works.
+- Only after the user says it's approved (e.g., "looks good", "commit", "push it"), proceed with git commit, branch, and push.
+- This applies to BOTH the backend repo (chillist-be) and the docs repo (chillist-docs).
+
 # How to Start Every Task
 
 Before writing any code, FIRST use the Read tool on ALL of these files:
