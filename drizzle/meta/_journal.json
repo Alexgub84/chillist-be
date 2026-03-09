@@ -134,6 +134,13 @@
       "when": 1772884024788,
       "tag": "0018_lush_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1773066036677,
+      "tag": "0019_harsh_imperial_guard",
+      "breakpoints": true
     }
   ]
 }

@@ -492,6 +492,42 @@ describe('Plans Route', () => {
       expect(ownerParticipant.contactEmail).toBe('alex@example.com')
     })
 
+    it('creates plan with estimatedAdults and estimatedKids', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: {
+          title: 'Estimated Group Plan',
+          owner: validOwner,
+          estimatedAdults: 8,
+          estimatedKids: 3,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const plan = response.json()
+      expect(plan.estimatedAdults).toBe(8)
+      expect(plan.estimatedKids).toBe(3)
+    })
+
+    it('creates plan without estimation fields (defaults to null)', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: {
+          title: 'No Estimation Plan',
+          owner: validOwner,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const plan = response.json()
+      expect(plan.estimatedAdults).toBeNull()
+      expect(plan.estimatedKids).toBeNull()
+    })
+
     it('creates plan with owner and participants', async () => {
       const response = await app.inject({
         method: 'POST',
@@ -1432,6 +1468,55 @@ describe('Plans Route', () => {
         expect(updated[_field]).toBeNull()
       }
     )
+
+    it('updates estimatedAdults and estimatedKids', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: { title: 'Estimate Plan', owner: validOwner },
+      })
+      const { planId } = createRes.json()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${planId}`,
+        headers: authHeaders(),
+        payload: { estimatedAdults: 10, estimatedKids: 4 },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.estimatedAdults).toBe(10)
+      expect(updated.estimatedKids).toBe(4)
+    })
+
+    it('clears estimatedAdults and estimatedKids by setting to null', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: {
+          title: 'Clear Estimate Plan',
+          owner: validOwner,
+          estimatedAdults: 5,
+          estimatedKids: 2,
+        },
+      })
+      const { planId } = createRes.json()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${planId}`,
+        headers: authHeaders(),
+        payload: { estimatedAdults: null, estimatedKids: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.estimatedAdults).toBeNull()
+      expect(updated.estimatedKids).toBeNull()
+    })
 
     it('returns 400 when body is empty', async () => {
       const [plan] = await seedTestPlans(1)

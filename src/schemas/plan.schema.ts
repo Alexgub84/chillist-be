@@ -41,6 +41,16 @@ export const planSchema = {
       description: 'ISO 4217 currency code (e.g. USD, EUR, ILS)',
       nullable: true,
     },
+    estimatedAdults: {
+      type: 'integer',
+      description: 'Estimated number of adult participants for this plan',
+      nullable: true,
+    },
+    estimatedKids: {
+      type: 'integer',
+      description: 'Estimated number of child participants for this plan',
+      nullable: true,
+    },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
   },
@@ -118,6 +128,16 @@ export const createPlanBodySchema = {
       maxLength: 10,
       description: 'ISO 4217 currency code (e.g. USD, EUR, ILS)',
     },
+    estimatedAdults: {
+      type: 'integer',
+      minimum: 0,
+      description: 'Estimated number of adult participants for this plan',
+    },
+    estimatedKids: {
+      type: 'integer',
+      minimum: 0,
+      description: 'Estimated number of child participants for this plan',
+    },
     owner: { $ref: 'OwnerBody#' },
     participants: {
       type: 'array',
@@ -153,6 +173,20 @@ export const updatePlanBodySchema = {
       nullable: true,
       description:
         'ISO 4217 currency code (e.g. USD, EUR, ILS). Send null to clear.',
+    },
+    estimatedAdults: {
+      type: 'integer',
+      minimum: 0,
+      nullable: true,
+      description:
+        'Estimated number of adult participants. Send null to clear.',
+    },
+    estimatedKids: {
+      type: 'integer',
+      minimum: 0,
+      nullable: true,
+      description:
+        'Estimated number of child participants. Send null to clear.',
     },
   },
 } as const
@@ -200,6 +234,16 @@ export const planWithDetailsSchema = {
     currency: {
       type: 'string',
       description: 'ISO 4217 currency code (e.g. USD, EUR, ILS)',
+      nullable: true,
+    },
+    estimatedAdults: {
+      type: 'integer',
+      description: 'Estimated number of adult participants for this plan',
+      nullable: true,
+    },
+    estimatedKids: {
+      type: 'integer',
+      description: 'Estimated number of child participants for this plan',
       nullable: true,
     },
     createdAt: { type: 'string', format: 'date-time' },

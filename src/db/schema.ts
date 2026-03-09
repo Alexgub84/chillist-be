@@ -133,6 +133,8 @@ export const plans = pgTable('plans', {
   tags: text('tags').array(),
   defaultLang: varchar('default_lang', { length: 10 }),
   currency: varchar('currency', { length: 10 }),
+  estimatedAdults: integer('estimated_adults'),
+  estimatedKids: integer('estimated_kids'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
