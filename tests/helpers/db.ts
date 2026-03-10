@@ -65,7 +65,10 @@ export async function closeTestDatabase() {
 
 export async function seedTestPlans(
   count: number = 3,
-  options?: { createdByUserId?: string }
+  options?: {
+    createdByUserId?: string
+    visibility?: 'public' | 'invite_only' | 'private'
+  }
 ) {
   const testDb = await getTestDb()
 
@@ -73,7 +76,7 @@ export async function seedTestPlans(
     title: `Test Plan ${i + 1}`,
     description: `Description for test plan ${i + 1}`,
     status: 'active' as const,
-    visibility: 'public' as const,
+    visibility: (options?.visibility ?? 'public') as const,
     ...(options?.createdByUserId && {
       createdByUserId: options.createdByUserId,
     }),

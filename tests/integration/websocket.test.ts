@@ -125,6 +125,21 @@ describe('WebSocket Item Notifications', () => {
       ws.close()
     })
 
+    it('closes with 4004 when user is not a plan participant', async () => {
+      const otherUserId = 'bbbbbbbb-1111-2222-3333-444444444444'
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: otherUserId,
+        visibility: 'private',
+      })
+
+      const ws = await app.injectWS(
+        `/plans/${plan.planId}/ws?token=${encodeURIComponent(token)}`
+      )
+      const { code } = await waitForClose(ws)
+      expect(code).toBe(4004)
+      ws.close()
+    })
+
     it('connects when token and plan are valid', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: TEST_USER_ID,
