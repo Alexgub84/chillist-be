@@ -7,10 +7,10 @@ import {
   jwtVerify,
   JWSHeaderParameters,
   FlattenedJWSInput,
+  JWTPayload,
 } from 'jose'
 import { config } from '../config.js'
-import { eq } from 'drizzle-orm'
-import { plans } from '../db/schema.js'
+import { checkPlanAccess } from '../utils/plan-access.js'
 
 type JWKSResolver = (
   protectedHeader?: JWSHeaderParameters,
@@ -37,12 +37,21 @@ function removeConnection(planId: string, ws: WebSocket) {
   }
 }
 
-function broadcastToPlan(planId: string, message: string) {
+function broadcastToPlan(
+  planId: string,
+  message: string,
+  log: { warn: (obj: object, msg: string) => void }
+) {
   const connections = planConnections.get(planId)
   if (!connections) return
   for (const ws of connections) {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(message)
+      try {
+        ws.send(message)
+      } catch (err) {
+        log.warn({ err, planId }, 'WebSocket send failed — removing connection')
+        removeConnection(planId, ws)
+      }
     }
   }
 }
@@ -77,7 +86,7 @@ async function websocketPlugin(
 
   fastify.decorate('notifyItemChange', (planId: string) => {
     const message = JSON.stringify({ event: 'items:changed', planId })
-    broadcastToPlan(planId, message)
+    broadcastToPlan(planId, message, fastify.log)
     fastify.log.info(
       { planId, connections: planConnections.get(planId)?.size ?? 0 },
       'WebSocket item change notification sent'
@@ -94,30 +103,61 @@ async function websocketPlugin(
       const token = url.searchParams.get('token')
 
       if (!token) {
+        request.log.warn({ planId }, 'WebSocket rejected — missing token')
         socket.close(4001, 'Missing token')
         return
       }
 
+      let jwtPayload: JWTPayload | null = null
       if (jwks) {
         try {
-          await jwtVerify(token, jwks, verifyOpts)
-        } catch {
+          const { payload } = await jwtVerify(token, jwks, verifyOpts)
+          jwtPayload = payload
+        } catch (err) {
+          const errorType =
+            err instanceof Error ? err.constructor.name : 'Unknown'
+          request.log.warn(
+            { planId, errorType },
+            'WebSocket rejected — invalid token'
+          )
           socket.close(4003, 'Invalid token')
           return
         }
       }
 
-      try {
-        const [plan] = await fastify.db
-          .select({ planId: plans.planId })
-          .from(plans)
-          .where(eq(plans.planId, planId))
+      const userId = jwtPayload?.sub ?? null
+      const user = userId
+        ? {
+            id: userId,
+            email: String((jwtPayload as Record<string, unknown>)?.email ?? ''),
+            role: String(
+              (
+                (jwtPayload as Record<string, unknown>)?.app_metadata as
+                  | Record<string, unknown>
+                  | undefined
+              )?.role ??
+                (jwtPayload as Record<string, unknown>)?.role ??
+                'authenticated'
+            ),
+          }
+        : null
 
-        if (!plan) {
+      try {
+        const { allowed } = await checkPlanAccess(fastify.db, planId, user)
+
+        if (!allowed) {
+          request.log.warn(
+            { planId, userId },
+            'WebSocket rejected — plan not found or access denied'
+          )
           socket.close(4004, 'Plan not found')
           return
         }
-      } catch {
+      } catch (err) {
+        request.log.error(
+          { err, planId, userId },
+          'WebSocket rejected — database error during access check'
+        )
         socket.close(4500, 'Server error')
         return
       }
@@ -125,14 +165,18 @@ async function websocketPlugin(
       addConnection(planId, socket)
 
       request.log.info(
-        { planId, connections: planConnections.get(planId)?.size ?? 0 },
+        { planId, userId, connections: planConnections.get(planId)?.size ?? 0 },
         'WebSocket client connected'
       )
 
       socket.on('close', () => {
         removeConnection(planId, socket)
         request.log.info(
-          { planId, connections: planConnections.get(planId)?.size ?? 0 },
+          {
+            planId,
+            userId,
+            connections: planConnections.get(planId)?.size ?? 0,
+          },
           'WebSocket client disconnected'
         )
       })
