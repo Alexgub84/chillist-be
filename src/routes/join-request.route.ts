@@ -5,6 +5,10 @@ import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
 import { addParticipantToPlan } from '../services/participant.service.js'
 import { config } from '../config.js'
+import {
+  resolveLanguage,
+  joinRequestMessage,
+} from '../services/whatsapp/messages.js'
 
 interface CreateJoinRequestBody {
   name: string
@@ -178,10 +182,19 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             .limit(1)
             .then(([owner]) => {
               if (!owner?.contactPhone) return undefined
+              const lang = resolveLanguage(plan.defaultLang)
               const requesterName = `${created.name} ${created.lastName}`
-              const planTitle = plan.title ?? 'your plan'
+              const planTitle =
+                plan.title ??
+                (lang === 'he'
+                  ? '\u05d4\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05e9\u05dc\u05da'
+                  : 'your plan')
               const deepLink = `${config.frontendUrl}/plans/${planId}/join-requests`
-              const msg = `New join request \u270B ${requesterName} wants to join "${planTitle}". Review: ${deepLink}`
+              const msg = joinRequestMessage(lang, {
+                requesterName,
+                planTitle,
+                deepLink,
+              })
               return fastify.whatsapp.sendMessage(owner.contactPhone, msg)
             })
             .then((result) => {

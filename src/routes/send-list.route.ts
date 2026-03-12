@@ -2,6 +2,10 @@ import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { plans, items } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
+import {
+  resolveLanguage,
+  sendListMessage,
+} from '../services/whatsapp/messages.js'
 
 interface SendListBody {
   phone: string
@@ -80,7 +84,7 @@ export async function sendListRoutes(fastify: FastifyInstance) {
         }
 
         const [plan] = await fastify.db
-          .select({ title: plans.title })
+          .select({ title: plans.title, defaultLang: plans.defaultLang })
           .from(plans)
           .where(eq(plans.planId, planId))
           .limit(1)
@@ -99,15 +103,15 @@ export async function sendListRoutes(fastify: FastifyInstance) {
           .from(items)
           .where(eq(items.planId, planId))
 
-        const planTitle = plan.title ?? 'Untitled Plan'
-        let message = `📋 *${planTitle}*\n\n`
+        const lang = resolveLanguage(plan.defaultLang)
+        const planTitle =
+          plan.title ?? (lang === 'he' ? 'תוכנית ללא שם' : 'Untitled Plan')
 
-        if (planItems.length === 0) {
-          message += '_No items yet_'
-        } else {
+        let categoryBlocks = ''
+        if (planItems.length > 0) {
           const grouped: Record<string, string[]> = {}
           for (const item of planItems) {
-            const cat = item.category ?? 'Other'
+            const cat = item.category ?? (lang === 'he' ? 'אחר' : 'Other')
             if (!grouped[cat]) grouped[cat] = []
             const qty =
               item.quantity > 1
@@ -119,11 +123,17 @@ export async function sendListRoutes(fastify: FastifyInstance) {
           }
 
           for (const [category, lines] of Object.entries(grouped)) {
-            message += `*${category}*\n${lines.join('\n')}\n\n`
+            categoryBlocks += `*${category}*\n${lines.join('\n')}\n\n`
           }
         }
 
-        const result = await fastify.whatsapp.sendMessage(phone, message.trim())
+        const message = sendListMessage(lang, {
+          planTitle,
+          categoryBlocks,
+          emptyList: planItems.length === 0,
+        })
+
+        const result = await fastify.whatsapp.sendMessage(phone, message)
 
         if (result.success) {
           request.log.info(

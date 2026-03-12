@@ -6,6 +6,10 @@ import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
 import { removeParticipantFromAssignments } from '../services/item.service.js'
 import { config } from '../config.js'
+import {
+  resolveLanguage,
+  inviteMessage,
+} from '../services/whatsapp/messages.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -191,7 +195,11 @@ export async function participantsRoutes(fastify: FastifyInstance) {
 
       try {
         const [existingPlan] = await fastify.db
-          .select({ planId: plans.planId, title: plans.title })
+          .select({
+            planId: plans.planId,
+            title: plans.title,
+            defaultLang: plans.defaultLang,
+          })
           .from(plans)
           .where(eq(plans.planId, planId))
 
@@ -216,9 +224,11 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         )
 
         if (createdParticipant.contactPhone && createdParticipant.inviteToken) {
+          const lang = resolveLanguage(existingPlan.defaultLang)
           const deepLink = `${config.frontendUrl}/invite/${planId}/${createdParticipant.inviteToken}`
-          const planTitle = existingPlan.title ?? 'a plan'
-          const msg = `Hi 👋 You've been invited to "${planTitle}". View details and RSVP here: ${deepLink}`
+          const planTitle =
+            existingPlan.title ?? (lang === 'he' ? 'תוכנית' : 'a plan')
+          const msg = inviteMessage(lang, { planTitle, deepLink })
           fastify.whatsapp
             .sendMessage(createdParticipant.contactPhone, msg)
             .then((result) => {
