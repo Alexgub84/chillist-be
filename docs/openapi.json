@@ -305,7 +305,9 @@
           "contactPhone": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 50,
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "E.164 format (e.g. +972501234567)"
           },
           "displayName": {
             "type": "string",
@@ -939,7 +941,9 @@
           "contactPhone": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 50,
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "E.164 format (e.g. +972501234567)"
           },
           "displayName": {
             "type": "string",
@@ -1001,7 +1005,9 @@
           "contactPhone": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 50,
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "E.164 format (e.g. +972501234567)"
           },
           "displayName": {
             "type": "string",
@@ -1419,7 +1425,9 @@
           "contactPhone": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 50,
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "E.164 format (e.g. +972501234567)"
           },
           "displayName": {
             "type": "string",
@@ -2467,6 +2475,38 @@
           "ok"
         ],
         "title": "DeleteExpenseResponse"
+      },
+      "def-67": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "E.164 phone number to send the list to"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "SendListBody"
+      },
+      "def-68": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "boolean"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sent"
+        ],
+        "title": "SendListResponse"
       }
     }
   },
@@ -5553,6 +5593,103 @@
               "application/json": {
                 "schema": {
                   "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/send-list": {
+      "post": {
+        "summary": "Send the item list for a plan via WhatsApp",
+        "tags": [
+          "plans"
+        ],
+        "description": "Sends a formatted item list for the specified plan to the given phone number via WhatsApp. Caller must be a participant of the plan.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-67"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Message sent successfully",
+                  "$ref": "#/components/schemas/def-68"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — not a participant of this plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — not a participant of this plan",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
