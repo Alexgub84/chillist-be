@@ -16,7 +16,7 @@ import {
 const validOwner = {
   name: 'Alex',
   lastName: 'Guberman',
-  contactPhone: '+1-555-123-4567',
+  contactPhone: '+15551234567',
 }
 
 const TEST_USER_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
@@ -98,12 +98,12 @@ describe('Opportunistic User Tracking', () => {
             {
               name: 'John',
               lastName: 'Doe',
-              contactPhone: '+1-555-111-1111',
+              contactPhone: '+15551111111',
             },
             {
               name: 'Jane',
               lastName: 'Smith',
-              contactPhone: '+1-555-222-2222',
+              contactPhone: '+15552222222',
             },
           ],
         },

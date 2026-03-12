@@ -334,7 +334,7 @@ describe('All Participants Items — JSONB assignment model', () => {
         userId: 'cccccccc-1111-2222-3333-444444444444',
         name: 'New',
         lastName: 'Joiner',
-        contactPhone: '+1-555-999-0000',
+        contactPhone: '+15559990000',
       })
 
       const getResponse = await app.inject({

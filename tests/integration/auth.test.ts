@@ -150,7 +150,7 @@ describe('JWT Auth (injected JWKS)', () => {
           owner: {
             name: 'Owner',
             lastName: 'Test',
-            contactPhone: '+1-555-000-0001',
+            contactPhone: '+15550000001',
           },
         },
       })

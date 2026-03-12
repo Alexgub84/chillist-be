@@ -91,7 +91,7 @@ describe('POST /auth/sync-profile', () => {
     const old = {
       name: 'OldFirst',
       lastName: 'OldLast',
-      contactPhone: '+1-555-000-0001',
+      contactPhone: '+15550000001',
     }
     const { participant: p1 } = await createPlanWithParticipant(
       db,
@@ -110,7 +110,7 @@ describe('POST /auth/sync-profile', () => {
       user_metadata: {
         first_name: 'NewFirst',
         last_name: 'NewLast',
-        phone: '+1-555-999-0000',
+        phone: '+15559990000',
       },
     })
 
@@ -136,7 +136,7 @@ describe('POST /auth/sync-profile', () => {
     expect(row1.name).toBe('NewFirst')
     expect(row1.lastName).toBe('NewLast')
     expect(row1.contactEmail).toBe('new@example.com')
-    expect(row1.contactPhone).toBe('+1-555-999-0000')
+    expect(row1.contactPhone).toBe('+15559990000')
 
     expect(row2.name).toBe('NewFirst')
     expect(row2.lastName).toBe('NewLast')
@@ -146,7 +146,7 @@ describe('POST /auth/sync-profile', () => {
     await createPlanWithParticipant(db, USER_A_ID, {
       name: 'Bob',
       lastName: 'Smith',
-      contactPhone: '+1-555-000-0001',
+      contactPhone: '+15550000001',
       contactEmail: 'bob@example.com',
     })
 
@@ -187,13 +187,13 @@ describe('POST /auth/sync-profile', () => {
     await createPlanWithParticipant(db, USER_A_ID, {
       name: 'UserA',
       lastName: 'Original',
-      contactPhone: '+1-555-000-0001',
+      contactPhone: '+15550000001',
     })
 
     const { participant: userBParticipant } = await createPlanWithParticipant(
       db,
       USER_B_ID,
-      { name: 'UserB', lastName: 'Unchanged', contactPhone: '+1-555-000-0002' }
+      { name: 'UserB', lastName: 'Unchanged', contactPhone: '+15550000002' }
     )
 
     const jwt = await signTestJwt({
@@ -230,7 +230,7 @@ describe('POST /auth/sync-profile', () => {
     const old = {
       name: 'Old',
       lastName: 'Name',
-      contactPhone: '+1-555-000-0001',
+      contactPhone: '+15550000001',
     }
     await createPlanWithParticipant(db, USER_A_ID, old)
     await createPlanWithParticipant(db, USER_A_ID, old)

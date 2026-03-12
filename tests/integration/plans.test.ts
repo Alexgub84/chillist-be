@@ -40,7 +40,7 @@ function signAdminJwt() {
 const validOwner = {
   name: 'Alex',
   lastName: 'Guberman',
-  contactPhone: '+1-555-123-4567',
+  contactPhone: '+15551234567',
 }
 
 describe('Plans Route', () => {
@@ -303,7 +303,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
 
@@ -346,7 +346,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
 
@@ -392,7 +392,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
 
@@ -440,7 +440,7 @@ describe('Plans Route', () => {
       expect(plan.participants).toHaveLength(1)
       expect(plan.participants[0].name).toBe('Alex')
       expect(plan.participants[0].lastName).toBe('Guberman')
-      expect(plan.participants[0].contactPhone).toBe('+1-555-123-4567')
+      expect(plan.participants[0].contactPhone).toBe('+15551234567')
       expect(plan.participants[0].role).toBe('owner')
       expect(plan.participants[0].participantId).toBe(plan.ownerParticipantId)
 
@@ -540,12 +540,12 @@ describe('Plans Route', () => {
             {
               name: 'John',
               lastName: 'Doe',
-              contactPhone: '+1-555-111-1111',
+              contactPhone: '+15551111111',
             },
             {
               name: 'Jane',
               lastName: 'Smith',
-              contactPhone: '+1-555-222-2222',
+              contactPhone: '+15552222222',
               role: 'viewer',
             },
           ],
@@ -610,7 +610,7 @@ describe('Plans Route', () => {
             {
               name: 'Sarah',
               lastName: 'Connor',
-              contactPhone: '+1-555-333-3333',
+              contactPhone: '+15553333333',
             },
           ],
         },
@@ -644,7 +644,7 @@ describe('Plans Route', () => {
             {
               name: 'Sneaky',
               lastName: 'Person',
-              contactPhone: '+1-555-999-9999',
+              contactPhone: '+15559999999',
               role: 'owner',
             },
           ],
@@ -759,7 +759,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
 
@@ -797,7 +797,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
 
@@ -877,7 +877,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Sarah',
           lastName: 'Johnson',
-          contactPhone: '+1-555-234-5678',
+          contactPhone: '+15552345678',
         },
       })
 
@@ -1096,7 +1096,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
 
@@ -1106,7 +1106,7 @@ describe('Plans Route', () => {
       expect(body.supabaseUserId).toBe(REQUESTER_USER_ID)
       expect(body.name).toBe('Requester')
       expect(body.lastName).toBe('User')
-      expect(body.contactPhone).toBe('+1-555-999-9999')
+      expect(body.contactPhone).toBe('+15559999999')
       expect(body.status).toBe('pending')
     })
 
@@ -1127,7 +1127,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
       expect(first.statusCode).toBe(201)
@@ -1139,7 +1139,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
       expect(second.statusCode).toBe(200)
@@ -1163,7 +1163,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Alex',
           lastName: 'Guberman',
-          contactPhone: '+1-555-123-4567',
+          contactPhone: '+15551234567',
         },
       })
 
@@ -1179,7 +1179,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
 
@@ -1195,7 +1195,7 @@ describe('Plans Route', () => {
         payload: {
           name: 'Requester',
           lastName: 'User',
-          contactPhone: '+1-555-999-9999',
+          contactPhone: '+15559999999',
         },
       })
 
@@ -1268,7 +1268,7 @@ describe('Plans Route', () => {
       expect(participant.planId).toBe(seededPlan.planId)
       expect(participant.name).toBe('First1')
       expect(participant.lastName).toBe('Last1')
-      expect(participant.contactPhone).toBe('+1-555-000-0001')
+      expect(participant.contactPhone).toBe('+15550000001')
       expect(participant.role).toBe('owner')
     })
 

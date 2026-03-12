@@ -5,6 +5,11 @@ import { participants, plans } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
 import { removeParticipantFromAssignments } from '../services/item.service.js'
+import { config } from '../config.js'
+import {
+  resolveLanguage,
+  inviteMessage,
+} from '../services/whatsapp/messages.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -190,7 +195,11 @@ export async function participantsRoutes(fastify: FastifyInstance) {
 
       try {
         const [existingPlan] = await fastify.db
-          .select({ planId: plans.planId })
+          .select({
+            planId: plans.planId,
+            title: plans.title,
+            defaultLang: plans.defaultLang,
+          })
           .from(plans)
           .where(eq(plans.planId, planId))
 
@@ -213,6 +222,42 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           { participantId: createdParticipant.participantId, planId },
           'Participant created'
         )
+
+        if (createdParticipant.contactPhone && createdParticipant.inviteToken) {
+          const lang = resolveLanguage(existingPlan.defaultLang)
+          const deepLink = `${config.frontendUrl}/invite/${planId}/${createdParticipant.inviteToken}`
+          const planTitle =
+            existingPlan.title ?? (lang === 'he' ? 'תוכנית' : 'a plan')
+          const msg = inviteMessage(lang, { planTitle, deepLink })
+          fastify.whatsapp
+            .sendMessage(createdParticipant.contactPhone, msg)
+            .then((result) => {
+              if (result.success) {
+                request.log.info(
+                  {
+                    participantId: createdParticipant.participantId,
+                    messageId: result.messageId,
+                  },
+                  'WhatsApp invitation sent'
+                )
+              } else {
+                request.log.warn(
+                  {
+                    participantId: createdParticipant.participantId,
+                    error: result.error,
+                  },
+                  'WhatsApp invitation failed'
+                )
+              }
+            })
+            .catch((err) => {
+              request.log.warn(
+                { err, participantId: createdParticipant.participantId },
+                'WhatsApp invitation error'
+              )
+            })
+        }
+
         return reply.status(201).send(createdParticipant)
       } catch (error) {
         request.log.error(

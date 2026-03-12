@@ -305,7 +305,10 @@
           "contactPhone": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 50,
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "Plan owner phone number in E.164 format. Used for WhatsApp notifications (e.g. join request alerts).",
+            "example": "+972501234567"
           },
           "displayName": {
             "type": "string",
@@ -939,7 +942,10 @@
           "contactPhone": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 50,
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "Phone number in E.164 format. A WhatsApp invitation with a deep link to the plan will be sent to this number on creation.",
+            "example": "+972501234567"
           },
           "displayName": {
             "type": "string",
@@ -1001,7 +1007,10 @@
           "contactPhone": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 50,
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "Phone number in E.164 format.",
+            "example": "+972501234567"
           },
           "displayName": {
             "type": "string",
@@ -1419,7 +1428,10 @@
           "contactPhone": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 50,
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "Phone number in E.164 format. When a join request is created, a WhatsApp notification is sent to the plan owner.",
+            "example": "+972501234567"
           },
           "displayName": {
             "type": "string",
@@ -2467,6 +2479,44 @@
           "ok"
         ],
         "title": "DeleteExpenseResponse"
+      },
+      "def-67": {
+        "title": "SendListBody",
+        "description": "Request body for sending a plan item list via WhatsApp.",
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "Recipient phone number in E.164 format (e.g. +972501234567). The formatted item list for the plan will be sent to this number via WhatsApp.",
+            "example": "+972501234567"
+          }
+        },
+        "required": [
+          "phone"
+        ]
+      },
+      "def-68": {
+        "title": "SendListResponse",
+        "description": "Response after attempting to send an item list via WhatsApp.",
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "boolean",
+            "description": "Whether the WhatsApp message was successfully queued for delivery."
+          },
+          "messageId": {
+            "type": "string",
+            "description": "Unique message ID returned by the WhatsApp provider. Present only when sent is true."
+          },
+          "error": {
+            "type": "string",
+            "description": "Error description from the WhatsApp provider. Present only when sent is false."
+          }
+        },
+        "required": [
+          "sent"
+        ]
       }
     }
   },
@@ -5553,6 +5603,103 @@
               "application/json": {
                 "schema": {
                   "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/send-list": {
+      "post": {
+        "summary": "Send the item list for a plan via WhatsApp",
+        "tags": [
+          "plans"
+        ],
+        "description": "Sends a formatted item list for the specified plan to the given phone number via WhatsApp. Items are grouped by category and include name, quantity, and unit. The message language (English or Hebrew) is determined by the plan defaultLang setting. The phone number must be in E.164 format. Requires JWT authentication. Caller must be a participant of the plan.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-67"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Message sent successfully",
+                  "$ref": "#/components/schemas/def-68"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad request",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — not a participant of this plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — not a participant of this plan",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
                   "$ref": "#/components/schemas/def-0"
                 }
               }

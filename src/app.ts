@@ -15,10 +15,12 @@ import { authRoutes } from './routes/auth.route.js'
 import { claimRoutes } from './routes/claim.route.js'
 import { joinRequestRoutes } from './routes/join-request.route.js'
 import { expensesRoutes } from './routes/expenses.route.js'
+import { sendListRoutes } from './routes/send-list.route.js'
 import { Database } from './db/index.js'
 import authPlugin, { AuthPluginOptions } from './plugins/auth.js'
 import guestAuthPlugin from './plugins/guest-auth.js'
 import websocketPlugin, { WebSocketPluginOptions } from './plugins/websocket.js'
+import whatsappPlugin, { WhatsAppPluginOptions } from './plugins/whatsapp.js'
 
 export interface AppDependencies {
   db: Database
@@ -29,6 +31,7 @@ export interface BuildAppOptions {
   logger?: false
   auth?: AuthPluginOptions
   websocket?: WebSocketPluginOptions
+  whatsapp?: WhatsAppPluginOptions
   rateLimit?: { max: number; timeWindow: string } | false
 }
 
@@ -41,6 +44,7 @@ export async function buildApp(
     logger,
     auth,
     websocket,
+    whatsapp,
     rateLimit,
   } = options
 
@@ -128,6 +132,7 @@ export async function buildApp(
 
   await fastify.register(authPlugin, auth ?? {})
   await fastify.register(guestAuthPlugin)
+  await fastify.register(whatsappPlugin, whatsapp ?? {})
   await fastify.register(websocketPlugin, websocket ?? {})
 
   fastify.addHook('onRequest', async (request) => {
@@ -200,6 +205,7 @@ export async function buildApp(
   await fastify.register(claimRoutes)
   await fastify.register(joinRequestRoutes)
   await fastify.register(expensesRoutes)
+  await fastify.register(sendListRoutes)
 
   return fastify
 }

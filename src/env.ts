@@ -13,6 +13,9 @@ const envSchema = z
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
     FRONTEND_URL: z.string().url().default('http://localhost:5173'),
     SUPABASE_URL: z.string().url().optional(),
+    WHATSAPP_PROVIDER: z.enum(['green_api', 'fake']).default('fake'),
+    GREEN_API_INSTANCE_ID: z.string().optional(),
+    GREEN_API_TOKEN: z.string().optional(),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SUPABASE_URL, {
     message: 'SUPABASE_URL is required in production',

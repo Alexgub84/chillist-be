@@ -52,7 +52,7 @@ async function createPlanWithParticipant(
       planId: plan.planId,
       name: 'Guest',
       lastName: 'User',
-      contactPhone: '+1-555-000-0001',
+      contactPhone: '+15550000001',
       role: overrides.participantRole ?? 'participant',
       userId: overrides.participantUserId ?? null,
       inviteToken,
@@ -96,7 +96,7 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
       user_metadata: {
         first_name: 'Bob',
         last_name: 'Smith',
-        phone: '+1-555-999-0000',
+        phone: '+15559990000',
         avatar_url: 'https://example.com/avatar.jpg',
       },
     })
@@ -115,7 +115,7 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
     expect(body.name).toBe('Bob')
     expect(body.lastName).toBe('Smith')
     expect(body.contactEmail).toBe('bob@example.com')
-    expect(body.contactPhone).toBe('+1-555-999-0000')
+    expect(body.contactPhone).toBe('+15559990000')
     expect(body.avatarUrl).toBe('https://example.com/avatar.jpg')
   })
 
@@ -152,7 +152,7 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
     const body = response.json()
     expect(body.name).toBe('Guest')
     expect(body.lastName).toBe('User')
-    expect(body.contactPhone).toBe('+1-555-000-0001')
+    expect(body.contactPhone).toBe('+15550000001')
   })
 
   it('syncs email even without user_metadata', async () => {
@@ -357,7 +357,7 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
       planId: plan.planId,
       name: 'Already',
       lastName: 'Linked',
-      contactPhone: '+1-555-000-0099',
+      contactPhone: '+15550000099',
       role: 'participant',
       userId: USER_A_ID,
       inviteToken: generateToken(),

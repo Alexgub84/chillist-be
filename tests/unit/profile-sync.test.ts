@@ -10,7 +10,7 @@ describe('buildIdentityFields', () => {
       role: 'authenticated',
       firstName: 'Bob',
       lastName: 'Smith',
-      phone: '+1-555-000-0001',
+      phone: '+15550000001',
       avatarUrl: 'https://example.com/avatar.jpg',
     }
 
@@ -20,7 +20,7 @@ describe('buildIdentityFields', () => {
       name: 'Bob',
       lastName: 'Smith',
       contactEmail: 'bob@example.com',
-      contactPhone: '+1-555-000-0001',
+      contactPhone: '+15550000001',
       avatarUrl: 'https://example.com/avatar.jpg',
     })
   })

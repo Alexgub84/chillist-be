@@ -121,7 +121,7 @@ describe('Docker Production E2E Tests', () => {
         owner: {
           name: 'E2E',
           lastName: 'Tester',
-          contactPhone: '+1-555-000-0000',
+          contactPhone: '+15550000000',
         },
       }
 
