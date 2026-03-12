@@ -288,7 +288,7 @@ describe('Guest Auth Plugin', () => {
         payload: {
           name: 'Test',
           lastName: 'Guest',
-          contactPhone: '+1-555-000-1234',
+          contactPhone: '+15550001234',
         },
       })
 
@@ -306,13 +306,13 @@ describe('Guest Auth Plugin', () => {
           owner: {
             name: 'Owner',
             lastName: 'Test',
-            contactPhone: '+1-555-000-0001',
+            contactPhone: '+15550000001',
           },
           participants: [
             {
               name: 'Guest',
               lastName: 'One',
-              contactPhone: '+1-555-000-0002',
+              contactPhone: '+15550000002',
             },
           ],
         },
@@ -384,7 +384,7 @@ describe('Guest Auth Plugin', () => {
         payload: {
           name: 'New',
           lastName: 'Person',
-          contactPhone: '+1-555-000-5678',
+          contactPhone: '+15550005678',
         },
       })
 

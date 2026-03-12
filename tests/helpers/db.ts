@@ -124,7 +124,7 @@ export async function seedTestParticipantWithUser(
       userId,
       name: 'Linked',
       lastName: 'Participant',
-      contactPhone: '+1-555-000-0002',
+      contactPhone: '+15550000002',
       role: 'participant',
       inviteToken: randomBytes(32).toString('hex'),
       ...overrides,
@@ -144,7 +144,7 @@ export async function seedTestParticipants(
     planId,
     name: `First${i + 1}`,
     lastName: `Last${i + 1}`,
-    contactPhone: `+1-555-000-000${i + 1}`,
+    contactPhone: `+1555000000${i + 1}`,
     displayName: `Participant ${i + 1}`,
     role: (i === 0 ? 'owner' : 'participant') as
       | 'owner'
@@ -175,7 +175,7 @@ export async function seedTestJoinRequests(
       supabaseUserId,
       name: 'TestFirst',
       lastName: 'TestLast',
-      contactPhone: '+1-555-000-0000',
+      contactPhone: '+15550000000',
       status: 'pending',
       ...overrides,
     })

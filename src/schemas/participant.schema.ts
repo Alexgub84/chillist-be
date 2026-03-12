@@ -56,7 +56,13 @@ export const createParticipantBodySchema = {
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },
     lastName: { type: 'string', minLength: 1, maxLength: 255 },
-    contactPhone: { type: 'string', minLength: 1, maxLength: 50 },
+    contactPhone: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 50,
+      pattern: '^\\+[1-9]\\d{6,14}$',
+      description: 'E.164 format (e.g. +972501234567)',
+    },
     displayName: { type: 'string', minLength: 1, maxLength: 255 },
     role: { type: 'string', enum: ['participant', 'viewer'] },
     avatarUrl: { type: 'string' },
@@ -76,7 +82,13 @@ export const updateParticipantBodySchema = {
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },
     lastName: { type: 'string', minLength: 1, maxLength: 255 },
-    contactPhone: { type: 'string', minLength: 1, maxLength: 50 },
+    contactPhone: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 50,
+      pattern: '^\\+[1-9]\\d{6,14}$',
+      description: 'E.164 format (e.g. +972501234567)',
+    },
     displayName: { type: 'string', maxLength: 255, nullable: true },
     role: { type: 'string', enum: ['participant', 'viewer'] },
     avatarUrl: { type: 'string', nullable: true },

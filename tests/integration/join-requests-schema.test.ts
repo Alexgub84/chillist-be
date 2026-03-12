@@ -30,7 +30,7 @@ describe('participant_join_requests schema', () => {
     expect(joinRequest.supabaseUserId).toBe(userId)
     expect(joinRequest.name).toBe('TestFirst')
     expect(joinRequest.lastName).toBe('TestLast')
-    expect(joinRequest.contactPhone).toBe('+1-555-000-0000')
+    expect(joinRequest.contactPhone).toBe('+15550000000')
     expect(joinRequest.status).toBe('pending')
   })
 
@@ -50,7 +50,7 @@ describe('participant_join_requests schema', () => {
       {
         name: 'Custom',
         lastName: 'Name',
-        contactPhone: '+1-555-999-9999',
+        contactPhone: '+15559999999',
         status: 'rejected',
         foodPreferences: 'vegan',
       }

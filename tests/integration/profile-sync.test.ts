@@ -49,7 +49,7 @@ async function createPlanWithLinkedParticipant(
       planId: plan.planId,
       name: 'Owner',
       lastName: 'Person',
-      contactPhone: '+1-555-000-0000',
+      contactPhone: '+15550000000',
       role: 'owner',
       userId: OWNER_ID,
       inviteToken: generateToken(),
@@ -67,7 +67,7 @@ async function createPlanWithLinkedParticipant(
       planId: plan.planId,
       name: opts.participantName ?? 'Old',
       lastName: opts.participantLastName ?? 'Name',
-      contactPhone: opts.participantPhone ?? '+1-555-000-0001',
+      contactPhone: opts.participantPhone ?? '+15550000001',
       contactEmail: opts.participantEmail ?? null,
       role: 'participant',
       userId: LINKED_USER_ID,
@@ -114,7 +114,7 @@ describe('Profile sync on plan fetch', () => {
       user_metadata: {
         first_name: 'NewBob',
         last_name: 'NewSmith',
-        phone: '+1-555-999-0000',
+        phone: '+15559990000',
       },
     })
 
@@ -134,7 +134,7 @@ describe('Profile sync on plan fetch', () => {
     expect(synced.name).toBe('NewBob')
     expect(synced.lastName).toBe('NewSmith')
     expect(synced.contactEmail).toBe('newbob@example.com')
-    expect(synced.contactPhone).toBe('+1-555-999-0000')
+    expect(synced.contactPhone).toBe('+15559990000')
   })
 
   it('does not write to DB when participant data matches JWT', async () => {
@@ -144,7 +144,7 @@ describe('Profile sync on plan fetch', () => {
         participantName: 'Bob',
         participantLastName: 'Smith',
         participantEmail: 'bob@example.com',
-        participantPhone: '+1-555-000-0001',
+        participantPhone: '+15550000001',
       }
     )
 

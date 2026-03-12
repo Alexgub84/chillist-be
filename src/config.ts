@@ -9,4 +9,7 @@ export const config = {
   databaseUrl: env.DATABASE_URL,
   frontendUrl: env.FRONTEND_URL,
   supabaseUrl: env.SUPABASE_URL,
+  whatsappProvider: env.WHATSAPP_PROVIDER,
+  greenApiInstanceId: env.GREEN_API_INSTANCE_ID,
+  greenApiToken: env.GREEN_API_TOKEN,
 } as const

@@ -82,7 +82,7 @@ describe('Participants Route', () => {
       expect(first.planId).toBe(plan.planId)
       expect(first.name).toBe('First1')
       expect(first.lastName).toBe('Last1')
-      expect(first.contactPhone).toBe('+1-555-000-0001')
+      expect(first.contactPhone).toBe('+15550000001')
       expect(first.role).toBe('owner')
       expect(first.createdAt).toBeDefined()
       expect(first.updatedAt).toBeDefined()
@@ -143,7 +143,7 @@ describe('Participants Route', () => {
         payload: {
           name: 'Alex',
           lastName: 'Guberman',
-          contactPhone: '+1-555-123-4567',
+          contactPhone: '+15551234567',
         },
       })
 
@@ -154,7 +154,7 @@ describe('Participants Route', () => {
       expect(participant.planId).toBe(plan.planId)
       expect(participant.name).toBe('Alex')
       expect(participant.lastName).toBe('Guberman')
-      expect(participant.contactPhone).toBe('+1-555-123-4567')
+      expect(participant.contactPhone).toBe('+15551234567')
       expect(participant.displayName).toBeNull()
       expect(participant.role).toBe('participant')
       expect(participant.avatarUrl).toBeNull()
@@ -203,7 +203,7 @@ describe('Participants Route', () => {
         payload: {
           name: 'Alex',
           lastName: 'Guberman',
-          contactPhone: '+1-555-123-4567',
+          contactPhone: '+15551234567',
         },
       })
 
@@ -300,7 +300,7 @@ describe('Participants Route', () => {
         payload: {
           name: 'Alex',
           lastName: 'Guberman',
-          contactPhone: '+1-555-123-4567',
+          contactPhone: '+15551234567',
         },
       })
 
@@ -337,7 +337,7 @@ describe('Participants Route', () => {
       expect(result.planId).toBe(plan.planId)
       expect(result.name).toBe('First1')
       expect(result.lastName).toBe('Last1')
-      expect(result.contactPhone).toBe('+1-555-000-0001')
+      expect(result.contactPhone).toBe('+15550000001')
     })
 
     it('returns 404 when participant does not exist', async () => {
@@ -402,7 +402,7 @@ describe('Participants Route', () => {
         payload: {
           name: 'NewFirst',
           lastName: 'NewLast',
-          contactPhone: '+1-999-999-9999',
+          contactPhone: '+19999999999',
           displayName: 'New Display',
           role: 'viewer',
           contactEmail: 'new@example.com',
@@ -414,7 +414,7 @@ describe('Participants Route', () => {
       const updated = response.json()
       expect(updated.name).toBe('NewFirst')
       expect(updated.lastName).toBe('NewLast')
-      expect(updated.contactPhone).toBe('+1-999-999-9999')
+      expect(updated.contactPhone).toBe('+19999999999')
       expect(updated.displayName).toBe('New Display')
       expect(updated.role).toBe('viewer')
       expect(updated.contactEmail).toBe('new@example.com')
@@ -594,7 +594,7 @@ describe('Participants Route', () => {
           planId: plan.planId,
           name: 'Other',
           lastName: 'User',
-          contactPhone: '+1-555-999-0000',
+          contactPhone: '+15559990000',
           role: 'participant',
           userId: OTHER_USER_ID,
           inviteToken: randomBytes(32).toString('hex'),
@@ -629,7 +629,7 @@ describe('Participants Route', () => {
           planId: plan.planId,
           name: 'Unrelated',
           lastName: 'Person',
-          contactPhone: '+1-555-888-0000',
+          contactPhone: '+15558880000',
           role: 'participant',
           userId: OTHER_USER_ID,
           inviteToken: randomBytes(32).toString('hex'),

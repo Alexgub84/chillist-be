@@ -199,7 +199,7 @@ describe('Plans Route - Error Scenarios', () => {
           owner: {
             name: 'Alex',
             lastName: 'Guberman',
-            contactPhone: '+1-555-123-4567',
+            contactPhone: '+15551234567',
           },
         },
       })
@@ -222,7 +222,7 @@ describe('Plans Route - Error Scenarios', () => {
           owner: {
             name: 'Alex',
             lastName: 'Guberman',
-            contactPhone: '+1-555-123-4567',
+            contactPhone: '+15551234567',
           },
         },
       })

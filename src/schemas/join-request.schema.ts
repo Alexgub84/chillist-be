@@ -4,7 +4,13 @@ export const createJoinRequestBodySchema = {
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },
     lastName: { type: 'string', minLength: 1, maxLength: 255 },
-    contactPhone: { type: 'string', minLength: 1, maxLength: 50 },
+    contactPhone: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 50,
+      pattern: '^\\+[1-9]\\d{6,14}$',
+      description: 'E.164 format (e.g. +972501234567)',
+    },
     displayName: { type: 'string', minLength: 1, maxLength: 255 },
     contactEmail: { type: 'string', maxLength: 255 },
     adultsCount: { type: 'integer', minimum: 0 },

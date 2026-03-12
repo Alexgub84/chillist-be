@@ -1,9 +1,10 @@
 import { FastifyInstance } from 'fastify'
 import { eq, and } from 'drizzle-orm'
-import { plans, participantJoinRequests } from '../db/schema.js'
+import { plans, participants, participantJoinRequests } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
 import { addParticipantToPlan } from '../services/participant.service.js'
+import { config } from '../config.js'
 
 interface CreateJoinRequestBody {
   name: string
@@ -168,6 +169,41 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
           { planId, userId, requestId: created.requestId },
           'Join request created'
         )
+
+        if (plan.ownerParticipantId) {
+          fastify.db
+            .select({ contactPhone: participants.contactPhone })
+            .from(participants)
+            .where(eq(participants.participantId, plan.ownerParticipantId))
+            .limit(1)
+            .then(([owner]) => {
+              if (!owner?.contactPhone) return undefined
+              const requesterName = `${created.name} ${created.lastName}`
+              const planTitle = plan.title ?? 'your plan'
+              const deepLink = `${config.frontendUrl}/plans/${planId}/join-requests`
+              const msg = `New join request \u270B ${requesterName} wants to join "${planTitle}". Review: ${deepLink}`
+              return fastify.whatsapp.sendMessage(owner.contactPhone, msg)
+            })
+            .then((result) => {
+              if (result?.success) {
+                request.log.info(
+                  { requestId: created.requestId },
+                  'WhatsApp join-request notification sent to owner'
+                )
+              } else if (result) {
+                request.log.warn(
+                  { requestId: created.requestId, error: result.error },
+                  'WhatsApp join-request notification failed'
+                )
+              }
+            })
+            .catch((err) => {
+              request.log.warn(
+                { err, requestId: created.requestId },
+                'WhatsApp join-request notification error'
+              )
+            })
+        }
 
         return reply.status(201).send({
           requestId: created.requestId,

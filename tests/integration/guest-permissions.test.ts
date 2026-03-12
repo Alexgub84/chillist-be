@@ -79,7 +79,7 @@ describe('Guest Permission Boundaries', () => {
         payload: {
           name: 'Test',
           lastName: 'Person',
-          contactPhone: '+1-555-000-0001',
+          contactPhone: '+15550000001',
         },
       })
       expect(response.statusCode).toBe(201)
@@ -103,7 +103,7 @@ describe('Guest Permission Boundaries', () => {
                 owner: {
                   name: 'Hack',
                   lastName: 'Er',
-                  contactPhone: '+1-555-000-0000',
+                  contactPhone: '+15550000000',
                 },
               },
             }

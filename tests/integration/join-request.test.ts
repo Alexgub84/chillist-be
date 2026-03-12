@@ -42,7 +42,7 @@ async function createPlanWithOwner(db: Database, ownerUserId: string) {
       planId: plan.planId,
       name: 'Owner',
       lastName: 'User',
-      contactPhone: '+1-555-000-0001',
+      contactPhone: '+15550000001',
       role: 'owner',
       userId: ownerUserId,
       inviteToken: randomBytes(32).toString('hex'),
@@ -87,7 +87,7 @@ describe('Join Request Management', () => {
         {
           name: 'Jane',
           lastName: 'Doe',
-          contactPhone: '+1-555-999-0000',
+          contactPhone: '+15559990000',
           contactEmail: 'jane@example.com',
           displayName: 'JaneD',
           adultsCount: 2,
@@ -112,7 +112,7 @@ describe('Join Request Management', () => {
       expect(body.planId).toBe(plan.planId)
       expect(body.name).toBe('Jane')
       expect(body.lastName).toBe('Doe')
-      expect(body.contactPhone).toBe('+1-555-999-0000')
+      expect(body.contactPhone).toBe('+15559990000')
       expect(body.contactEmail).toBe('jane@example.com')
       expect(body.displayName).toBe('JaneD')
       expect(body.adultsCount).toBe(2)
@@ -557,7 +557,7 @@ describe('Join Request Management', () => {
           owner: {
             name: 'Owner',
             lastName: 'Person',
-            contactPhone: '+1-555-000-0001',
+            contactPhone: '+15550000001',
           },
         },
       })
@@ -571,7 +571,7 @@ describe('Join Request Management', () => {
         payload: {
           name: 'Requester',
           lastName: 'Person',
-          contactPhone: '+1-555-999-0000',
+          contactPhone: '+15559990000',
           contactEmail: 'req@example.com',
           displayName: 'ReqP',
           adultsCount: 3,

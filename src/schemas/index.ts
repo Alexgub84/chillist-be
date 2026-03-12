@@ -82,6 +82,10 @@ import {
   expenseIdParamSchema,
   deleteExpenseResponseSchema,
 } from './expense.schema.js'
+import {
+  sendListBodySchema,
+  sendListResponseSchema,
+} from './send-list.schema.js'
 
 const schemas = [
   errorResponseSchema,
@@ -151,6 +155,8 @@ const schemas = [
   updateExpenseBodySchema,
   expenseIdParamSchema,
   deleteExpenseResponseSchema,
+  sendListBodySchema,
+  sendListResponseSchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
@@ -168,3 +174,4 @@ export * from './invite.schema.js'
 export * from './auth.schema.js'
 export * from './join-request.schema.js'
 export * from './expense.schema.js'
+export * from './send-list.schema.js'

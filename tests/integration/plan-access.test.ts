@@ -33,7 +33,7 @@ function signAdminJwt(overrides: { sub?: string } = {}) {
 const validOwner = {
   name: 'Alex',
   lastName: 'Guberman',
-  contactPhone: '+1-555-123-4567',
+  contactPhone: '+15551234567',
 }
 
 async function createPlanDirectly(
@@ -59,7 +59,7 @@ async function createPlanDirectly(
       planId: plan.planId,
       name: 'Owner',
       lastName: 'User',
-      contactPhone: '+1-555-000-0001',
+      contactPhone: '+15550000001',
       role: 'owner',
       userId: overrides.createdByUserId ?? null,
       inviteToken: randomBytes(32).toString('hex'),
@@ -81,7 +81,7 @@ async function linkParticipant(
       planId,
       name: 'Linked',
       lastName: 'Participant',
-      contactPhone: '+1-555-000-0002',
+      contactPhone: '+15550000002',
       role,
       userId,
       inviteToken: randomBytes(32).toString('hex'),
