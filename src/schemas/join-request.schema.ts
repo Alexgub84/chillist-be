@@ -9,7 +9,9 @@ export const createJoinRequestBodySchema = {
       minLength: 1,
       maxLength: 50,
       pattern: '^\\+[1-9]\\d{6,14}$',
-      description: 'E.164 format (e.g. +972501234567)',
+      description:
+        'Phone number in E.164 format. When a join request is created, a WhatsApp notification is sent to the plan owner.',
+      examples: ['+972501234567', '+15551234567'],
     },
     displayName: { type: 'string', minLength: 1, maxLength: 255 },
     contactEmail: { type: 'string', maxLength: 255 },

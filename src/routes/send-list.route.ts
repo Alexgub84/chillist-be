@@ -35,7 +35,11 @@ export async function sendListRoutes(fastify: FastifyInstance) {
         tags: ['plans'],
         summary: 'Send the item list for a plan via WhatsApp',
         description:
-          'Sends a formatted item list for the specified plan to the given phone number via WhatsApp. Caller must be a participant of the plan.',
+          'Sends a formatted item list for the specified plan to the given phone number via WhatsApp. ' +
+          'Items are grouped by category and include name, quantity, and unit. ' +
+          'The message language (English or Hebrew) is determined by the plan defaultLang setting. ' +
+          'The phone number must be in E.164 format. ' +
+          'Requires JWT authentication. Caller must be a participant of the plan.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'SendListBody#' },
         response: {
