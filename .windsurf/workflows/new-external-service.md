@@ -1,0 +1,41 @@
+---
+description: Checklist for adding a new external service with a fake test double
+---
+
+# Adding a New External Service
+
+When integrating a new external API (e.g., WhatsApp, email, SMS, payment), follow this checklist to prevent fake/test implementations from leaking into production.
+
+## 1. Service layer
+
+- Create the real service in `src/services/<name>/` implementing an interface (e.g., `IWhatsAppService`)
+- Create a fake service for tests (e.g., `FakeWhatsAppService`) — returns success, stores calls for assertions
+- Create a factory function that only creates the **real** service — never the fake
+- The fake must only be injectable via `buildApp` options, never created by the factory
+
+## 2. Fastify plugin
+
+- Register the service as a Fastify decorator via a plugin in `src/plugins/`
+- If `opts.<service>` is provided (test injection), use it
+- If provider is `fake` (dev only), use a `NoopService` that returns `{ success: false }`
+- If the real service fails to initialize — **let it crash** (no silent fallback)
+- Log the concrete service type at startup (info level)
+
+## 3. Environment validation
+
+- Add the provider env var to `src/env.ts` (e.g., `SERVICE_PROVIDER: z.enum([...]).default('fake')`)
+- Add `.refine()`: block `fake` in production
+- Add `.refine()`: require credentials when the real provider is selected
+- Follow the same pattern as `SUPABASE_URL` and `WHATSAPP_PROVIDER`
+
+## 4. Tests
+
+- **Unit tests for the real service** — mock the HTTP layer (e.g., `globalThis.fetch`), not the service itself
+- **Unit tests for the fake service** — verify it stores calls and returns expected shapes
+- **Env guard tests** — verify `fake` is rejected in production, credentials required for real provider
+- **Integration tests** — inject the fake via `buildApp` options, assert on stored messages
+- **E2E prod test** — `describe.skipIf(!CREDS)`, tests the real API with real credentials. Skipped in CI, run manually before deploy. Follow the pattern in `tests/e2e/auth-prod.test.ts` and `tests/e2e/whatsapp-prod.test.ts`
+
+## 5. Env example
+
+- Add the new env vars to `.env.example` with comments explaining which values are for dev vs production

@@ -5,6 +5,7 @@ import { FastifyInstance } from 'fastify'
 import {
   cleanupTestDatabase,
   closeTestDatabase,
+  seedTestJoinRequests,
   seedTestParticipants,
   seedTestPlans,
   setupTestDatabase,
@@ -137,6 +138,23 @@ describe('WebSocket Item Notifications', () => {
       )
       const { code } = await waitForClose(ws)
       expect(code).toBe(4004)
+      ws.close()
+    })
+
+    it('closes with 4005 when user has a pending join request', async () => {
+      const otherUserId = 'bbbbbbbb-1111-2222-3333-444444444444'
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: otherUserId,
+        visibility: 'private',
+      })
+      await seedTestJoinRequests(plan.planId, TEST_USER_ID)
+
+      const ws = await app.injectWS(
+        `/plans/${plan.planId}/ws?token=${encodeURIComponent(token)}`
+      )
+      const { code, reason } = await waitForClose(ws)
+      expect(code).toBe(4005)
+      expect(reason).toBe('Pending join request')
       ws.close()
     })
 
