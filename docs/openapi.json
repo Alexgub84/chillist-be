@@ -2497,6 +2497,60 @@
         ]
       },
       "def-68": {
+        "title": "SendListAllResponse",
+        "description": "Response after attempting to send an item list to all non-owner participants via WhatsApp.",
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "Total number of non-owner participants with phone numbers."
+          },
+          "sent": {
+            "type": "number",
+            "description": "Number of messages successfully queued for delivery."
+          },
+          "failed": {
+            "type": "number",
+            "description": "Number of messages that failed to send."
+          },
+          "results": {
+            "type": "array",
+            "description": "Per-participant send result.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string"
+                },
+                "phone": {
+                  "type": "string"
+                },
+                "sent": {
+                  "type": "boolean"
+                },
+                "messageId": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "participantId",
+                "phone",
+                "sent"
+              ]
+            }
+          }
+        },
+        "required": [
+          "total",
+          "sent",
+          "failed",
+          "results"
+        ]
+      },
+      "def-69": {
         "title": "SendListResponse",
         "description": "Response after attempting to send an item list via WhatsApp.",
         "type": "object",
@@ -5645,7 +5699,7 @@
               "application/json": {
                 "schema": {
                   "description": "Message sent successfully",
-                  "$ref": "#/components/schemas/def-68"
+                  "$ref": "#/components/schemas/def-69"
                 }
               }
             }
@@ -5678,6 +5732,83 @@
               "application/json": {
                 "schema": {
                   "description": "Forbidden — not a participant of this plan",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/send-list-all": {
+      "post": {
+        "summary": "Send the item list to all non-owner participants via WhatsApp",
+        "tags": [
+          "plans"
+        ],
+        "description": "Sends the formatted item list for the specified plan to every non-owner participant who has a phone number. Messages are sent in parallel. The response includes per-participant results. Language is determined by plan defaultLang. Requires JWT authentication. Caller must be the plan owner or admin.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bulk send results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bulk send results",
+                  "$ref": "#/components/schemas/def-68"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — not the plan owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — not the plan owner",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
