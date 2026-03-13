@@ -1,4 +1,23 @@
-type Lang = 'he' | 'en'
+export type Lang = 'he' | 'en'
+
+const categoryTranslations: Record<string, Record<Lang, string>> = {
+  equipment: { en: 'Equipment', he: 'ציוד' },
+  food: { en: 'Food', he: 'אוכל' },
+}
+
+const unitTranslations: Record<string, Record<Lang, string>> = {
+  pcs: { en: 'pcs', he: 'יח׳' },
+  kg: { en: 'kg', he: 'ק"ג' },
+  g: { en: 'g', he: 'גרם' },
+  lb: { en: 'lb', he: 'ליברה' },
+  oz: { en: 'oz', he: 'אונקיה' },
+  l: { en: 'l', he: 'ליטר' },
+  ml: { en: 'ml', he: 'מ"ל' },
+  m: { en: 'm', he: 'מטר' },
+  cm: { en: 'cm', he: 'ס"מ' },
+  pack: { en: 'pack', he: 'חבילה' },
+  set: { en: 'set', he: 'סט' },
+}
 
 interface InviteMessageParams {
   planTitle: string
@@ -54,6 +73,14 @@ export function joinRequestMessage(
   params: JoinRequestMessageParams
 ): string {
   return templates.joinRequest[lang](params)
+}
+
+export function translateCategory(category: string, lang: Lang): string {
+  return categoryTranslations[category]?.[lang] ?? category
+}
+
+export function translateUnit(unit: string, lang: Lang): string {
+  return unitTranslations[unit]?.[lang] ?? unit
 }
 
 export function sendListMessage(

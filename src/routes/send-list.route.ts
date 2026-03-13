@@ -5,6 +5,8 @@ import { checkPlanAccess } from '../utils/plan-access.js'
 import {
   resolveLanguage,
   sendListMessage,
+  translateCategory,
+  translateUnit,
 } from '../services/whatsapp/messages.js'
 
 interface SendListBody {
@@ -115,14 +117,14 @@ export async function sendListRoutes(fastify: FastifyInstance) {
         if (planItems.length > 0) {
           const grouped: Record<string, string[]> = {}
           for (const item of planItems) {
-            const cat = item.category ?? (lang === 'he' ? 'אחר' : 'Other')
+            const cat = translateCategory(item.category ?? 'other', lang)
             if (!grouped[cat]) grouped[cat] = []
             const qty =
               item.quantity > 1
-                ? `${item.quantity}${item.unit ? ' ' + item.unit : ''}`
+                ? `${item.quantity} ${item.unit ? translateUnit(item.unit, lang) : ''}`
                 : ''
             grouped[cat].push(
-              qty ? `• ${item.name} (${qty})` : `• ${item.name}`
+              qty ? `• ${item.name} (${qty.trim()})` : `• ${item.name}`
             )
           }
 
