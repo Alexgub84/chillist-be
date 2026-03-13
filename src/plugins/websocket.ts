@@ -9,8 +9,10 @@ import {
   FlattenedJWSInput,
   JWTPayload,
 } from 'jose'
+import { eq, and } from 'drizzle-orm'
 import { config } from '../config.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
+import { participantJoinRequests } from '../db/schema.js'
 
 type JWKSResolver = (
   protectedHeader?: JWSHeaderParameters,
@@ -146,6 +148,29 @@ async function websocketPlugin(
         const { allowed } = await checkPlanAccess(fastify.db, planId, user)
 
         if (!allowed) {
+          if (userId) {
+            const [pending] = await fastify.db
+              .select({ requestId: participantJoinRequests.requestId })
+              .from(participantJoinRequests)
+              .where(
+                and(
+                  eq(participantJoinRequests.planId, planId),
+                  eq(participantJoinRequests.supabaseUserId, userId),
+                  eq(participantJoinRequests.status, 'pending')
+                )
+              )
+              .limit(1)
+
+            if (pending) {
+              request.log.info(
+                { planId, userId, requestId: pending.requestId },
+                'WebSocket rejected — pending join request'
+              )
+              socket.close(4005, 'Pending join request')
+              return
+            }
+          }
+
           request.log.warn(
             { planId, userId },
             'WebSocket rejected — plan not found or access denied'
