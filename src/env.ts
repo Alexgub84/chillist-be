@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const envSchema = z
+export const envSchema = z
   .object({
     PORT: z.coerce.number().default(3333),
     HOST: z.string().default('0.0.0.0'),
@@ -21,6 +21,24 @@ const envSchema = z
     message: 'SUPABASE_URL is required in production',
     path: ['SUPABASE_URL'],
   })
+  .refine(
+    (env) => env.NODE_ENV !== 'production' || env.WHATSAPP_PROVIDER !== 'fake',
+    {
+      message:
+        'WHATSAPP_PROVIDER=fake is not allowed in production — set to green_api',
+      path: ['WHATSAPP_PROVIDER'],
+    }
+  )
+  .refine(
+    (env) =>
+      env.WHATSAPP_PROVIDER !== 'green_api' ||
+      (!!env.GREEN_API_INSTANCE_ID && !!env.GREEN_API_TOKEN),
+    {
+      message:
+        'GREEN_API_INSTANCE_ID and GREEN_API_TOKEN are required when WHATSAPP_PROVIDER=green_api',
+      path: ['GREEN_API_INSTANCE_ID'],
+    }
+  )
 
 export type Env = z.infer<typeof envSchema>
 

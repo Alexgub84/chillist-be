@@ -31,30 +31,27 @@ async function whatsappPlugin(
   opts: WhatsAppPluginOptions = {}
 ) {
   let service: IWhatsAppService
+  let serviceType: string
 
   if (opts.whatsapp) {
     service = opts.whatsapp
+    serviceType = service.constructor.name || 'injected'
+  } else if (config.whatsappProvider === 'green_api') {
+    service = createWhatsAppService({
+      provider: 'green_api',
+      greenApiInstanceId: config.greenApiInstanceId!,
+      greenApiToken: config.greenApiToken!,
+    })
+    serviceType = 'GreenApiWhatsAppService'
   } else {
-    try {
-      service = createWhatsAppService({
-        provider: config.whatsappProvider,
-        greenApiInstanceId: config.greenApiInstanceId,
-        greenApiToken: config.greenApiToken,
-      })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      fastify.log.error(
-        { err, provider: config.whatsappProvider },
-        `WhatsApp service failed to initialize: ${message}`
-      )
-      service = new NoopWhatsAppService(message)
-    }
+    service = new NoopWhatsAppService('provider is fake (dev/test only)')
+    serviceType = 'NoopWhatsAppService'
   }
 
   fastify.decorate('whatsapp', service)
 
   fastify.log.info(
-    { provider: config.whatsappProvider },
+    { provider: config.whatsappProvider, serviceType },
     'WhatsApp service registered'
   )
 }
