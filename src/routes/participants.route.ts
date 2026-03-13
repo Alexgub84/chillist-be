@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
-import { participants, plans } from '../db/schema.js'
+import { participants, plans, whatsappNotifications } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
 import { removeParticipantFromAssignments } from '../services/item.service.js'
@@ -232,6 +232,23 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           fastify.whatsapp
             .sendMessage(createdParticipant.contactPhone, msg)
             .then((result) => {
+              fastify.db
+                .insert(whatsappNotifications)
+                .values({
+                  planId,
+                  recipientPhone: createdParticipant.contactPhone!,
+                  recipientParticipantId: createdParticipant.participantId,
+                  type: 'invitation_sent',
+                  status: result.success ? 'sent' : 'failed',
+                  messageId: result.success ? result.messageId : null,
+                  error: result.success ? null : result.error,
+                })
+                .catch((dbErr) =>
+                  request.log.warn(
+                    { err: dbErr },
+                    'Failed to persist WhatsApp notification'
+                  )
+                )
               if (result.success) {
                 request.log.info(
                   {

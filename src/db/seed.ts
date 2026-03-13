@@ -50,7 +50,7 @@ async function seed() {
 
   try {
     await db.execute(
-      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, user_details CASCADE`
+      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, user_details, whatsapp_notifications CASCADE`
     )
     console.log('Cleared all tables')
 

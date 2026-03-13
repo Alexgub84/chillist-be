@@ -30,6 +30,11 @@ interface JoinRequestMessageParams {
   deepLink: string
 }
 
+interface JoinRequestApprovedMessageParams {
+  planTitle: string
+  deepLink: string
+}
+
 interface SendListMessageParams {
   planTitle: string
   categoryBlocks: string
@@ -48,6 +53,12 @@ const templates = {
       `New join request ✋ ${p.requesterName} wants to join "${p.planTitle}". Review: ${p.deepLink}`,
     he: (p: JoinRequestMessageParams) =>
       `בקשת הצטרפות חדשה ✋ ${p.requesterName} רוצה להצטרף ל"${p.planTitle}". לבדיקה: ${p.deepLink}`,
+  },
+  joinRequestApproved: {
+    en: (p: JoinRequestApprovedMessageParams) =>
+      `Great news! 🎉 Your request to join "${p.planTitle}" has been approved. View the plan: ${p.deepLink}`,
+    he: (p: JoinRequestApprovedMessageParams) =>
+      `חדשות טובות! 🎉 בקשתך להצטרף ל"${p.planTitle}" אושרה. לצפייה בתוכנית: ${p.deepLink}`,
   },
   sendListHeader: {
     en: (planTitle: string) => `📋 *${planTitle}*\n\n`,
@@ -73,6 +84,13 @@ export function joinRequestMessage(
   params: JoinRequestMessageParams
 ): string {
   return templates.joinRequest[lang](params)
+}
+
+export function joinRequestApprovedMessage(
+  lang: Lang,
+  params: JoinRequestApprovedMessageParams
+): string {
+  return templates.joinRequestApproved[lang](params)
 }
 
 export function translateCategory(category: string, lang: Lang): string {
