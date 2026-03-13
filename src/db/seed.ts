@@ -50,7 +50,7 @@ async function seed() {
 
   try {
     await db.execute(
-      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, user_details CASCADE`
+      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, user_details, whatsapp_notifications CASCADE`
     )
     console.log('Cleared all tables')
 
@@ -79,6 +79,8 @@ async function seed() {
         startDate: new Date('2026-04-03T08:00:00+03:00'),
         endDate: new Date('2026-04-04T16:00:00+03:00'),
         tags: ['camping', 'desert', 'negev', 'family', 'toddlers'],
+        defaultLang: 'he',
+        currency: 'ILS',
         estimatedAdults: 7,
         estimatedKids: 5,
         ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
@@ -102,6 +104,7 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dan',
         contactEmail: 'dan@example.com',
         inviteToken: generateInviteToken(),
+        inviteStatus: 'accepted',
         rsvpStatus: 'confirmed',
         adultsCount: 2,
         kidsCount: 3,
@@ -126,6 +129,7 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=yael',
         contactEmail: 'yael@example.com',
         inviteToken: generateInviteToken(),
+        inviteStatus: 'accepted',
         rsvpStatus: 'confirmed',
         foodPreferences: 'vegetarian',
         allergies: 'nuts',
@@ -146,6 +150,7 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=omer',
         contactEmail: 'omer@example.com',
         inviteToken: generateInviteToken(),
+        inviteStatus: 'invited',
         rsvpStatus: 'confirmed',
       })
       .returning()
@@ -162,6 +167,7 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=noa',
         contactEmail: 'noa@example.com',
         inviteToken: generateInviteToken(),
+        inviteStatus: 'invited',
         foodPreferences: 'kosher',
         allergies: null,
         adultsCount: 1,
@@ -472,6 +478,8 @@ async function seed() {
         startDate: new Date('2026-05-15T12:00:00-07:00'),
         endDate: new Date('2026-05-15T20:00:00-07:00'),
         tags: ['bbq', 'beach', 'test', 'join-request'],
+        defaultLang: 'en',
+        currency: 'USD',
         ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
       })
       .returning()
@@ -488,6 +496,7 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex',
         contactEmail: 'alex.owner@example.com',
         inviteToken: generateInviteToken(),
+        inviteStatus: 'accepted',
         rsvpStatus: 'confirmed',
         adultsCount: 2,
         kidsCount: 0,
@@ -609,6 +618,8 @@ async function seed() {
         startDate: new Date('2026-04-10T17:00:00+03:00'),
         endDate: new Date('2026-04-10T22:00:00+03:00'),
         tags: ['bbq', 'beach', 'friday', 'sunset'],
+        defaultLang: 'he',
+        currency: 'ILS',
       })
       .returning()
 
@@ -624,6 +635,7 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=lior',
         contactEmail: 'lior@example.com',
         inviteToken: generateInviteToken(),
+        inviteStatus: 'accepted',
         rsvpStatus: 'confirmed',
         adultsCount: 2,
         kidsCount: 0,
@@ -647,6 +659,7 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alexg',
         contactEmail: 'alex@example.com',
         inviteToken: generateInviteToken(),
+        inviteStatus: 'accepted',
         rsvpStatus: 'confirmed',
         adultsCount: 1,
         kidsCount: 0,
@@ -666,6 +679,7 @@ async function seed() {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=tal',
         contactEmail: 'tal@example.com',
         inviteToken: generateInviteToken(),
+        inviteStatus: 'invited',
         rsvpStatus: 'not_sure',
         adultsCount: 2,
         kidsCount: 1,

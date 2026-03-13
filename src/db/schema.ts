@@ -276,6 +276,35 @@ export const participantJoinRequests = pgTable(
   ]
 )
 
+export const whatsappNotificationTypeEnum = pgEnum(
+  'whatsapp_notification_type',
+  ['invitation_sent', 'join_request_pending', 'join_request_approved']
+)
+
+export const whatsappNotificationStatusEnum = pgEnum(
+  'whatsapp_notification_status',
+  ['sent', 'failed']
+)
+
+export const whatsappNotifications = pgTable('whatsapp_notifications', {
+  notificationId: uuid('notification_id').primaryKey().defaultRandom(),
+  planId: uuid('plan_id')
+    .notNull()
+    .references(() => plans.planId, { onDelete: 'cascade' }),
+  recipientPhone: varchar('recipient_phone', { length: 50 }).notNull(),
+  recipientParticipantId: uuid('recipient_participant_id').references(
+    () => participants.participantId,
+    { onDelete: 'set null' }
+  ),
+  type: whatsappNotificationTypeEnum('type').notNull(),
+  status: whatsappNotificationStatusEnum('status').notNull(),
+  messageId: varchar('message_id', { length: 255 }),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+})
+
 export const participantExpenses = pgTable('participant_expenses', {
   expenseId: uuid('expense_id').primaryKey().defaultRandom(),
   participantId: uuid('participant_id')
@@ -306,6 +335,7 @@ export const plansRelations = relations(plans, ({ many }) => ({
   invites: many(planInvites),
   joinRequests: many(participantJoinRequests),
   expenses: many(participantExpenses),
+  whatsappNotifications: many(whatsappNotifications),
 }))
 
 export const itemsRelations = relations(items, ({ one, many }) => ({
@@ -374,6 +404,20 @@ export const participantExpensesRelations = relations(
   })
 )
 
+export const whatsappNotificationsRelations = relations(
+  whatsappNotifications,
+  ({ one }) => ({
+    plan: one(plans, {
+      fields: [whatsappNotifications.planId],
+      references: [plans.planId],
+    }),
+    recipientParticipant: one(participants, {
+      fields: [whatsappNotifications.recipientParticipantId],
+      references: [participants.participantId],
+    }),
+  })
+)
+
 export type GuestProfile = typeof guestProfiles.$inferSelect
 export type NewGuestProfile = typeof guestProfiles.$inferInsert
 export type UserDetail = typeof userDetails.$inferSelect
@@ -394,3 +438,5 @@ export type ItemChange = typeof itemChanges.$inferSelect
 export type NewItemChange = typeof itemChanges.$inferInsert
 export type ParticipantExpense = typeof participantExpenses.$inferSelect
 export type NewParticipantExpense = typeof participantExpenses.$inferInsert
+export type WhatsappNotification = typeof whatsappNotifications.$inferSelect
+export type NewWhatsappNotification = typeof whatsappNotifications.$inferInsert

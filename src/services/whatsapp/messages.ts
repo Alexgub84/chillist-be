@@ -1,4 +1,23 @@
-type Lang = 'he' | 'en'
+export type Lang = 'he' | 'en'
+
+const categoryTranslations: Record<string, Record<Lang, string>> = {
+  equipment: { en: 'Equipment', he: 'ציוד' },
+  food: { en: 'Food', he: 'אוכל' },
+}
+
+const unitTranslations: Record<string, Record<Lang, string>> = {
+  pcs: { en: 'pcs', he: 'יח׳' },
+  kg: { en: 'kg', he: 'ק"ג' },
+  g: { en: 'g', he: 'גרם' },
+  lb: { en: 'lb', he: 'ליברה' },
+  oz: { en: 'oz', he: 'אונקיה' },
+  l: { en: 'l', he: 'ליטר' },
+  ml: { en: 'ml', he: 'מ"ל' },
+  m: { en: 'm', he: 'מטר' },
+  cm: { en: 'cm', he: 'ס"מ' },
+  pack: { en: 'pack', he: 'חבילה' },
+  set: { en: 'set', he: 'סט' },
+}
 
 interface InviteMessageParams {
   planTitle: string
@@ -7,6 +26,11 @@ interface InviteMessageParams {
 
 interface JoinRequestMessageParams {
   requesterName: string
+  planTitle: string
+  deepLink: string
+}
+
+interface JoinRequestApprovedMessageParams {
   planTitle: string
   deepLink: string
 }
@@ -29,6 +53,12 @@ const templates = {
       `New join request ✋ ${p.requesterName} wants to join "${p.planTitle}". Review: ${p.deepLink}`,
     he: (p: JoinRequestMessageParams) =>
       `בקשת הצטרפות חדשה ✋ ${p.requesterName} רוצה להצטרף ל"${p.planTitle}". לבדיקה: ${p.deepLink}`,
+  },
+  joinRequestApproved: {
+    en: (p: JoinRequestApprovedMessageParams) =>
+      `Great news! 🎉 Your request to join "${p.planTitle}" has been approved. View the plan: ${p.deepLink}`,
+    he: (p: JoinRequestApprovedMessageParams) =>
+      `חדשות טובות! 🎉 בקשתך להצטרף ל"${p.planTitle}" אושרה. לצפייה בתוכנית: ${p.deepLink}`,
   },
   sendListHeader: {
     en: (planTitle: string) => `📋 *${planTitle}*\n\n`,
@@ -54,6 +84,21 @@ export function joinRequestMessage(
   params: JoinRequestMessageParams
 ): string {
   return templates.joinRequest[lang](params)
+}
+
+export function joinRequestApprovedMessage(
+  lang: Lang,
+  params: JoinRequestApprovedMessageParams
+): string {
+  return templates.joinRequestApproved[lang](params)
+}
+
+export function translateCategory(category: string, lang: Lang): string {
+  return categoryTranslations[category]?.[lang] ?? category
+}
+
+export function translateUnit(unit: string, lang: Lang): string {
+  return unitTranslations[unit]?.[lang] ?? unit
 }
 
 export function sendListMessage(

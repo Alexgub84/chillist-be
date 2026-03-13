@@ -15,6 +15,44 @@ export const sendListBodySchema = {
   required: ['phone'],
 } as const
 
+export const sendListAllResponseSchema = {
+  $id: 'SendListAllResponse',
+  title: 'SendListAllResponse',
+  description:
+    'Response after attempting to send an item list to all non-owner participants via WhatsApp.',
+  type: 'object',
+  properties: {
+    total: {
+      type: 'number',
+      description: 'Total number of non-owner participants with phone numbers.',
+    },
+    sent: {
+      type: 'number',
+      description: 'Number of messages successfully queued for delivery.',
+    },
+    failed: {
+      type: 'number',
+      description: 'Number of messages that failed to send.',
+    },
+    results: {
+      type: 'array',
+      description: 'Per-participant send result.',
+      items: {
+        type: 'object',
+        properties: {
+          participantId: { type: 'string' },
+          phone: { type: 'string' },
+          sent: { type: 'boolean' },
+          messageId: { type: 'string' },
+          error: { type: 'string' },
+        },
+        required: ['participantId', 'phone', 'sent'],
+      },
+    },
+  },
+  required: ['total', 'sent', 'failed', 'results'],
+} as const
+
 export const sendListResponseSchema = {
   $id: 'SendListResponse',
   title: 'SendListResponse',
