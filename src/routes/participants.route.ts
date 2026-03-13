@@ -250,6 +250,24 @@ export async function participantsRoutes(fastify: FastifyInstance) {
                   )
                 )
               if (result.success) {
+                fastify.db
+                  .update(participants)
+                  .set({
+                    inviteStatus: 'invited',
+                    updatedAt: new Date(),
+                  })
+                  .where(
+                    eq(
+                      participants.participantId,
+                      createdParticipant.participantId
+                    )
+                  )
+                  .catch((dbErr) =>
+                    request.log.warn(
+                      { err: dbErr },
+                      'Failed to update inviteStatus'
+                    )
+                  )
                 request.log.info(
                   {
                     participantId: createdParticipant.participantId,

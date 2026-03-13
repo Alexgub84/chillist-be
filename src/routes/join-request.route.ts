@@ -394,6 +394,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             foodPreferences: joinRequest.foodPreferences,
             allergies: joinRequest.allergies,
             notes: joinRequest.notes,
+            inviteStatus: 'accepted',
           })
 
           await fastify.db

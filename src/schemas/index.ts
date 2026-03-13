@@ -84,6 +84,7 @@ import {
 } from './expense.schema.js'
 import {
   sendListBodySchema,
+  sendListAllResponseSchema,
   sendListResponseSchema,
 } from './send-list.schema.js'
 
@@ -156,6 +157,7 @@ const schemas = [
   expenseIdParamSchema,
   deleteExpenseResponseSchema,
   sendListBodySchema,
+  sendListAllResponseSchema,
   sendListResponseSchema,
 ]
 
