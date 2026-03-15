@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { FakeWhatsAppService } from '../../../src/services/whatsapp/fake.service.js'
+import { FakeGreenApiClient } from '../../../src/services/whatsapp/fake.service.js'
 
-describe('FakeWhatsAppService', () => {
-  let service: FakeWhatsAppService
+describe('FakeGreenApiClient', () => {
+  let client: FakeGreenApiClient
 
   beforeEach(() => {
-    service = new FakeWhatsAppService()
+    client = new FakeGreenApiClient()
   })
 
   it('sendMessage returns success with messageId', async () => {
-    const result = await service.sendMessage('+972501234567', 'Hello')
+    const result = await client.sendMessage('972501234567@c.us', 'Hello')
 
     expect(result.success).toBe(true)
     if (result.success) {
@@ -18,22 +18,22 @@ describe('FakeWhatsAppService', () => {
   })
 
   it('sendMessage stores the message', async () => {
-    await service.sendMessage('+972501234567', 'Hello')
+    await client.sendMessage('972501234567@c.us', 'Hello')
 
-    const messages = service.getSentMessages()
+    const messages = client.getSentMessages()
     expect(messages).toHaveLength(1)
     expect(messages[0]).toEqual({
-      phone: '+972501234567',
+      chatId: '972501234567@c.us',
       message: 'Hello',
     })
   })
 
   it('multiple sends accumulate correctly', async () => {
-    await service.sendMessage('+972501234567', 'First')
-    await service.sendMessage('+15551234567', 'Second')
-    await service.sendMessage('+972509876543', 'Third')
+    await client.sendMessage('972501234567@c.us', 'First')
+    await client.sendMessage('15551234567@c.us', 'Second')
+    await client.sendMessage('972509876543@c.us', 'Third')
 
-    const messages = service.getSentMessages()
+    const messages = client.getSentMessages()
     expect(messages).toHaveLength(3)
     expect(messages[0].message).toBe('First')
     expect(messages[1].message).toBe('Second')
@@ -41,25 +41,25 @@ describe('FakeWhatsAppService', () => {
   })
 
   it('getSentMessages returns a copy, not the internal array', async () => {
-    await service.sendMessage('+972501234567', 'Hello')
-    const messages = service.getSentMessages()
+    await client.sendMessage('972501234567@c.us', 'Hello')
+    const messages = client.getSentMessages()
     messages.pop()
 
-    expect(service.getSentMessages()).toHaveLength(1)
+    expect(client.getSentMessages()).toHaveLength(1)
   })
 
   it('clear resets stored messages', async () => {
-    await service.sendMessage('+972501234567', 'Hello')
-    await service.sendMessage('+15551234567', 'World')
-    expect(service.getSentMessages()).toHaveLength(2)
+    await client.sendMessage('972501234567@c.us', 'Hello')
+    await client.sendMessage('15551234567@c.us', 'World')
+    expect(client.getSentMessages()).toHaveLength(2)
 
-    service.clear()
-    expect(service.getSentMessages()).toHaveLength(0)
+    client.clear()
+    expect(client.getSentMessages()).toHaveLength(0)
   })
 
   it('returns unique messageIds for each send', async () => {
-    const result1 = await service.sendMessage('+972501234567', 'A')
-    const result2 = await service.sendMessage('+972501234567', 'B')
+    const result1 = await client.sendMessage('972501234567@c.us', 'A')
+    const result2 = await client.sendMessage('972501234567@c.us', 'B')
 
     expect(result1.success).toBe(true)
     expect(result2.success).toBe(true)

@@ -175,10 +175,10 @@ describe('Plan Access Control', () => {
       })
 
       expect(response.statusCode).toBe(400)
-      expect(response.json().message).toMatch(/signed-in users cannot/i)
+      expect(response.json().message).toMatch(/cannot create public/i)
     })
 
-    it('allows admin to create public plan', async () => {
+    it('returns 400 when admin sets visibility to public', async () => {
       const token = await signAdminJwt()
 
       const response = await app.inject({
@@ -192,8 +192,8 @@ describe('Plan Access Control', () => {
         },
       })
 
-      expect(response.statusCode).toBe(201)
-      expect(response.json().visibility).toBe('public')
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toMatch(/cannot create public/i)
     })
 
     it('returns 401 when anonymous user tries to create plan', async () => {
@@ -228,10 +228,12 @@ describe('Plan Access Control', () => {
       })
 
       expect(response.statusCode).toBe(400)
-      expect(response.json().message).toMatch(/signed-in users cannot/i)
+      expect(response.json().message).toMatch(
+        /cannot set visibility to public/i
+      )
     })
 
-    it('allows admin to update visibility to public', async () => {
+    it('returns 400 when admin updates visibility to public', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -246,8 +248,10 @@ describe('Plan Access Control', () => {
         payload: { visibility: 'public' },
       })
 
-      expect(response.statusCode).toBe(200)
-      expect(response.json().visibility).toBe('public')
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toMatch(
+        /cannot set visibility to public/i
+      )
     })
 
     it('returns 401 when anonymous user tries to update plan', async () => {
@@ -474,7 +478,7 @@ describe('Plan Access Control', () => {
       expect(body.joinRequest).toBeNull()
     })
 
-    it('returns invite_only plan to admin (unrelated user)', async () => {
+    it('returns not_participant for invite_only plan to admin (unrelated user)', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -489,10 +493,10 @@ describe('Plan Access Control', () => {
       })
 
       expect(response.statusCode).toBe(200)
-      expect(response.json().planId).toBe(plan.planId)
+      expect(response.json().status).toBe('not_participant')
     })
 
-    it('returns private plan to admin (unrelated user)', async () => {
+    it('returns not_participant for private plan to admin (unrelated user)', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'private',
         createdByUserId: OWNER_USER_ID,
@@ -507,7 +511,7 @@ describe('Plan Access Control', () => {
       })
 
       expect(response.statusCode).toBe(200)
-      expect(response.json().planId).toBe(plan.planId)
+      expect(response.json().status).toBe('not_participant')
     })
   })
 
@@ -751,7 +755,7 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(401)
     })
 
-    it('returns participants for invite_only plan to admin', async () => {
+    it('returns 404 for invite_only plan participants to admin (not a participant)', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -765,8 +769,7 @@ describe('Plan Access Control', () => {
         headers: { authorization: `Bearer ${token}` },
       })
 
-      expect(response.statusCode).toBe(200)
-      expect(response.json()).toHaveLength(1)
+      expect(response.statusCode).toBe(404)
     })
   })
 
@@ -851,7 +854,7 @@ describe('Plan Access Control', () => {
       expect(response.statusCode).toBe(401)
     })
 
-    it('returns items for invite_only plan to admin', async () => {
+    it('returns 404 for invite_only plan items to admin (not a participant)', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'invite_only',
         createdByUserId: OWNER_USER_ID,
@@ -873,8 +876,7 @@ describe('Plan Access Control', () => {
         headers: { authorization: `Bearer ${token}` },
       })
 
-      expect(response.statusCode).toBe(200)
-      expect(response.json()).toHaveLength(1)
+      expect(response.statusCode).toBe(404)
     })
   })
 
@@ -982,7 +984,7 @@ describe('Plan Access Control', () => {
       expect(response.json()).toEqual({ ok: true })
     })
 
-    it('allows admin to delete any plan', async () => {
+    it('returns 404 when admin tries to delete plan via regular route (not owner)', async () => {
       const { plan } = await createPlanDirectly(db, {
         visibility: 'private',
         createdByUserId: OWNER_USER_ID,
@@ -996,30 +998,43 @@ describe('Plan Access Control', () => {
         headers: { authorization: `Bearer ${token}` },
       })
 
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('admin can delete any plan via DELETE /admin/plans/:planId', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'private',
+        createdByUserId: OWNER_USER_ID,
+      })
+
+      const token = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/admin/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+
       expect(response.statusCode).toBe(200)
       expect(response.json()).toEqual({ ok: true })
     })
 
-    it.each(['public', 'invite_only', 'private'] as const)(
-      'admin can delete %s plan owned by another user',
-      async (visibility) => {
-        const { plan } = await createPlanDirectly(db, {
-          visibility,
-          createdByUserId: OWNER_USER_ID,
-        })
+    it('non-admin cannot use DELETE /admin/plans/:planId', async () => {
+      const { plan } = await createPlanDirectly(db, {
+        visibility: 'invite_only',
+        createdByUserId: OWNER_USER_ID,
+      })
 
-        const token = await signAdminJwt()
+      const token = await signTestJwt({ sub: UNRELATED_USER_ID })
 
-        const response = await app.inject({
-          method: 'DELETE',
-          url: `/plans/${plan.planId}`,
-          headers: { authorization: `Bearer ${token}` },
-        })
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/admin/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${token}` },
+      })
 
-        expect(response.statusCode).toBe(200)
-        expect(response.json()).toEqual({ ok: true })
-      }
-    )
+      expect(response.statusCode).toBe(403)
+    })
 
     it('returns 404 when non-owner authenticated user tries to delete', async () => {
       const { plan } = await createPlanDirectly(db, {

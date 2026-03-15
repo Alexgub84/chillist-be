@@ -3,7 +3,6 @@ import type { Database } from '../db/index.js'
 import { items, participants } from '../db/schema.js'
 import type { Item, Assignment } from '../db/schema.js'
 import type { JwtUser } from '../plugins/auth.js'
-import { isAdmin } from '../utils/admin.js'
 
 export interface ValidationResult {
   valid: boolean
@@ -33,7 +32,6 @@ export async function checkItemMutationAccess(
   user: JwtUser | null | undefined
 ): Promise<MutationAccessResult> {
   if (!user) return { allowed: false, participant: null }
-  if (isAdmin(user)) return { allowed: true, participant: null }
 
   const [p] = await db
     .select({

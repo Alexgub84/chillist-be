@@ -1,15 +1,15 @@
-import type { IWhatsAppService, SendResult } from './types.js'
+import type { IGreenApiClient, IWhatsAppService, SendResult } from './types.js'
 
 export interface GreenApiConfig {
   instanceId: string
   token: string
 }
 
-function phoneToChatId(phone: string): string {
+export function phoneToChatId(phone: string): string {
   return phone.replace('+', '') + '@c.us'
 }
 
-export class GreenApiWhatsAppService implements IWhatsAppService {
+export class HttpGreenApiClient implements IGreenApiClient {
   private readonly baseUrl: string
   private readonly token: string
 
@@ -18,8 +18,7 @@ export class GreenApiWhatsAppService implements IWhatsAppService {
     this.token = config.token
   }
 
-  async sendMessage(phone: string, message: string): Promise<SendResult> {
-    const chatId = phoneToChatId(phone)
+  async sendMessage(chatId: string, message: string): Promise<SendResult> {
     const url = `${this.baseUrl}/sendMessage/${this.token}`
 
     try {
@@ -44,5 +43,18 @@ export class GreenApiWhatsAppService implements IWhatsAppService {
         err instanceof Error ? err.message : 'Unknown fetch error'
       return { success: false, error: errorMessage }
     }
+  }
+}
+
+export class GreenApiWhatsAppService implements IWhatsAppService {
+  private readonly client: IGreenApiClient
+
+  constructor(client: IGreenApiClient) {
+    this.client = client
+  }
+
+  async sendMessage(phone: string, message: string): Promise<SendResult> {
+    const chatId = phoneToChatId(phone)
+    return this.client.sendMessage(chatId, message)
   }
 }

@@ -15,7 +15,8 @@ import {
   getTestIssuer,
   signTestJwt,
 } from '../helpers/auth.js'
-import { FakeWhatsAppService } from '../../src/services/whatsapp/fake.service.js'
+import { FakeGreenApiClient } from '../../src/services/whatsapp/fake.service.js'
+import { phoneToChatId } from '../../src/services/whatsapp/green-api.service.js'
 import { participants, plans, items } from '../../src/db/schema.js'
 import { eq } from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
@@ -25,7 +26,7 @@ const REQUESTER_USER_ID = 'bbbbbbbb-1111-2222-3333-444444444444'
 
 describe('WhatsApp Integration', () => {
   let app: FastifyInstance
-  let fakeWhatsApp: FakeWhatsAppService
+  let fakeGreenApi: FakeGreenApiClient
   let ownerToken: string
   let requesterToken: string
   let db: Awaited<ReturnType<typeof getTestDb>>
@@ -35,13 +36,13 @@ describe('WhatsApp Integration', () => {
     await setupTestKeys()
     ownerToken = await signTestJwt({ sub: OWNER_USER_ID })
     requesterToken = await signTestJwt({ sub: REQUESTER_USER_ID })
-    fakeWhatsApp = new FakeWhatsAppService()
+    fakeGreenApi = new FakeGreenApiClient()
     app = await buildApp(
       { db },
       {
         logger: false,
         auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
-        whatsapp: { whatsapp: fakeWhatsApp },
+        whatsapp: { greenApiClient: fakeGreenApi },
       }
     )
   })
@@ -53,7 +54,7 @@ describe('WhatsApp Integration', () => {
 
   beforeEach(async () => {
     await cleanupTestDatabase()
-    fakeWhatsApp.clear()
+    fakeGreenApi.clear()
   })
 
   describe('Participant invitation notification', () => {
@@ -78,9 +79,9 @@ describe('WhatsApp Integration', () => {
       // Fire-and-forget — give it a tick to resolve
       await new Promise((r) => setTimeout(r, 50))
 
-      const messages = fakeWhatsApp.getSentMessages()
+      const messages = fakeGreenApi.getSentMessages()
       expect(messages).toHaveLength(1)
-      expect(messages[0].phone).toBe('+972501234567')
+      expect(messages[0].chatId).toBe(phoneToChatId('+972501234567'))
       expect(messages[0].message).toContain('invited')
       expect(messages[0].message).toContain('/invite/')
     })
@@ -107,7 +108,7 @@ describe('WhatsApp Integration', () => {
 
       await new Promise((r) => setTimeout(r, 50))
 
-      const messages = fakeWhatsApp.getSentMessages()
+      const messages = fakeGreenApi.getSentMessages()
       expect(messages).toHaveLength(1)
       expect(messages[0].message).toContain('Beach BBQ')
     })
@@ -159,9 +160,9 @@ describe('WhatsApp Integration', () => {
 
       await new Promise((r) => setTimeout(r, 100))
 
-      const messages = fakeWhatsApp.getSentMessages()
+      const messages = fakeGreenApi.getSentMessages()
       expect(messages).toHaveLength(1)
-      expect(messages[0].phone).toBe('+972501111111')
+      expect(messages[0].chatId).toBe(phoneToChatId('+972501111111'))
       expect(messages[0].message).toContain('Requester Smith')
       expect(messages[0].message).toContain('join')
     })
@@ -212,9 +213,9 @@ describe('WhatsApp Integration', () => {
       expect(body.sent).toBe(true)
       expect(body.messageId).toBeDefined()
 
-      const messages = fakeWhatsApp.getSentMessages()
+      const messages = fakeGreenApi.getSentMessages()
       expect(messages).toHaveLength(1)
-      expect(messages[0].phone).toBe('+972503333333')
+      expect(messages[0].chatId).toBe(phoneToChatId('+972503333333'))
       expect(messages[0].message).toContain('Camping Trip')
       expect(messages[0].message).toContain('Tent')
       expect(messages[0].message).toContain('Burgers')
@@ -295,7 +296,7 @@ describe('WhatsApp Integration', () => {
       expect(response.statusCode).toBe(200)
       expect(response.json().sent).toBe(true)
 
-      const messages = fakeWhatsApp.getSentMessages()
+      const messages = fakeGreenApi.getSentMessages()
       expect(messages).toHaveLength(1)
       expect(messages[0].message).toContain('No items yet')
     })

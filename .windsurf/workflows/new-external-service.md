@@ -9,14 +9,14 @@ When integrating a new external API (e.g., WhatsApp, email, SMS, payment), follo
 ## 1. Service layer
 
 - Create the real service in `src/services/<name>/` implementing an interface (e.g., `IWhatsAppService`)
-- Create a fake service for tests (e.g., `FakeWhatsAppService`) — returns success, stores calls for assertions
+- Create a fake **client** for tests (e.g., `FakeGreenApiClient`) — fakes only the HTTP transport layer, returns success, stores calls for assertions
 - Create a factory function that only creates the **real** service — never the fake
-- The fake must only be injectable via `buildApp` options, never created by the factory
+- The fake client must only be injectable via `buildApp` options, never created by the factory
 
 ## 2. Fastify plugin
 
 - Register the service as a Fastify decorator via a plugin in `src/plugins/`
-- If `opts.<service>` is provided (test injection), use it
+- If `opts.<client>` is provided (test injection), use it — wrap it in the real service class so all processing logic runs
 - If provider is `fake` (dev only), use a `NoopService` that returns `{ success: false }`
 - If the real service fails to initialize — **let it crash** (no silent fallback)
 - Log the concrete service type at startup (info level)
@@ -31,7 +31,7 @@ When integrating a new external API (e.g., WhatsApp, email, SMS, payment), follo
 ## 4. Tests
 
 - **Unit tests for the real service** — mock the HTTP layer (e.g., `globalThis.fetch`), not the service itself
-- **Unit tests for the fake service** — verify it stores calls and returns expected shapes
+- **Unit tests for the fake client** — verify it stores calls and returns expected shapes
 - **Env guard tests** — verify `fake` is rejected in production, credentials required for real provider
 - **Integration tests** — inject the fake via `buildApp` options, assert on stored messages
 - **E2E prod test** — `describe.skipIf(!CREDS)`, tests the real API with real credentials. Skipped in CI, run manually before deploy. Follow the pattern in `tests/e2e/auth-prod.test.ts` and `tests/e2e/whatsapp-prod.test.ts`

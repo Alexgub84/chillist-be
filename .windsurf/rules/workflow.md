@@ -24,6 +24,10 @@ Before writing any code, FIRST use the Read tool on ALL of these files:
 4. ../chillist-docs/specs/mvp-v1.md (product requirements, entities, API endpoints)
 5. ../chillist-docs/dev-lessons/backend.md (past bugs - check before debugging)
 
+**For WhatsApp-related tasks**, also read:
+
+6. ../chillist-docs/specs/whatsapp.md (WhatsApp integration spec — endpoints, invitation messaging, BE architecture, testing pattern)
+
 Read the docs FIRST, then explore the specific files in this repo that are relevant to the task.
 Do NOT scan the entire codebase upfront - only look at files directly related to the work.
 
@@ -46,6 +50,7 @@ This prevents branch conflicts and keeps documentation in sync with code.
 # Updating Documentation
 
 When you fix a bug, learn something new, or change workflow:
+
 - Update ../chillist-docs/dev-lessons/backend.md with the lesson
 - If the fix implies a new rule, propose adding it to ../chillist-docs/rules/backend.md
 - If specs changed (features done, new endpoints), update ../chillist-docs/specs/mvp-v1.md

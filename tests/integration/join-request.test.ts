@@ -353,7 +353,7 @@ describe('Join Request Management', () => {
       expect(response.json().message).toContain('Plan not found')
     })
 
-    it('admin can approve', async () => {
+    it('admin cannot approve join request on plan they do not own', async () => {
       const { plan } = await createPlanWithOwner(db, OWNER_USER_ID)
       const joinRequest = await seedTestJoinRequests(
         plan.planId,
@@ -371,8 +371,10 @@ describe('Join Request Management', () => {
         payload: { status: 'approved' },
       })
 
-      expect(response.statusCode).toBe(200)
-      expect(response.json().userId).toBe(REQUESTER_USER_ID)
+      expect(response.statusCode).toBe(403)
+      expect(response.json().message).toBe(
+        'Only the plan owner can manage join requests'
+      )
     })
   })
 
@@ -520,7 +522,7 @@ describe('Join Request Management', () => {
       expect(response.statusCode).toBe(404)
     })
 
-    it('admin can reject', async () => {
+    it('admin cannot reject join request on plan they do not own', async () => {
       const { plan } = await createPlanWithOwner(db, OWNER_USER_ID)
       const joinRequest = await seedTestJoinRequests(
         plan.planId,
@@ -538,8 +540,10 @@ describe('Join Request Management', () => {
         payload: { status: 'rejected' },
       })
 
-      expect(response.statusCode).toBe(200)
-      expect(response.json().status).toBe('rejected')
+      expect(response.statusCode).toBe(403)
+      expect(response.json().message).toBe(
+        'Only the plan owner can manage join requests'
+      )
     })
   })
 
