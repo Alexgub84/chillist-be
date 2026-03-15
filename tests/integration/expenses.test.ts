@@ -255,7 +255,7 @@ describe('Expenses Route', () => {
       expect(response.statusCode).toBe(201)
     })
 
-    it('admin can add expense for any participant', async () => {
+    it('admin cannot add expense for plan they do not belong to', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: OTHER_USER_ID,
       })
@@ -276,7 +276,7 @@ describe('Expenses Route', () => {
         },
       })
 
-      expect(response.statusCode).toBe(201)
+      expect(response.statusCode).toBe(403)
     })
 
     it('returns 404 when plan does not exist', async () => {
@@ -654,7 +654,7 @@ describe('Expenses Route', () => {
       expect(response.statusCode).toBe(403)
     })
 
-    it('admin can update any expense', async () => {
+    it('admin cannot update expense for plan they do not belong to', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: OTHER_USER_ID,
       })
@@ -678,8 +678,7 @@ describe('Expenses Route', () => {
         payload: { amount: 500 },
       })
 
-      expect(response.statusCode).toBe(200)
-      expect(response.json().amount).toBe('500.00')
+      expect(response.statusCode).toBe(403)
     })
 
     it('updates itemIds on an expense', async () => {
@@ -891,7 +890,7 @@ describe('Expenses Route', () => {
       expect(response.statusCode).toBe(403)
     })
 
-    it('admin can delete any expense', async () => {
+    it('admin cannot delete expense for plan they do not belong to', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: OTHER_USER_ID,
       })
@@ -914,8 +913,7 @@ describe('Expenses Route', () => {
         headers: { authorization: `Bearer ${adminToken}` },
       })
 
-      expect(response.statusCode).toBe(200)
-      expect(response.json()).toEqual({ ok: true })
+      expect(response.statusCode).toBe(403)
     })
   })
 

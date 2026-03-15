@@ -1,5 +1,8 @@
 import type { IWhatsAppService } from './types.js'
-import { GreenApiWhatsAppService } from './green-api.service.js'
+import {
+  GreenApiWhatsAppService,
+  HttpGreenApiClient,
+} from './green-api.service.js'
 
 export interface WhatsAppFactoryConfig {
   provider: 'green_api'
@@ -10,12 +13,17 @@ export interface WhatsAppFactoryConfig {
 export function createWhatsAppService(
   config: WhatsAppFactoryConfig
 ): IWhatsAppService {
-  return new GreenApiWhatsAppService({
+  const client = new HttpGreenApiClient({
     instanceId: config.greenApiInstanceId,
     token: config.greenApiToken,
   })
+  return new GreenApiWhatsAppService(client)
 }
 
-export type { IWhatsAppService, SendResult } from './types.js'
-export { FakeWhatsAppService } from './fake.service.js'
-export { GreenApiWhatsAppService } from './green-api.service.js'
+export type { IWhatsAppService, IGreenApiClient, SendResult } from './types.js'
+export { FakeGreenApiClient } from './fake.service.js'
+export {
+  GreenApiWhatsAppService,
+  HttpGreenApiClient,
+  phoneToChatId,
+} from './green-api.service.js'

@@ -61,14 +61,14 @@ describe('Item Service', () => {
       expect(result.allowed).toBe(false)
     })
 
-    it('returns allowed for admin user', async () => {
+    it('returns not allowed for admin user without participant record', async () => {
       const [plan] = await seedTestPlans(1)
       const result = await checkItemMutationAccess(db, plan.planId, {
         id: TEST_USER_ID,
         email: 'admin@test.com',
         role: 'admin',
       })
-      expect(result.allowed).toBe(true)
+      expect(result.allowed).toBe(false)
       expect(result.participant).toBeNull()
     })
 

@@ -1,16 +1,16 @@
-import type { IWhatsAppService, SendResult } from './types.js'
+import type { IGreenApiClient, SendResult } from './types.js'
 
 export interface SentMessage {
-  phone: string
+  chatId: string
   message: string
 }
 
-export class FakeWhatsAppService implements IWhatsAppService {
+export class FakeGreenApiClient implements IGreenApiClient {
   private sentMessages: SentMessage[] = []
 
-  async sendMessage(phone: string, message: string): Promise<SendResult> {
+  async sendMessage(chatId: string, message: string): Promise<SendResult> {
     const messageId = `fake-${Date.now()}-${this.sentMessages.length}`
-    this.sentMessages.push({ phone, message })
+    this.sentMessages.push({ chatId, message })
     return { success: true, messageId }
   }
 

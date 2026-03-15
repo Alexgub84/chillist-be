@@ -2,7 +2,6 @@ import { FastifyInstance } from 'fastify'
 import { eq, sql, and, inArray } from 'drizzle-orm'
 import { participantExpenses, participants, items } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
-import { isAdmin } from '../utils/admin.js'
 import type { Database } from '../db/index.js'
 
 type TransactionClient = Parameters<Parameters<Database['transaction']>[0]>[0]
@@ -259,13 +258,12 @@ export async function expensesRoutes(fastify: FastifyInstance) {
             .send({ message: 'Participant not found in this plan' })
         }
 
-        const isOwnerOrAdmin =
-          isAdmin(request.user) || plan.createdByUserId === userId
+        const isOwner = plan.createdByUserId === userId
         const isSelf =
           targetParticipant.userId !== null &&
           targetParticipant.userId === userId
 
-        if (!isOwnerOrAdmin && !isSelf) {
+        if (!isOwner && !isSelf) {
           return reply
             .status(403)
             .send({ message: 'You can only add expenses for yourself' })
@@ -404,10 +402,9 @@ export async function expensesRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Expense not found' })
         }
 
-        const isOwnerOrAdmin =
-          isAdmin(request.user) || plan.createdByUserId === userId
+        const isOwner = plan.createdByUserId === userId
 
-        if (!isOwnerOrAdmin) {
+        if (!isOwner) {
           const [expenseParticipant] = await fastify.db
             .select({ userId: participants.userId })
             .from(participants)
@@ -559,10 +556,9 @@ export async function expensesRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Expense not found' })
         }
 
-        const isOwnerOrAdmin =
-          isAdmin(request.user) || plan.createdByUserId === userId
+        const isOwner = plan.createdByUserId === userId
 
-        if (!isOwnerOrAdmin) {
+        if (!isOwner) {
           const [expenseParticipant] = await fastify.db
             .select({ userId: participants.userId })
             .from(participants)

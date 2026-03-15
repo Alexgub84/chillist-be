@@ -2,23 +2,25 @@ import fp from 'fastify-plugin'
 import { FastifyInstance } from 'fastify'
 import { config } from '../config.js'
 import {
-  createWhatsAppService,
+  GreenApiWhatsAppService,
+  HttpGreenApiClient,
+  type IGreenApiClient,
   type IWhatsAppService,
   type SendResult,
 } from '../services/whatsapp/index.js'
 
 export interface WhatsAppPluginOptions {
-  whatsapp?: IWhatsAppService
+  greenApiClient?: IGreenApiClient
 }
 
-class NoopWhatsAppService implements IWhatsAppService {
+class NoopGreenApiClient implements IGreenApiClient {
   private readonly reason: string
 
   constructor(reason: string) {
     this.reason = reason
   }
 
-  async sendMessage(_phone: string, _message: string): Promise<SendResult> {
+  async sendMessage(_chatId: string, _message: string): Promise<SendResult> {
     return {
       success: false,
       error: `WhatsApp service unavailable: ${this.reason}`,
@@ -30,24 +32,24 @@ async function whatsappPlugin(
   fastify: FastifyInstance,
   opts: WhatsAppPluginOptions = {}
 ) {
-  let service: IWhatsAppService
+  let client: IGreenApiClient
   let serviceType: string
 
-  if (opts.whatsapp) {
-    service = opts.whatsapp
-    serviceType = service.constructor.name || 'injected'
+  if (opts.greenApiClient) {
+    client = opts.greenApiClient
+    serviceType = client.constructor.name || 'injected'
   } else if (config.whatsappProvider === 'green_api') {
-    service = createWhatsAppService({
-      provider: 'green_api',
-      greenApiInstanceId: config.greenApiInstanceId!,
-      greenApiToken: config.greenApiToken!,
+    client = new HttpGreenApiClient({
+      instanceId: config.greenApiInstanceId!,
+      token: config.greenApiToken!,
     })
-    serviceType = 'GreenApiWhatsAppService'
+    serviceType = 'HttpGreenApiClient'
   } else {
-    service = new NoopWhatsAppService('provider is fake (dev/test only)')
-    serviceType = 'NoopWhatsAppService'
+    client = new NoopGreenApiClient('provider is fake (dev/test only)')
+    serviceType = 'NoopGreenApiClient'
   }
 
+  const service: IWhatsAppService = new GreenApiWhatsAppService(client)
   fastify.decorate('whatsapp', service)
 
   fastify.log.info(

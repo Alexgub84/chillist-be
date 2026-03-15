@@ -3,7 +3,6 @@ import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { participants, plans, whatsappNotifications } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
-import { isAdmin } from '../utils/admin.js'
 import { removeParticipantFromAssignments } from '../services/item.service.js'
 import { config } from '../config.js'
 import {
@@ -115,10 +114,9 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           .where(eq(participants.planId, planId))
           .orderBy(participants.createdAt)
 
-        const isOwnerOrAdmin =
-          isAdmin(request.user) || plan.createdByUserId === request.user!.id
+        const isOwner = plan.createdByUserId === request.user!.id
 
-        const result = isOwnerOrAdmin
+        const result = isOwner
           ? planParticipants
           : planParticipants.map((p) => ({ ...p, inviteToken: null }))
 
@@ -371,10 +369,9 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           .from(plans)
           .where(eq(plans.planId, participant.planId))
 
-        const isOwnerOrAdmin =
-          isAdmin(request.user) || plan?.createdByUserId === request.user!.id
+        const isOwner = plan?.createdByUserId === request.user!.id
 
-        const result = isOwnerOrAdmin
+        const result = isOwner
           ? participant
           : { ...participant, inviteToken: null }
 
@@ -483,13 +480,12 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           .where(eq(plans.planId, existingParticipant.planId))
 
         const userId = request.user!.id
-        const isOwnerOrAdmin =
-          isAdmin(request.user) || plan?.createdByUserId === userId
+        const isOwner = plan?.createdByUserId === userId
         const isSelf =
           existingParticipant.userId !== null &&
           existingParticipant.userId === userId
 
-        if (!isOwnerOrAdmin && !isSelf) {
+        if (!isOwner && !isSelf) {
           return reply.status(403).send({
             message: 'You can only edit your own preferences',
           })
@@ -507,7 +503,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           .where(eq(participants.participantId, participantId))
           .returning()
 
-        const result = isOwnerOrAdmin
+        const result = isOwner
           ? updatedParticipant
           : { ...updatedParticipant, inviteToken: null }
 

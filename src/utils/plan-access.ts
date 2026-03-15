@@ -2,7 +2,6 @@ import { eq, and } from 'drizzle-orm'
 import type { JwtUser } from '../plugins/auth.js'
 import { plans, participants, Plan } from '../db/schema.js'
 import { Database } from '../db/index.js'
-import { isAdmin } from './admin.js'
 
 export interface PlanAccessResult {
   allowed: boolean
@@ -18,10 +17,6 @@ export async function checkPlanAccess(
 
   if (!plan) {
     return { allowed: false, plan: null }
-  }
-
-  if (isAdmin(user)) {
-    return { allowed: true, plan }
   }
 
   if (plan.visibility === 'public') {

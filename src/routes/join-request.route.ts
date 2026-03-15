@@ -7,7 +7,6 @@ import {
   whatsappNotifications,
 } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
-import { isAdmin } from '../utils/admin.js'
 import { addParticipantToPlan } from '../services/participant.service.js'
 import { config } from '../config.js'
 import {
@@ -349,10 +348,10 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Plan not found' })
         }
 
-        if (plan.createdByUserId !== userId && !isAdmin(request.user)) {
+        if (plan.createdByUserId !== userId) {
           request.log.warn(
             { planId, userId, requestId },
-            'Join request action rejected — not owner or admin'
+            'Join request action rejected — not owner'
           )
           return reply
             .status(403)

@@ -12,7 +12,10 @@ import {
 import { seedTestPlans, seedTestParticipants } from '../helpers/db.js'
 import { items, plans } from '../../src/db/schema.js'
 import { eq } from 'drizzle-orm'
-import { GreenApiWhatsAppService } from '../../src/services/whatsapp/green-api.service.js'
+import {
+  GreenApiWhatsAppService,
+  HttpGreenApiClient,
+} from '../../src/services/whatsapp/green-api.service.js'
 
 function loadEnvFile() {
   try {
@@ -54,7 +57,7 @@ describe.skipIf(
     ownerToken = await signTestJwt({ sub: OWNER_USER_ID })
 
     const { buildApp } = await import('../../src/app.js')
-    const service = new GreenApiWhatsAppService({
+    const client = new HttpGreenApiClient({
       instanceId: GREEN_API_INSTANCE_ID!,
       token: GREEN_API_TOKEN!,
     })
@@ -64,7 +67,7 @@ describe.skipIf(
       {
         logger: false,
         auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
-        whatsapp: { whatsapp: service },
+        whatsapp: { greenApiClient: client },
       }
     )
   }, 30000)
@@ -84,10 +87,11 @@ describe.skipIf(
   })
 
   it('sendMessage delivers to test number', async () => {
-    const service = new GreenApiWhatsAppService({
+    const client = new HttpGreenApiClient({
       instanceId: GREEN_API_INSTANCE_ID!,
       token: GREEN_API_TOKEN!,
     })
+    const service = new GreenApiWhatsAppService(client)
 
     const result = await service.sendMessage(
       WHATSAPP_TEST_PHONE!,

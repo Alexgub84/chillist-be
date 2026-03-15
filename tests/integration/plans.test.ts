@@ -780,7 +780,7 @@ describe('Plans Route', () => {
       expect(plan.joinRequests[0].status).toBe('pending')
     })
 
-    it('admin does not receive joinRequests when fetching plan', async () => {
+    it('admin sees not_participant when fetching plan they do not belong to', async () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/plans',
@@ -790,17 +790,6 @@ describe('Plans Route', () => {
       expect(createRes.statusCode).toBe(201)
       const { planId } = createRes.json()
 
-      await app.inject({
-        method: 'POST',
-        url: `/plans/${planId}/join-requests`,
-        headers: { authorization: `Bearer ${requesterToken}` },
-        payload: {
-          name: 'Requester',
-          lastName: 'User',
-          contactPhone: '+15559999999',
-        },
-      })
-
       const adminResponse = await app.inject({
         method: 'GET',
         url: `/plans/${planId}`,
@@ -809,7 +798,7 @@ describe('Plans Route', () => {
 
       expect(adminResponse.statusCode).toBe(200)
       const plan = adminResponse.json()
-      expect(plan.joinRequests).toBeUndefined()
+      expect(plan.status).toBe('not_participant')
     })
 
     it('non-owner participant does not receive joinRequests', async () => {
@@ -1634,14 +1623,15 @@ describe('Plans Route', () => {
   })
 
   describe('DELETE /plans/:planId', () => {
-    it('deletes plan and returns 200 with ok true', async () => {
-      const [plan] = await seedTestPlans(1)
-      const adminToken = await signAdminJwt()
+    it('owner deletes plan and returns 200 with ok true', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
 
       const response = await app.inject({
         method: 'DELETE',
         url: `/plans/${plan.planId}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(200)
@@ -1649,13 +1639,14 @@ describe('Plans Route', () => {
     })
 
     it('deleted plan is no longer retrievable via GET', async () => {
-      const [plan] = await seedTestPlans(1)
-      const adminToken = await signAdminJwt()
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
 
       await app.inject({
         method: 'DELETE',
         url: `/plans/${plan.planId}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: authHeaders(),
       })
 
       const getResponse = await app.inject({
@@ -1673,12 +1664,11 @@ describe('Plans Route', () => {
       })
       await seedTestParticipantWithUser(plan1.planId, TEST_USER_ID)
       await seedTestParticipantWithUser(plan2.planId, TEST_USER_ID)
-      const adminToken = await signAdminJwt()
 
       await app.inject({
         method: 'DELETE',
         url: `/plans/${plan1.planId}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: authHeaders(),
       })
 
       const listResponse = await app.inject({
@@ -1693,15 +1683,16 @@ describe('Plans Route', () => {
     })
 
     it('cascade deletes related items and participants', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
       await seedTestItems(plan.planId, 3)
       await seedTestParticipants(plan.planId, 2)
-      const adminToken = await signAdminJwt()
 
       const response = await app.inject({
         method: 'DELETE',
         url: `/plans/${plan.planId}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(200)
@@ -1728,12 +1719,11 @@ describe('Plans Route', () => {
 
     it('returns 404 when plan does not exist', async () => {
       const nonExistentId = '00000000-0000-0000-0000-000000000000'
-      const adminToken = await signAdminJwt()
 
       const response = await app.inject({
         method: 'DELETE',
         url: `/plans/${nonExistentId}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(404)
@@ -1743,27 +1733,27 @@ describe('Plans Route', () => {
     })
 
     it('returns 400 for invalid UUID format', async () => {
-      const adminToken = await signAdminJwt()
-
       const response = await app.inject({
         method: 'DELETE',
         url: '/plans/invalid-uuid',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: authHeaders(),
       })
 
       expect(response.statusCode).toBe(400)
     })
 
     it('does not affect other plans', async () => {
-      const [plan1, plan2] = await seedTestPlans(2)
+      const [plan1, plan2] = await seedTestPlans(2, {
+        createdByUserId: TEST_USER_ID,
+      })
       await seedTestItems(plan1.planId, 2)
       await seedTestItems(plan2.planId, 3)
-      const adminToken = await signAdminJwt()
+      await seedTestParticipantWithUser(plan2.planId, TEST_USER_ID)
 
       await app.inject({
         method: 'DELETE',
         url: `/plans/${plan1.planId}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: authHeaders(),
       })
 
       const getResponse = await app.inject({
@@ -1777,6 +1767,49 @@ describe('Plans Route', () => {
       const plan = getResponse.json()
       expect(plan.planId).toBe(plan2.planId)
       expect(plan.items).toHaveLength(3)
+    })
+  })
+
+  describe('DELETE /admin/plans/:planId', () => {
+    it('admin can delete any plan', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: OTHER_USER_ID,
+      })
+      const adminToken = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/admin/plans/${plan.planId}`,
+        headers: { authorization: `Bearer ${adminToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual({ ok: true })
+    })
+
+    it('returns 403 for non-admin user', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/admin/plans/${plan.planId}`,
+        headers: authHeaders(),
+      })
+
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('returns 404 when plan does not exist', async () => {
+      const nonExistentId = '00000000-0000-0000-0000-000000000000'
+      const adminToken = await signAdminJwt()
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/admin/plans/${nonExistentId}`,
+        headers: { authorization: `Bearer ${adminToken}` },
+      })
+
+      expect(response.statusCode).toBe(404)
     })
   })
 })

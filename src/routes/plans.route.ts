@@ -117,10 +117,9 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         const authenticatedUserId = request.user!.id
 
-        if (!isAdmin(request.user) && planFields.visibility === 'public') {
+        if (planFields.visibility === 'public') {
           return reply.status(400).send({
-            message:
-              'Signed-in users cannot create public plans. Use invite_only or private.',
+            message: 'Cannot create public plans. Use invite_only or private.',
           })
         }
 
@@ -346,6 +345,100 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         return reply.status(500).send({
           message: 'Failed to retrieve plans',
+        })
+      }
+    }
+  )
+
+  fastify.delete<{ Params: { planId: string } }>(
+    '/admin/plans/:planId',
+    {
+      schema: {
+        tags: ['admin', 'plans'],
+        summary: 'Admin: delete any plan',
+        description:
+          'Delete any plan by its ID. Admin only. JWT required. Cascade delete handles related items, participants, and assignments.',
+        params: { $ref: 'PlanIdParam#' },
+        response: {
+          200: {
+            description: 'Plan deleted successfully',
+            $ref: 'DeletePlanResponse#',
+          },
+          401: {
+            description:
+              'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description: 'Forbidden — insufficient permissions',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Not found — plan does not exist',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Service temporarily unavailable',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!isAdmin(request.user)) {
+        return reply.status(403).send({
+          message: 'Admin access required',
+        })
+      }
+
+      const { planId } = request.params
+
+      try {
+        const [existingPlan] = await fastify.db
+          .select({ planId: plans.planId })
+          .from(plans)
+          .where(eq(plans.planId, planId))
+
+        if (!existingPlan) {
+          return reply.status(404).send({
+            message: 'Plan not found',
+          })
+        }
+
+        await fastify.db.delete(plans).where(eq(plans.planId, planId))
+
+        request.log.info(
+          {
+            planId,
+            deletedBy: request.user!.id,
+            isAdmin: true,
+          },
+          'Admin: plan deleted'
+        )
+        return reply.status(200).send({ ok: true })
+      } catch (error) {
+        request.log.error(
+          { err: error, planId },
+          'Admin: failed to delete plan'
+        )
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.status(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.status(500).send({
+          message: 'Failed to delete plan',
         })
       }
     }
@@ -597,8 +690,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
 
         if (allowed) {
           const userId = request.user!.id
-          const isOwnerOrAdmin =
-            isAdmin(request.user) || plan.createdByUserId === userId
+          const isOwner = plan.createdByUserId === userId
 
           const syncedParticipant = await syncParticipantFromJwt(
             fastify.db,
@@ -616,7 +708,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
             )
           }
 
-          const safeParticipants = isOwnerOrAdmin
+          const safeParticipants = isOwner
             ? finalParticipants
             : finalParticipants.map((p) => ({ ...p, inviteToken: null }))
 
@@ -625,7 +717,6 @@ export async function plansRoutes(fastify: FastifyInstance) {
             participants: safeParticipants,
           }
 
-          const isOwner = plan.createdByUserId === userId
           if (isOwner) {
             const joinRequestsRows = await fastify.db
               .select()
@@ -774,14 +865,10 @@ export async function plansRoutes(fastify: FastifyInstance) {
         })
       }
 
-      if (
-        updates.visibility &&
-        !isAdmin(request.user) &&
-        updates.visibility === 'public'
-      ) {
+      if (updates.visibility === 'public') {
         return reply.status(400).send({
           message:
-            'Signed-in users cannot set visibility to public. Use invite_only or private.',
+            'Cannot set visibility to public. Use invite_only or private.',
         })
       }
 
@@ -848,7 +935,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
         tags: ['plans'],
         summary: 'Delete a plan',
         description:
-          'Delete a plan by its ID. Requires JWT. Admin can delete any plan; owner can delete their own. Cascade delete handles related items, participants, and assignments.',
+          'Delete a plan by its ID. Requires JWT. Only the plan owner can delete. Cascade delete handles related items, participants, and assignments.',
         params: { $ref: 'PlanIdParam#' },
         response: {
           200: {
@@ -894,10 +981,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
           })
         }
 
-        if (
-          !isAdmin(request.user) &&
-          existingPlan.createdByUserId !== request.user!.id
-        ) {
+        if (existingPlan.createdByUserId !== request.user!.id) {
           return reply.status(404).send({
             message: 'Plan not found',
           })
@@ -909,7 +993,6 @@ export async function plansRoutes(fastify: FastifyInstance) {
           {
             planId,
             deletedBy: request.user!.id,
-            isAdmin: isAdmin(request.user),
           },
           'Plan deleted'
         )

@@ -651,7 +651,7 @@ describe('Participants Route', () => {
       })
     })
 
-    it('allows admin to update any participant', async () => {
+    it('admin cannot update participant on plan they do not belong to', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: OTHER_USER_ID,
       })
@@ -669,8 +669,10 @@ describe('Participants Route', () => {
         payload: { rsvpStatus: 'confirmed' },
       })
 
-      expect(response.statusCode).toBe(200)
-      expect(response.json().rsvpStatus).toBe('confirmed')
+      expect(response.statusCode).toBe(403)
+      expect(response.json().message).toBe(
+        'You can only edit your own preferences'
+      )
     })
 
     it('owner can update any participant rsvpStatus', async () => {
