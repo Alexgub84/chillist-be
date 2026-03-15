@@ -2803,6 +2803,95 @@
         }
       }
     },
+    "/admin/plans/{planId}": {
+      "delete": {
+        "summary": "Admin: delete any plan",
+        "tags": [
+          "admin",
+          "plans"
+        ],
+        "description": "Delete any plan by its ID. Admin only. JWT required. Cascade delete handles related items, participants, and assignments.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan deleted successfully",
+                  "$ref": "#/components/schemas/def-13"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — insufficient permissions",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan does not exist",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/plans/pending-requests": {
       "get": {
         "summary": "List plans with pending join requests",
@@ -3129,7 +3218,7 @@
         "tags": [
           "plans"
         ],
-        "description": "Delete a plan by its ID. Requires JWT. Admin can delete any plan; owner can delete their own. Cascade delete handles related items, participants, and assignments.",
+        "description": "Delete a plan by its ID. Requires JWT. Only the plan owner can delete. Cascade delete handles related items, participants, and assignments.",
         "parameters": [
           {
             "schema": {
