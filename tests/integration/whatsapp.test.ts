@@ -431,7 +431,7 @@ describe('WhatsApp Integration', () => {
       expect(messages[0].message).not.toContain('AllParticipants Item')
     })
 
-    it('sends empty list message when plan has no items', async () => {
+    it('returns 400 EMPTY_LIST when plan has no items', async () => {
       const { plan } = await createPlanWithParticipants()
 
       const response = await app.inject({
@@ -441,10 +441,52 @@ describe('WhatsApp Integration', () => {
         payload: { recipient: 'self' },
       })
 
+      expect(response.statusCode).toBe(400)
+      const body = response.json()
+      expect(body.code).toBe('EMPTY_LIST')
+      expect(body.message).toContain('No items match')
+      const messages = fakeGreenApi.getSentMessages()
+      expect(messages).toHaveLength(0)
+    })
+
+    it('recipient: "all" skips participants with empty filtered lists', async () => {
+      const { plan, participants: allP } = await createPlanWithParticipants()
+
+      await seedTestItemWithAssignment(
+        plan.planId,
+        [{ participantId: allP[1].participantId, status: 'pending' }],
+        { name: 'Pending for P1', category: 'food' }
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/send-list`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { recipient: 'all', listType: 'buying' },
+      })
+
       expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.total).toBe(2)
+      expect(body.sent).toBe(1)
+      expect(body.failed).toBe(1)
+
+      const skipped = body.results.find(
+        (r: { participantId: string }) =>
+          r.participantId === allP[2].participantId
+      )
+      expect(skipped.sent).toBe(false)
+      expect(skipped.error).toBe('empty_list')
+
+      const sent = body.results.find(
+        (r: { participantId: string }) =>
+          r.participantId === allP[1].participantId
+      )
+      expect(sent.sent).toBe(true)
+
       const messages = fakeGreenApi.getSentMessages()
       expect(messages).toHaveLength(1)
-      expect(messages[0].message).toContain('No items yet')
+      expect(messages[0].message).toContain('Pending for P1')
     })
 
     it('returns 401 without auth', async () => {
