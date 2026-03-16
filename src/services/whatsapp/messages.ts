@@ -43,6 +43,7 @@ interface SendListMessageParams {
   planTitle: string
   categoryBlocks: string
   emptyList: boolean
+  listType: 'full' | 'buying' | 'packing' | 'unassigned'
 }
 
 export interface ItemForList {
@@ -78,8 +79,24 @@ const templates = {
       `בקשתך להצטרף ל"${p.planTitle}" לא אושרה. אם לדעתך מדובר בטעות, אנא צור/צרי קשר עם מארגן/ת התוכנית.`,
   },
   sendListHeader: {
-    en: (planTitle: string) => `📋 *${planTitle}*\n\n`,
-    he: (planTitle: string) => `📋 *${planTitle}*\n\n`,
+    en: (planTitle: string) => `📋 *${planTitle}*`,
+    he: (planTitle: string) => `📋 *${planTitle}*`,
+  },
+  sendListIntro: {
+    en: {
+      full: "Here's the complete item list:",
+      buying: 'Here are the items to buy:',
+      packing: 'Here are the items to pack:',
+      unassigned:
+        'These items are unassigned — enter the plan and choose what you can bring:',
+    },
+    he: {
+      full: 'הנה רשימת הפריטים המלאה:',
+      buying: 'הנה הפריטים לקנייה:',
+      packing: 'הנה הפריטים לאריזה:',
+      unassigned:
+        'הפריטים האלה לא שויכו — היכנסו לתוכנית ובחרו מה אתם יכולים להביא:',
+    },
   },
   sendListEmpty: {
     en: '_No items yet_',
@@ -156,8 +173,9 @@ export function sendListMessage(
   params: SendListMessageParams
 ): string {
   const header = templates.sendListHeader[lang](params.planTitle)
+  const intro = templates.sendListIntro[lang][params.listType]
   if (params.emptyList) {
-    return (header + templates.sendListEmpty[lang]).trim()
+    return `${header}\n${intro}\n\n${templates.sendListEmpty[lang]}`.trim()
   }
-  return (header + params.categoryBlocks).trim()
+  return `${header}\n${intro}\n\n${params.categoryBlocks}`.trim()
 }

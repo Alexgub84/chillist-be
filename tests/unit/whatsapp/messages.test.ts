@@ -114,6 +114,7 @@ describe('sendListMessage', () => {
       planTitle: 'Trip',
       categoryBlocks: '*Food*\n• Burgers\n\n',
       emptyList: false,
+      listType: 'full',
     })
     expect(msg).toContain('📋 *Trip*')
     expect(msg).toContain('*Food*')
@@ -125,6 +126,7 @@ describe('sendListMessage', () => {
       planTitle: 'Trip',
       categoryBlocks: '',
       emptyList: true,
+      listType: 'full',
     })
     expect(msg).toContain('📋 *Trip*')
     expect(msg).toContain('No items yet')
@@ -135,8 +137,81 @@ describe('sendListMessage', () => {
       planTitle: 'טיול',
       categoryBlocks: '',
       emptyList: true,
+      listType: 'full',
     })
     expect(msg).toContain('אין פריטים עדיין')
+  })
+
+  it('includes full list intro (en)', () => {
+    const msg = sendListMessage('en', {
+      planTitle: 'Trip',
+      categoryBlocks: '*Food*\n• Burgers\n\n',
+      emptyList: false,
+      listType: 'full',
+    })
+    expect(msg).toContain('complete item list')
+  })
+
+  it('includes buying list intro (en)', () => {
+    const msg = sendListMessage('en', {
+      planTitle: 'Trip',
+      categoryBlocks: '*Food*\n• Burgers\n\n',
+      emptyList: false,
+      listType: 'buying',
+    })
+    expect(msg).toContain('items to buy')
+  })
+
+  it('includes packing list intro (en)', () => {
+    const msg = sendListMessage('en', {
+      planTitle: 'Trip',
+      categoryBlocks: '*Food*\n• Burgers\n\n',
+      emptyList: false,
+      listType: 'packing',
+    })
+    expect(msg).toContain('items to pack')
+  })
+
+  it('includes unassigned list intro (en)', () => {
+    const msg = sendListMessage('en', {
+      planTitle: 'Trip',
+      categoryBlocks: '*Food*\n• Burgers\n\n',
+      emptyList: false,
+      listType: 'unassigned',
+    })
+    expect(msg).toContain('unassigned')
+    expect(msg).toContain('choose what you can bring')
+  })
+
+  it('includes buying list intro (he)', () => {
+    const msg = sendListMessage('he', {
+      planTitle: 'טיול',
+      categoryBlocks: '*אוכל*\n• המבורגר\n\n',
+      emptyList: false,
+      listType: 'buying',
+    })
+    expect(msg).toContain('לקנייה')
+  })
+
+  it('includes packing list intro (he)', () => {
+    const msg = sendListMessage('he', {
+      planTitle: 'טיול',
+      categoryBlocks: '*אוכל*\n• המבורגר\n\n',
+      emptyList: false,
+      listType: 'packing',
+    })
+    expect(msg).toContain('לאריזה')
+  })
+
+  it('includes unassigned list intro (he)', () => {
+    const msg = sendListMessage('he', {
+      planTitle: 'טיול',
+      categoryBlocks: '*אוכל*\n• המבורגר\n\n',
+      emptyList: false,
+      listType: 'unassigned',
+    })
+    expect(msg).toContain('לא שויכו')
+    expect(msg).toContain('מה אתם יכולים להביא')
   })
 })
 

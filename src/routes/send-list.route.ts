@@ -38,11 +38,20 @@ async function sendToRecipient(
       listType,
       recipient.participantId
     )
+    if (filtered.length === 0) {
+      return {
+        participantId: recipient.participantId,
+        phone: recipient.phone,
+        sent: false as const,
+        error: 'empty_list',
+      }
+    }
     const categoryBlocks = formatItemList(filtered, lang)
     const message = sendListMessage(lang, {
       planTitle,
       categoryBlocks,
-      emptyList: filtered.length === 0,
+      emptyList: false,
+      listType,
     })
     const result = await fastify.whatsapp.sendMessage(recipient.phone, message)
     if (result.success) {
@@ -240,6 +249,16 @@ export async function sendListRoutes(fastify: FastifyInstance) {
           recipient === 'all' &&
           (listType === 'buying' || listType === 'packing')
 
+        if (recipient !== 'all' && !perParticipantFiltering) {
+          const filtered = filterItemsForList(planItems, listType)
+          if (filtered.length === 0) {
+            return reply.status(400).send({
+              message: 'No items match the selected list type',
+              code: 'EMPTY_LIST',
+            })
+          }
+        }
+
         const sendResults = await Promise.all(
           targets.map((target) => {
             if (perParticipantFiltering) {
@@ -253,11 +272,20 @@ export async function sendListRoutes(fastify: FastifyInstance) {
               )
             }
             const filtered = filterItemsForList(planItems, listType)
+            if (filtered.length === 0) {
+              return {
+                participantId: target.participantId,
+                phone: target.phone,
+                sent: false as const,
+                error: 'empty_list',
+              }
+            }
             const categoryBlocks = formatItemList(filtered, lang)
             const message = sendListMessage(lang, {
               planTitle,
               categoryBlocks,
-              emptyList: filtered.length === 0,
+              emptyList: false,
+              listType,
             })
             return fastify.whatsapp
               .sendMessage(target.phone, message)
