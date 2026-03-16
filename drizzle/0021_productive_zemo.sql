@@ -1,0 +1,1 @@
+ALTER TYPE "public"."whatsapp_notification_type" ADD VALUE 'join_request_rejected';

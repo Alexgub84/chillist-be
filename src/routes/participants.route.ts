@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
-import { participants, plans, whatsappNotifications } from '../db/schema.js'
+import { participants, plans } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { removeParticipantFromAssignments } from '../services/item.service.js'
 import { config } from '../config.js'
@@ -9,6 +9,7 @@ import {
   resolveLanguage,
   inviteMessage,
 } from '../services/whatsapp/messages.js'
+import { fireAndForgetNotification } from '../services/whatsapp/notify.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -227,68 +228,36 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           const planTitle =
             existingPlan.title ?? (lang === 'he' ? 'תוכנית' : 'a plan')
           const msg = inviteMessage(lang, { planTitle, deepLink })
-          fastify.whatsapp
-            .sendMessage(createdParticipant.contactPhone, msg)
-            .then((result) => {
+          fireAndForgetNotification({
+            whatsapp: fastify.whatsapp,
+            db: fastify.db,
+            log: request.log,
+            phone: createdParticipant.contactPhone,
+            message: msg,
+            planId,
+            recipientParticipantId: createdParticipant.participantId,
+            type: 'invitation_sent',
+            onSuccess: () => {
               fastify.db
-                .insert(whatsappNotifications)
-                .values({
-                  planId,
-                  recipientPhone: createdParticipant.contactPhone!,
-                  recipientParticipantId: createdParticipant.participantId,
-                  type: 'invitation_sent',
-                  status: result.success ? 'sent' : 'failed',
-                  messageId: result.success ? result.messageId : null,
-                  error: result.success ? null : result.error,
+                .update(participants)
+                .set({
+                  inviteStatus: 'invited',
+                  updatedAt: new Date(),
                 })
+                .where(
+                  eq(
+                    participants.participantId,
+                    createdParticipant.participantId
+                  )
+                )
                 .catch((dbErr) =>
                   request.log.warn(
                     { err: dbErr },
-                    'Failed to persist WhatsApp notification'
+                    'Failed to update inviteStatus'
                   )
                 )
-              if (result.success) {
-                fastify.db
-                  .update(participants)
-                  .set({
-                    inviteStatus: 'invited',
-                    updatedAt: new Date(),
-                  })
-                  .where(
-                    eq(
-                      participants.participantId,
-                      createdParticipant.participantId
-                    )
-                  )
-                  .catch((dbErr) =>
-                    request.log.warn(
-                      { err: dbErr },
-                      'Failed to update inviteStatus'
-                    )
-                  )
-                request.log.info(
-                  {
-                    participantId: createdParticipant.participantId,
-                    messageId: result.messageId,
-                  },
-                  'WhatsApp invitation sent'
-                )
-              } else {
-                request.log.warn(
-                  {
-                    participantId: createdParticipant.participantId,
-                    error: result.error,
-                  },
-                  'WhatsApp invitation failed'
-                )
-              }
-            })
-            .catch((err) => {
-              request.log.warn(
-                { err, participantId: createdParticipant.participantId },
-                'WhatsApp invitation error'
-              )
-            })
+            },
+          })
         }
 
         return reply.status(201).send(createdParticipant)

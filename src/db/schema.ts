@@ -278,7 +278,12 @@ export const participantJoinRequests = pgTable(
 
 export const whatsappNotificationTypeEnum = pgEnum(
   'whatsapp_notification_type',
-  ['invitation_sent', 'join_request_pending', 'join_request_approved']
+  [
+    'invitation_sent',
+    'join_request_pending',
+    'join_request_approved',
+    'join_request_rejected',
+  ]
 )
 
 export const whatsappNotificationStatusEnum = pgEnum(

@@ -35,10 +35,21 @@ interface JoinRequestApprovedMessageParams {
   deepLink: string
 }
 
+interface JoinRequestRejectedMessageParams {
+  planTitle: string
+}
+
 interface SendListMessageParams {
   planTitle: string
   categoryBlocks: string
   emptyList: boolean
+}
+
+export interface ItemForList {
+  name: string
+  quantity: number
+  unit: string | null
+  category: string | null
 }
 
 const templates = {
@@ -59,6 +70,12 @@ const templates = {
       `Great news! 🎉 Your request to join "${p.planTitle}" has been approved. View the plan: ${p.deepLink}`,
     he: (p: JoinRequestApprovedMessageParams) =>
       `חדשות טובות! 🎉 בקשתך להצטרף ל"${p.planTitle}" אושרה. לצפייה בתוכנית: ${p.deepLink}`,
+  },
+  joinRequestRejected: {
+    en: (p: JoinRequestRejectedMessageParams) =>
+      `Your request to join "${p.planTitle}" was not approved. If you think this is a mistake, please contact the plan organizer.`,
+    he: (p: JoinRequestRejectedMessageParams) =>
+      `בקשתך להצטרף ל"${p.planTitle}" לא אושרה. אם לדעתך מדובר בטעות, אנא צור/צרי קשר עם מארגן/ת התוכנית.`,
   },
   sendListHeader: {
     en: (planTitle: string) => `📋 *${planTitle}*\n\n`,
@@ -93,12 +110,45 @@ export function joinRequestApprovedMessage(
   return templates.joinRequestApproved[lang](params)
 }
 
+export function joinRequestRejectedMessage(
+  lang: Lang,
+  params: JoinRequestRejectedMessageParams
+): string {
+  return templates.joinRequestRejected[lang](params)
+}
+
 export function translateCategory(category: string, lang: Lang): string {
   return categoryTranslations[category]?.[lang] ?? category
 }
 
 export function translateUnit(unit: string, lang: Lang): string {
   return unitTranslations[unit]?.[lang] ?? unit
+}
+
+export function resolvePlanTitle(
+  title: string | null | undefined,
+  lang: Lang
+): string {
+  return title ?? (lang === 'he' ? 'תוכנית ללא שם' : 'Untitled Plan')
+}
+
+export function formatItemList(items: ItemForList[], lang: Lang): string {
+  if (items.length === 0) return ''
+  const grouped: Record<string, string[]> = {}
+  for (const item of items) {
+    const cat = translateCategory(item.category ?? 'other', lang)
+    if (!grouped[cat]) grouped[cat] = []
+    const qty =
+      item.quantity > 1
+        ? `${item.quantity} ${item.unit ? translateUnit(item.unit, lang) : ''}`
+        : ''
+    grouped[cat].push(qty ? `• ${item.name} (${qty.trim()})` : `• ${item.name}`)
+  }
+  let categoryBlocks = ''
+  for (const [category, lines] of Object.entries(grouped)) {
+    categoryBlocks += `*${category}*\n${lines.join('\n')}\n\n`
+  }
+  return categoryBlocks
 }
 
 export function sendListMessage(
