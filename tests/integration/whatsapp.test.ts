@@ -7,6 +7,7 @@ import {
   getTestDb,
   seedTestPlans,
   seedTestParticipants,
+  seedTestItemWithAssignment,
   setupTestDatabase,
 } from '../helpers/db.js'
 import {
@@ -166,35 +167,79 @@ describe('WhatsApp Integration', () => {
       expect(messages[0].message).toContain('Requester Smith')
       expect(messages[0].message).toContain('join')
     })
+
+    it('sends WhatsApp rejection message to requester when join request is rejected', async () => {
+      const { plan } = await createPlanWithOwner()
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Requester',
+          lastName: 'Jones',
+          contactPhone: '+972502222222',
+        },
+      })
+      expect(createRes.statusCode).toBe(201)
+      const { requestId } = createRes.json()
+
+      await new Promise((r) => setTimeout(r, 100))
+      fakeGreenApi.clear()
+
+      const rejectRes = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/join-requests/${requestId}`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { status: 'rejected' },
+      })
+      expect(rejectRes.statusCode).toBe(200)
+
+      await new Promise((r) => setTimeout(r, 100))
+
+      const messages = fakeGreenApi.getSentMessages()
+      expect(messages).toHaveLength(1)
+      expect(messages[0].chatId).toBe(phoneToChatId('+972502222222'))
+      expect(messages[0].message).toContain('not approved')
+    })
   })
 
   describe('Send-list endpoint', () => {
-    it('sends formatted item list via WhatsApp', async () => {
+    async function createPlanWithParticipants() {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: OWNER_USER_ID,
       })
-      await seedTestParticipants(plan.planId, 1, {
+      const allParticipants = await seedTestParticipants(plan.planId, 3, {
         ownerUserId: OWNER_USER_ID,
       })
-
+      const owner = allParticipants[0]
       await db
         .update(plans)
-        .set({ title: 'Camping Trip' })
+        .set({
+          title: 'Camping Trip',
+          ownerParticipantId: owner.participantId,
+        })
         .where(eq(plans.planId, plan.planId))
+
+      return { plan, owner, participants: allParticipants }
+    }
+
+    it('recipient: "self" sends to caller\'s own phone', async () => {
+      const { plan } = await createPlanWithParticipants()
 
       await db.insert(items).values([
         {
           planId: plan.planId,
           name: 'Tent',
           quantity: 1,
-          unit: 'pcs',
+          unit: 'pcs' as const,
           category: 'equipment' as const,
         },
         {
           planId: plan.planId,
           name: 'Burgers',
           quantity: 10,
-          unit: 'pcs',
+          unit: 'pcs' as const,
           category: 'food' as const,
         },
       ])
@@ -203,25 +248,218 @@ describe('WhatsApp Integration', () => {
         method: 'POST',
         url: `/plans/${plan.planId}/send-list`,
         headers: { authorization: `Bearer ${ownerToken}` },
-        payload: {
-          phone: '+972503333333',
-        },
+        payload: { recipient: 'self' },
       })
 
       expect(response.statusCode).toBe(200)
       const body = response.json()
-      expect(body.sent).toBe(true)
-      expect(body.messageId).toBeDefined()
+      expect(body.total).toBe(1)
+      expect(body.sent).toBe(1)
+      expect(body.results).toHaveLength(1)
+      expect(body.results[0].sent).toBe(true)
 
       const messages = fakeGreenApi.getSentMessages()
       expect(messages).toHaveLength(1)
-      expect(messages[0].chatId).toBe(phoneToChatId('+972503333333'))
       expect(messages[0].message).toContain('Camping Trip')
       expect(messages[0].message).toContain('Tent')
       expect(messages[0].message).toContain('Burgers')
     })
 
-    it('returns 403 when user is not a participant', async () => {
+    it('recipient: "self" with listType: "full" sends all items', async () => {
+      const { plan } = await createPlanWithParticipants()
+
+      await db.insert(items).values([
+        {
+          planId: plan.planId,
+          name: 'Tent',
+          quantity: 1,
+          unit: 'pcs' as const,
+          category: 'equipment' as const,
+        },
+      ])
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/send-list`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { recipient: 'self', listType: 'full' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const messages = fakeGreenApi.getSentMessages()
+      expect(messages).toHaveLength(1)
+      expect(messages[0].message).toContain('Tent')
+    })
+
+    it('recipient: "self" with listType: "buying" filters to pending items', async () => {
+      const { plan, owner } = await createPlanWithParticipants()
+
+      await seedTestItemWithAssignment(
+        plan.planId,
+        [{ participantId: owner.participantId, status: 'pending' }],
+        { name: 'Pending Item', category: 'food' }
+      )
+      await seedTestItemWithAssignment(
+        plan.planId,
+        [{ participantId: owner.participantId, status: 'purchased' }],
+        { name: 'Purchased Item', category: 'food' }
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/send-list`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { recipient: 'self', listType: 'buying' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const messages = fakeGreenApi.getSentMessages()
+      expect(messages).toHaveLength(1)
+      expect(messages[0].message).toContain('Pending Item')
+      expect(messages[0].message).not.toContain('Purchased Item')
+    })
+
+    it('recipient: "all" sends to all non-owner participants', async () => {
+      const { plan, participants: allP } = await createPlanWithParticipants()
+
+      await db.insert(items).values([
+        {
+          planId: plan.planId,
+          name: 'Tent',
+          quantity: 1,
+          unit: 'pcs' as const,
+          category: 'equipment' as const,
+        },
+      ])
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/send-list`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { recipient: 'all' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.total).toBe(2)
+      expect(body.sent).toBe(2)
+      expect(body.results).toHaveLength(2)
+
+      const messages = fakeGreenApi.getSentMessages()
+      expect(messages).toHaveLength(2)
+      const chatIds = messages.map((m: { chatId: string }) => m.chatId)
+      expect(chatIds).toContain(phoneToChatId(allP[1].contactPhone!))
+      expect(chatIds).toContain(phoneToChatId(allP[2].contactPhone!))
+    })
+
+    it('recipient: "all" returns 403 for non-owner', async () => {
+      const { plan } = await createPlanWithParticipants()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/send-list`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: { recipient: 'all' },
+      })
+
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('recipient: "<participantId>" sends to specific participant', async () => {
+      const { plan, participants: allP } = await createPlanWithParticipants()
+
+      await db.insert(items).values([
+        {
+          planId: plan.planId,
+          name: 'Tent',
+          quantity: 1,
+          unit: 'pcs' as const,
+          category: 'equipment' as const,
+        },
+      ])
+
+      const targetP = allP[1]
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/send-list`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { recipient: targetP.participantId },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.total).toBe(1)
+      expect(body.sent).toBe(1)
+      expect(body.results[0].participantId).toBe(targetP.participantId)
+
+      const messages = fakeGreenApi.getSentMessages()
+      expect(messages).toHaveLength(1)
+      expect(messages[0].chatId).toBe(phoneToChatId(targetP.contactPhone!))
+    })
+
+    it('listType: "unassigned" filters to unassigned items', async () => {
+      const { plan, owner } = await createPlanWithParticipants()
+
+      await seedTestItemWithAssignment(plan.planId, [], {
+        name: 'Unassigned Item',
+        category: 'equipment',
+        isAllParticipants: false,
+      })
+      await seedTestItemWithAssignment(
+        plan.planId,
+        [{ participantId: owner.participantId, status: 'pending' }],
+        { name: 'Assigned Item', category: 'equipment' }
+      )
+      await seedTestItemWithAssignment(plan.planId, [], {
+        name: 'AllParticipants Item',
+        category: 'equipment',
+        isAllParticipants: true,
+      })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/send-list`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { recipient: 'self', listType: 'unassigned' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const messages = fakeGreenApi.getSentMessages()
+      expect(messages).toHaveLength(1)
+      expect(messages[0].message).toContain('Unassigned Item')
+      expect(messages[0].message).not.toContain('Assigned Item')
+      expect(messages[0].message).not.toContain('AllParticipants Item')
+    })
+
+    it('sends empty list message when plan has no items', async () => {
+      const { plan } = await createPlanWithParticipants()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/send-list`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { recipient: 'self' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const messages = fakeGreenApi.getSentMessages()
+      expect(messages).toHaveLength(1)
+      expect(messages[0].message).toContain('No items yet')
+    })
+
+    it('returns 401 without auth', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/send-list`,
+        payload: { recipient: 'self' },
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+
+    it('returns 404 when user is not a participant of invite-only plan', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: OWNER_USER_ID,
         visibility: 'invite_only',
@@ -234,71 +472,10 @@ describe('WhatsApp Integration', () => {
         method: 'POST',
         url: `/plans/${plan.planId}/send-list`,
         headers: { authorization: `Bearer ${requesterToken}` },
-        payload: {
-          phone: '+972503333333',
-        },
+        payload: { recipient: 'self' },
       })
 
-      expect(response.statusCode).toBe(403)
-    })
-
-    it('returns 401 without auth', async () => {
-      const [plan] = await seedTestPlans(1)
-
-      const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/send-list`,
-        payload: {
-          phone: '+972503333333',
-        },
-      })
-
-      expect(response.statusCode).toBe(401)
-    })
-
-    it('rejects invalid phone number format', async () => {
-      const [plan] = await seedTestPlans(1, {
-        createdByUserId: OWNER_USER_ID,
-      })
-      await seedTestParticipants(plan.planId, 1, {
-        ownerUserId: OWNER_USER_ID,
-      })
-
-      const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/send-list`,
-        headers: { authorization: `Bearer ${ownerToken}` },
-        payload: {
-          phone: '555-123-4567',
-        },
-      })
-
-      expect(response.statusCode).toBe(400)
-    })
-
-    it('sends empty list message when plan has no items', async () => {
-      const [plan] = await seedTestPlans(1, {
-        createdByUserId: OWNER_USER_ID,
-      })
-      await seedTestParticipants(plan.planId, 1, {
-        ownerUserId: OWNER_USER_ID,
-      })
-
-      const response = await app.inject({
-        method: 'POST',
-        url: `/plans/${plan.planId}/send-list`,
-        headers: { authorization: `Bearer ${ownerToken}` },
-        payload: {
-          phone: '+972504444444',
-        },
-      })
-
-      expect(response.statusCode).toBe(200)
-      expect(response.json().sent).toBe(true)
-
-      const messages = fakeGreenApi.getSentMessages()
-      expect(messages).toHaveLength(1)
-      expect(messages[0].message).toContain('No items yet')
+      expect(response.statusCode).toBe(404)
     })
   })
 

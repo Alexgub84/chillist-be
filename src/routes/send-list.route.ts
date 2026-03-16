@@ -1,16 +1,72 @@
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
-import { plans, items, participants } from '../db/schema.js'
+import { items, participants } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import {
   resolveLanguage,
+  resolvePlanTitle,
+  formatItemList,
   sendListMessage,
-  translateCategory,
-  translateUnit,
 } from '../services/whatsapp/messages.js'
+import {
+  filterItemsForList,
+  type ListType,
+  type ItemWithAssignments,
+} from '../services/whatsapp/item-filters.js'
 
 interface SendListBody {
+  recipient: string
+  listType?: ListType
+}
+
+interface Recipient {
+  participantId: string
   phone: string
+}
+
+async function sendToRecipient(
+  fastify: FastifyInstance,
+  recipient: Recipient,
+  planItems: ItemWithAssignments[],
+  listType: ListType,
+  lang: 'en' | 'he',
+  planTitle: string
+) {
+  try {
+    const filtered = filterItemsForList(
+      planItems,
+      listType,
+      recipient.participantId
+    )
+    const categoryBlocks = formatItemList(filtered, lang)
+    const message = sendListMessage(lang, {
+      planTitle,
+      categoryBlocks,
+      emptyList: filtered.length === 0,
+    })
+    const result = await fastify.whatsapp.sendMessage(recipient.phone, message)
+    if (result.success) {
+      return {
+        participantId: recipient.participantId,
+        phone: recipient.phone,
+        sent: true as const,
+        messageId: result.messageId,
+      }
+    }
+    return {
+      participantId: recipient.participantId,
+      phone: recipient.phone,
+      sent: false as const,
+      error: result.error,
+    }
+  } catch {
+    return {
+      participantId: recipient.participantId,
+      phone: recipient.phone,
+      sent: false as const,
+      error: 'Unexpected send error',
+    }
+  }
 }
 
 export async function sendListRoutes(fastify: FastifyInstance) {
@@ -37,16 +93,18 @@ export async function sendListRoutes(fastify: FastifyInstance) {
         tags: ['plans'],
         summary: 'Send the item list for a plan via WhatsApp',
         description:
-          'Sends a formatted item list for the specified plan to the given phone number via WhatsApp. ' +
-          'Items are grouped by category and include name, quantity, and unit. ' +
-          'The message language (English or Hebrew) is determined by the plan defaultLang setting. ' +
-          'The phone number must be in E.164 format. ' +
-          'Requires JWT authentication. Caller must be a participant of the plan.',
+          'Sends a formatted item list for the specified plan via WhatsApp. ' +
+          'Use "recipient" to control who receives the list: ' +
+          '"self" sends to the caller, "all" sends to every non-owner participant (owner-only), ' +
+          'or pass a specific participantId. ' +
+          'Use "listType" to filter items: "full" (default), "buying", "packing", or "unassigned". ' +
+          'When recipient is "all" with buying/packing, items are filtered per-participant. ' +
+          'Requires JWT authentication.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'SendListBody#' },
         response: {
           200: {
-            description: 'Message sent successfully',
+            description: 'Send results',
             $ref: 'SendListResponse#',
           },
           400: {
@@ -58,7 +116,7 @@ export async function sendListRoutes(fastify: FastifyInstance) {
             $ref: 'ErrorResponse#',
           },
           403: {
-            description: 'Forbidden — not a participant of this plan',
+            description: 'Forbidden',
             $ref: 'ErrorResponse#',
           },
           404: {
@@ -74,30 +132,26 @@ export async function sendListRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { planId } = request.params
-      const { phone } = request.body
+      const { recipient, listType = 'full' } = request.body
 
       try {
-        const { allowed } = await checkPlanAccess(
+        const { allowed, plan: accessPlan } = await checkPlanAccess(
           fastify.db,
           planId,
           request.user
         )
 
-        if (!allowed) {
+        if (!allowed || !accessPlan) {
+          if (!accessPlan) {
+            return reply.status(404).send({ message: 'Plan not found' })
+          }
           return reply
             .status(403)
             .send({ message: 'You are not a participant of this plan' })
         }
 
-        const [plan] = await fastify.db
-          .select({ title: plans.title, defaultLang: plans.defaultLang })
-          .from(plans)
-          .where(eq(plans.planId, planId))
-          .limit(1)
-
-        if (!plan) {
-          return reply.status(404).send({ message: 'Plan not found' })
-        }
+        const lang = resolveLanguage(accessPlan.defaultLang)
+        const planTitle = resolvePlanTitle(accessPlan.title, lang)
 
         const planItems = await fastify.db
           .select({
@@ -105,239 +159,155 @@ export async function sendListRoutes(fastify: FastifyInstance) {
             quantity: items.quantity,
             unit: items.unit,
             category: items.category,
+            isAllParticipants: items.isAllParticipants,
+            assignmentStatusList: items.assignmentStatusList,
           })
           .from(items)
           .where(eq(items.planId, planId))
 
-        const lang = resolveLanguage(plan.defaultLang)
-        const planTitle =
-          plan.title ?? (lang === 'he' ? 'תוכנית ללא שם' : 'Untitled Plan')
-
-        let categoryBlocks = ''
-        if (planItems.length > 0) {
-          const grouped: Record<string, string[]> = {}
-          for (const item of planItems) {
-            const cat = translateCategory(item.category ?? 'other', lang)
-            if (!grouped[cat]) grouped[cat] = []
-            const qty =
-              item.quantity > 1
-                ? `${item.quantity} ${item.unit ? translateUnit(item.unit, lang) : ''}`
-                : ''
-            grouped[cat].push(
-              qty ? `• ${item.name} (${qty.trim()})` : `• ${item.name}`
-            )
-          }
-
-          for (const [category, lines] of Object.entries(grouped)) {
-            categoryBlocks += `*${category}*\n${lines.join('\n')}\n\n`
-          }
-        }
-
-        const message = sendListMessage(lang, {
-          planTitle,
-          categoryBlocks,
-          emptyList: planItems.length === 0,
-        })
-
-        const result = await fastify.whatsapp.sendMessage(phone, message)
-
-        if (result.success) {
-          request.log.info(
-            { planId, phone, messageId: result.messageId },
-            'Item list sent via WhatsApp'
-          )
-          return reply.send({ sent: true, messageId: result.messageId })
-        }
-
-        request.log.warn(
-          { planId, phone, error: result.error },
-          'Failed to send item list via WhatsApp'
-        )
-        return reply.send({ sent: false, error: result.error })
-      } catch (error) {
-        request.log.error({ err: error, planId }, 'Failed to send item list')
-        return reply.status(500).send({ message: 'Failed to send item list' })
-      }
-    }
-  )
-
-  fastify.post<{
-    Params: { planId: string }
-  }>(
-    '/plans/:planId/send-list-all',
-    {
-      schema: {
-        tags: ['plans'],
-        summary:
-          'Send the item list to all non-owner participants via WhatsApp',
-        description:
-          'Sends the formatted item list for the specified plan to every non-owner participant who has a phone number. ' +
-          'Messages are sent in parallel. The response includes per-participant results. ' +
-          'Language is determined by plan defaultLang. ' +
-          'Requires JWT authentication. Caller must be the plan owner or admin.',
-        params: { $ref: 'PlanIdParam#' },
-        response: {
-          200: {
-            description: 'Bulk send results',
-            $ref: 'SendListAllResponse#',
-          },
-          401: {
-            description: 'Authentication required',
-            $ref: 'ErrorResponse#',
-          },
-          403: {
-            description: 'Forbidden — not the plan owner',
-            $ref: 'ErrorResponse#',
-          },
-          404: {
-            description: 'Plan not found',
-            $ref: 'ErrorResponse#',
-          },
-          500: {
-            description: 'Internal server error',
-            $ref: 'ErrorResponse#',
-          },
-        },
-      },
-    },
-    async (request, reply) => {
-      const { planId } = request.params
-
-      try {
-        const [plan] = await fastify.db
-          .select({
-            title: plans.title,
-            defaultLang: plans.defaultLang,
-            ownerParticipantId: plans.ownerParticipantId,
-            createdByUserId: plans.createdByUserId,
-          })
-          .from(plans)
-          .where(eq(plans.planId, planId))
-          .limit(1)
-
-        if (!plan) {
-          return reply.status(404).send({ message: 'Plan not found' })
-        }
-
-        if (plan.createdByUserId !== request.user!.id) {
-          return reply
-            .status(403)
-            .send({ message: 'Only the plan owner can send to all' })
-        }
-
-        const recipients = await fastify.db
+        const allParticipants = await fastify.db
           .select({
             participantId: participants.participantId,
             contactPhone: participants.contactPhone,
+            userId: participants.userId,
           })
           .from(participants)
           .where(eq(participants.planId, planId))
 
-        const nonOwnerRecipients = recipients.filter(
-          (p) => p.participantId !== plan.ownerParticipantId && p.contactPhone
-        )
+        let targets: Recipient[]
 
-        if (nonOwnerRecipients.length === 0) {
-          return reply.send({
-            total: 0,
-            sent: 0,
-            failed: 0,
-            results: [],
-          })
-        }
-
-        const planItems = await fastify.db
-          .select({
-            name: items.name,
-            quantity: items.quantity,
-            unit: items.unit,
-            category: items.category,
-          })
-          .from(items)
-          .where(eq(items.planId, planId))
-
-        const lang = resolveLanguage(plan.defaultLang)
-        const planTitle =
-          plan.title ?? (lang === 'he' ? 'תוכנית ללא שם' : 'Untitled Plan')
-
-        let categoryBlocks = ''
-        if (planItems.length > 0) {
-          const grouped: Record<string, string[]> = {}
-          for (const item of planItems) {
-            const cat = translateCategory(item.category ?? 'other', lang)
-            if (!grouped[cat]) grouped[cat] = []
-            const qty =
-              item.quantity > 1
-                ? `${item.quantity} ${item.unit ? translateUnit(item.unit, lang) : ''}`
-                : ''
-            grouped[cat].push(
-              qty ? `• ${item.name} (${qty.trim()})` : `• ${item.name}`
+        if (recipient === 'self') {
+          const callerParticipant = allParticipants.find(
+            (p) => p.userId === request.user!.id
+          )
+          if (!callerParticipant) {
+            return reply
+              .status(403)
+              .send({ message: 'You are not a participant of this plan' })
+          }
+          if (!callerParticipant.contactPhone) {
+            return reply
+              .status(400)
+              .send({ message: 'You do not have a phone number on file' })
+          }
+          targets = [
+            {
+              participantId: callerParticipant.participantId,
+              phone: callerParticipant.contactPhone,
+            },
+          ]
+        } else if (recipient === 'all') {
+          if (accessPlan.createdByUserId !== request.user!.id) {
+            return reply
+              .status(403)
+              .send({ message: 'Only the plan owner can send to all' })
+          }
+          targets = allParticipants
+            .filter(
+              (p) =>
+                p.participantId !== accessPlan.ownerParticipantId &&
+                p.contactPhone
             )
+            .map((p) => ({
+              participantId: p.participantId,
+              phone: p.contactPhone!,
+            }))
+        } else {
+          const targetParticipant = allParticipants.find(
+            (p) => p.participantId === recipient
+          )
+          if (!targetParticipant) {
+            return reply.status(404).send({ message: 'Participant not found' })
           }
-          for (const [category, lines] of Object.entries(grouped)) {
-            categoryBlocks += `*${category}*\n${lines.join('\n')}\n\n`
+          if (!targetParticipant.contactPhone) {
+            return reply
+              .status(400)
+              .send({ message: 'Participant does not have a phone number' })
           }
+          targets = [
+            {
+              participantId: targetParticipant.participantId,
+              phone: targetParticipant.contactPhone,
+            },
+          ]
         }
 
-        const message = sendListMessage(lang, {
-          planTitle,
-          categoryBlocks,
-          emptyList: planItems.length === 0,
-        })
+        if (targets.length === 0) {
+          return reply.send({ total: 0, sent: 0, failed: 0, results: [] })
+        }
+
+        const perParticipantFiltering =
+          recipient === 'all' &&
+          (listType === 'buying' || listType === 'packing')
 
         const sendResults = await Promise.all(
-          nonOwnerRecipients.map(async (recipient) => {
-            try {
-              const result = await fastify.whatsapp.sendMessage(
-                recipient.contactPhone,
-                message
+          targets.map((target) => {
+            if (perParticipantFiltering) {
+              return sendToRecipient(
+                fastify,
+                target,
+                planItems,
+                listType,
+                lang,
+                planTitle
               )
-              if (result.success) {
-                return {
-                  participantId: recipient.participantId,
-                  phone: recipient.contactPhone,
-                  sent: true,
-                  messageId: result.messageId,
-                }
-              }
-              return {
-                participantId: recipient.participantId,
-                phone: recipient.contactPhone,
-                sent: false,
-                error: result.error,
-              }
-            } catch {
-              return {
-                participantId: recipient.participantId,
-                phone: recipient.contactPhone,
-                sent: false,
-                error: 'Unexpected send error',
-              }
             }
+            const filtered = filterItemsForList(planItems, listType)
+            const categoryBlocks = formatItemList(filtered, lang)
+            const message = sendListMessage(lang, {
+              planTitle,
+              categoryBlocks,
+              emptyList: filtered.length === 0,
+            })
+            return fastify.whatsapp
+              .sendMessage(target.phone, message)
+              .then((result) => {
+                if (result.success) {
+                  return {
+                    participantId: target.participantId,
+                    phone: target.phone,
+                    sent: true as const,
+                    messageId: result.messageId,
+                  }
+                }
+                return {
+                  participantId: target.participantId,
+                  phone: target.phone,
+                  sent: false as const,
+                  error: result.error,
+                }
+              })
+              .catch(() => ({
+                participantId: target.participantId,
+                phone: target.phone,
+                sent: false as const,
+                error: 'Unexpected send error',
+              }))
           })
         )
 
         const sentCount = sendResults.filter((r) => r.sent).length
 
         request.log.info(
-          { planId, total: nonOwnerRecipients.length, sent: sentCount },
-          'Bulk item list sent via WhatsApp'
+          {
+            planId,
+            total: targets.length,
+            sent: sentCount,
+            listType,
+            recipient,
+          },
+          'Item list sent via WhatsApp'
         )
 
         return reply.send({
-          total: nonOwnerRecipients.length,
+          total: targets.length,
           sent: sentCount,
-          failed: nonOwnerRecipients.length - sentCount,
+          failed: targets.length - sentCount,
           results: sendResults,
         })
       } catch (error) {
-        request.log.error(
-          { err: error, planId },
-          'Failed to send item list to all'
-        )
-        return reply
-          .status(500)
-          .send({ message: 'Failed to send item list to all' })
+        request.log.error({ err: error, planId }, 'Failed to send item list')
+        return reply.status(500).send({ message: 'Failed to send item list' })
       }
     }
   )

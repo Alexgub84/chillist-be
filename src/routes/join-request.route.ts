@@ -1,11 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { eq, and } from 'drizzle-orm'
-import {
-  plans,
-  participants,
-  participantJoinRequests,
-  whatsappNotifications,
-} from '../db/schema.js'
+import { plans, participants, participantJoinRequests } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { addParticipantToPlan } from '../services/participant.service.js'
 import { config } from '../config.js'
@@ -13,7 +8,9 @@ import {
   resolveLanguage,
   joinRequestMessage,
   joinRequestApprovedMessage,
+  joinRequestRejectedMessage,
 } from '../services/whatsapp/messages.js'
+import { fireAndForgetNotification } from '../services/whatsapp/notify.js'
 
 interface CreateJoinRequestBody {
   name: string
@@ -186,7 +183,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             .where(eq(participants.participantId, plan.ownerParticipantId))
             .limit(1)
             .then(([owner]) => {
-              if (!owner?.contactPhone) return undefined
+              if (!owner?.contactPhone) return
               const lang = resolveLanguage(plan.defaultLang)
               const requesterName = `${created.name} ${created.lastName}`
               const planTitle =
@@ -200,38 +197,16 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
                 planTitle,
                 deepLink,
               })
-              return fastify.whatsapp
-                .sendMessage(owner.contactPhone, msg)
-                .then((result) => {
-                  fastify.db
-                    .insert(whatsappNotifications)
-                    .values({
-                      planId,
-                      recipientPhone: owner.contactPhone!,
-                      recipientParticipantId: plan.ownerParticipantId,
-                      type: 'join_request_pending',
-                      status: result.success ? 'sent' : 'failed',
-                      messageId: result.success ? result.messageId : null,
-                      error: result.success ? null : result.error,
-                    })
-                    .catch((dbErr) =>
-                      request.log.warn(
-                        { err: dbErr },
-                        'Failed to persist WhatsApp notification'
-                      )
-                    )
-                  if (result.success) {
-                    request.log.info(
-                      { requestId: created.requestId },
-                      'WhatsApp join-request notification sent to owner'
-                    )
-                  } else {
-                    request.log.warn(
-                      { requestId: created.requestId, error: result.error },
-                      'WhatsApp join-request notification failed'
-                    )
-                  }
-                })
+              fireAndForgetNotification({
+                whatsapp: fastify.whatsapp,
+                db: fastify.db,
+                log: request.log,
+                phone: owner.contactPhone,
+                message: msg,
+                planId,
+                recipientParticipantId: plan.ownerParticipantId,
+                type: 'join_request_pending',
+              })
             })
             .catch((err) => {
               request.log.warn(
@@ -422,44 +397,16 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
               planTitle,
               deepLink,
             })
-            fastify.whatsapp
-              .sendMessage(joinRequest.contactPhone, msg)
-              .then((waResult) => {
-                fastify.db
-                  .insert(whatsappNotifications)
-                  .values({
-                    planId,
-                    recipientPhone: joinRequest.contactPhone!,
-                    recipientParticipantId: result.participantId,
-                    type: 'join_request_approved',
-                    status: waResult.success ? 'sent' : 'failed',
-                    messageId: waResult.success ? waResult.messageId : null,
-                    error: waResult.success ? null : waResult.error,
-                  })
-                  .catch((dbErr) =>
-                    request.log.warn(
-                      { err: dbErr },
-                      'Failed to persist WhatsApp notification'
-                    )
-                  )
-                if (waResult.success) {
-                  request.log.info(
-                    { requestId },
-                    'WhatsApp join-request-approved notification sent'
-                  )
-                } else {
-                  request.log.warn(
-                    { requestId, error: waResult.error },
-                    'WhatsApp join-request-approved notification failed'
-                  )
-                }
-              })
-              .catch((err) => {
-                request.log.warn(
-                  { err, requestId },
-                  'WhatsApp join-request-approved notification error'
-                )
-              })
+            fireAndForgetNotification({
+              whatsapp: fastify.whatsapp,
+              db: fastify.db,
+              log: request.log,
+              phone: joinRequest.contactPhone,
+              message: msg,
+              planId,
+              recipientParticipantId: result.participantId,
+              type: 'join_request_approved',
+            })
           }
 
           return reply.status(200).send(result)
@@ -475,6 +422,23 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
           { planId, requestId, rejectedUserId: joinRequest.supabaseUserId },
           'Join request rejected'
         )
+
+        if (joinRequest.contactPhone) {
+          const lang = resolveLanguage(plan.defaultLang)
+          const planTitle =
+            plan.title ?? (lang === 'he' ? 'התוכנית' : 'the plan')
+          const msg = joinRequestRejectedMessage(lang, { planTitle })
+          fireAndForgetNotification({
+            whatsapp: fastify.whatsapp,
+            db: fastify.db,
+            log: request.log,
+            phone: joinRequest.contactPhone,
+            message: msg,
+            planId,
+            recipientParticipantId: null,
+            type: 'join_request_rejected',
+          })
+        }
 
         return reply.status(200).send({
           requestId: updated.requestId,

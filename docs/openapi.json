@@ -2482,28 +2482,38 @@
       },
       "def-67": {
         "title": "SendListBody",
-        "description": "Request body for sending a plan item list via WhatsApp.",
+        "description": "Request body for sending a plan item list via WhatsApp. Use \"recipient\" to choose who receives the list and \"listType\" to filter items.",
         "type": "object",
         "properties": {
-          "phone": {
+          "recipient": {
             "type": "string",
-            "pattern": "^\\+[1-9]\\d{6,14}$",
-            "description": "Recipient phone number in E.164 format (e.g. +972501234567). The formatted item list for the plan will be sent to this number via WhatsApp.",
-            "example": "+972501234567"
+            "description": "Who should receive the list. \"self\" sends to the caller's own phone. \"all\" sends to every non-owner participant (owner-only). A specific participantId sends to that participant.",
+            "example": "self"
+          },
+          "listType": {
+            "type": "string",
+            "enum": [
+              "full",
+              "buying",
+              "packing",
+              "unassigned"
+            ],
+            "default": "full",
+            "description": "Which items to include. \"full\" = all items, \"buying\" = pending assignments, \"packing\" = purchased assignments, \"unassigned\" = no assignments."
           }
         },
         "required": [
-          "phone"
+          "recipient"
         ]
       },
       "def-68": {
-        "title": "SendListAllResponse",
-        "description": "Response after attempting to send an item list to all non-owner participants via WhatsApp.",
+        "title": "SendListResponse",
+        "description": "Unified response after attempting to send an item list via WhatsApp.",
         "type": "object",
         "properties": {
           "total": {
             "type": "number",
-            "description": "Total number of non-owner participants with phone numbers."
+            "description": "Total number of recipients targeted."
           },
           "sent": {
             "type": "number",
@@ -2515,7 +2525,7 @@
           },
           "results": {
             "type": "array",
-            "description": "Per-participant send result.",
+            "description": "Per-recipient send result.",
             "items": {
               "type": "object",
               "properties": {
@@ -2548,28 +2558,6 @@
           "sent",
           "failed",
           "results"
-        ]
-      },
-      "def-69": {
-        "title": "SendListResponse",
-        "description": "Response after attempting to send an item list via WhatsApp.",
-        "type": "object",
-        "properties": {
-          "sent": {
-            "type": "boolean",
-            "description": "Whether the WhatsApp message was successfully queued for delivery."
-          },
-          "messageId": {
-            "type": "string",
-            "description": "Unique message ID returned by the WhatsApp provider. Present only when sent is true."
-          },
-          "error": {
-            "type": "string",
-            "description": "Error description from the WhatsApp provider. Present only when sent is false."
-          }
-        },
-        "required": [
-          "sent"
         ]
       }
     }
@@ -5760,7 +5748,7 @@
         "tags": [
           "plans"
         ],
-        "description": "Sends a formatted item list for the specified plan to the given phone number via WhatsApp. Items are grouped by category and include name, quantity, and unit. The message language (English or Hebrew) is determined by the plan defaultLang setting. The phone number must be in E.164 format. Requires JWT authentication. Caller must be a participant of the plan.",
+        "description": "Sends a formatted item list for the specified plan via WhatsApp. Use \"recipient\" to control who receives the list: \"self\" sends to the caller, \"all\" sends to every non-owner participant (owner-only), or pass a specific participantId. Use \"listType\" to filter items: \"full\" (default), \"buying\", \"packing\", or \"unassigned\". When recipient is \"all\" with buying/packing, items are filtered per-participant. Requires JWT authentication.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5783,12 +5771,12 @@
         ],
         "responses": {
           "200": {
-            "description": "Message sent successfully",
+            "description": "Send results",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Message sent successfully",
-                  "$ref": "#/components/schemas/def-69"
+                  "description": "Send results",
+                  "$ref": "#/components/schemas/def-68"
                 }
               }
             }
@@ -5816,88 +5804,11 @@
             }
           },
           "403": {
-            "description": "Forbidden — not a participant of this plan",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Forbidden — not a participant of this plan",
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Plan not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "Plan not found",
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "Internal server error",
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/plans/{planId}/send-list-all": {
-      "post": {
-        "summary": "Send the item list to all non-owner participants via WhatsApp",
-        "tags": [
-          "plans"
-        ],
-        "description": "Sends the formatted item list for the specified plan to every non-owner participant who has a phone number. Messages are sent in parallel. The response includes per-participant results. Language is determined by plan defaultLang. Requires JWT authentication. Caller must be the plan owner or admin.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
-            "name": "planId",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Bulk send results",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "Bulk send results",
-                  "$ref": "#/components/schemas/def-68"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "Authentication required",
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden — not the plan owner",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "Forbidden — not the plan owner",
+                  "description": "Forbidden",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
