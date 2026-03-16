@@ -38,7 +38,7 @@ Always do the following before committing:
 1. Pull main and merge: `git fetch origin main && git merge origin/main` (resolve conflicts if any)
 2. Run `npm run openapi:generate` to regenerate the OpenAPI spec
 3. Update docs in `../chillist-docs/` if the change affects them:
-   - `specs/current-status.md` — update when features are added, changed, or removed. Keep the "Working Features" and "User Flows" sections accurate. Update the "BE version" line with the commit SHA.
+   - `current/status.md` — update when features are added, changed, or removed. Keep the "Working Features" and "User Flows" sections accurate. Update the "BE version" line with the commit SHA.
    - `specs/mvp-v1.md` — update Auth status row when auth milestones are reached
    - `specs/user-management.md` — update phase/step status and endpoint tables
    - `guides/backend.md` — update "What's next" section when phases/steps are completed
@@ -54,6 +54,6 @@ When you fix a bug, learn something new, or change workflow:
 - Update ../chillist-docs/dev-lessons/backend.md with the lesson
 - If the fix implies a new rule, propose adding it to ../chillist-docs/rules/backend.md
 - If specs changed (features done, new endpoints), update ../chillist-docs/specs/mvp-v1.md
-- If features were added, changed, or completed, update ../chillist-docs/specs/current-status.md (Working Features, User Flows, Technical Overview sections as needed)
+- If features were added, changed, or completed, update ../chillist-docs/current/status.md (Working Features, User Flows, Technical Overview sections as needed)
 - If setup/scripts changed, update ../chillist-docs/guides/backend.md
 - If API routes or schemas changed, run npm run openapi:generate and commit docs/openapi.json (note: the pre-commit hook now auto-generates and stages this, but run it manually when validating changes before commit)
