@@ -14,5 +14,6 @@ declare module 'fastify' {
   interface FastifyRequest {
     user: JwtUser | null
     guestParticipant: GuestParticipant | null
+    internalUserId: string | null
   }
 }

@@ -9,6 +9,8 @@ const PROD_BASE = {
   ...BASE_ENV,
   NODE_ENV: 'production',
   SUPABASE_URL: 'https://example.supabase.co',
+  CHATBOT_SERVICE_KEY: 'some-service-key',
+  SUPABASE_SERVICE_ROLE_KEY: 'some-service-role-key',
 }
 
 describe('WhatsApp env validation guards', () => {
