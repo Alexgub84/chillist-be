@@ -16,6 +16,8 @@ export const envSchema = z
     WHATSAPP_PROVIDER: z.enum(['green_api', 'fake']).default('fake'),
     GREEN_API_INSTANCE_ID: z.string().optional(),
     GREEN_API_TOKEN: z.string().optional(),
+    CHATBOT_SERVICE_KEY: z.string().optional(),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SUPABASE_URL, {
     message: 'SUPABASE_URL is required in production',
@@ -39,6 +41,10 @@ export const envSchema = z
       path: ['GREEN_API_INSTANCE_ID'],
     }
   )
+  .refine((env) => env.NODE_ENV !== 'production' || !!env.CHATBOT_SERVICE_KEY, {
+    message: 'CHATBOT_SERVICE_KEY is required in production',
+    path: ['CHATBOT_SERVICE_KEY'],
+  })
 
 export type Env = z.infer<typeof envSchema>
 

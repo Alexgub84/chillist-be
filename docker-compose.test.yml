@@ -29,6 +29,7 @@ services:
       - WHATSAPP_PROVIDER=green_api
       - GREEN_API_INSTANCE_ID=docker-test-dummy
       - GREEN_API_TOKEN=docker-test-dummy
+      - CHATBOT_SERVICE_KEY=docker-test-dummy
     depends_on:
       postgres:
         condition: service_healthy

@@ -12,4 +12,6 @@ export const config = {
   whatsappProvider: env.WHATSAPP_PROVIDER,
   greenApiInstanceId: env.GREEN_API_INSTANCE_ID,
   greenApiToken: env.GREEN_API_TOKEN,
+  chatbotServiceKey: env.CHATBOT_SERVICE_KEY,
+  supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
 } as const

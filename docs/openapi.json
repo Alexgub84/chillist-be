@@ -2559,6 +2559,40 @@
           "failed",
           "results"
         ]
+      },
+      "def-69": {
+        "type": "object",
+        "required": [
+          "phoneNumber"
+        ],
+        "properties": {
+          "phoneNumber": {
+            "type": "string",
+            "minLength": 7
+          }
+        },
+        "additionalProperties": false,
+        "title": "IdentifyRequest"
+      },
+      "def-70": {
+        "type": "object",
+        "required": [
+          "userId",
+          "displayName"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Supabase user UUID of the identified registered user."
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name resolved from the participant record."
+          }
+        },
+        "additionalProperties": false,
+        "title": "IdentifyResponse"
       }
     }
   },
@@ -5838,6 +5872,56 @@
           }
         }
       }
+    },
+    "/api/internal/auth/identify": {
+      "post": {
+        "summary": "Resolve a WhatsApp phone number to a Chillist user",
+        "tags": [
+          "internal"
+        ],
+        "description": "Identifies a registered user by their phone number. Returns the Supabase userId and display name. Returns 404 if the phone is not linked to any registered Chillist account.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-69"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-70"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -5868,6 +5952,10 @@
     {
       "name": "auth",
       "description": "Authentication"
+    },
+    {
+      "name": "internal",
+      "description": "Internal service-to-service API"
     }
   ]
 }

@@ -21,6 +21,8 @@ import authPlugin, { AuthPluginOptions } from './plugins/auth.js'
 import guestAuthPlugin from './plugins/guest-auth.js'
 import websocketPlugin, { WebSocketPluginOptions } from './plugins/websocket.js'
 import whatsappPlugin, { WhatsAppPluginOptions } from './plugins/whatsapp.js'
+import internalAuthPlugin from './plugins/internal-auth.js'
+import { internalRoutes } from './routes/internal.route.js'
 
 export interface AppDependencies {
   db: Database
@@ -87,6 +89,7 @@ export async function buildApp(
           { name: 'invite', description: 'Invite link access' },
           { name: 'guest', description: 'Guest access via invite token' },
           { name: 'auth', description: 'Authentication' },
+          { name: 'internal', description: 'Internal service-to-service API' },
         ],
         components: {
           securitySchemes: {
@@ -134,6 +137,7 @@ export async function buildApp(
   await fastify.register(guestAuthPlugin)
   await fastify.register(whatsappPlugin, whatsapp ?? {})
   await fastify.register(websocketPlugin, websocket ?? {})
+  await fastify.register(internalAuthPlugin)
 
   fastify.addHook('onRequest', async (request) => {
     if (request.url.startsWith('/health')) {
@@ -206,6 +210,7 @@ export async function buildApp(
   await fastify.register(joinRequestRoutes)
   await fastify.register(expensesRoutes)
   await fastify.register(sendListRoutes)
+  await fastify.register(internalRoutes, { prefix: '/api/internal' })
 
   return fastify
 }
