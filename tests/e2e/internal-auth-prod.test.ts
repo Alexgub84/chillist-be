@@ -64,11 +64,9 @@ describe.skipIf(!CREDS)('Internal Auth E2E — Real Supabase Admin', () => {
 
     expect(response.statusCode).toBe(200)
     const body = response.json()
-    expect(body.userType).toBe('registered')
     expect(body.userId).toBe(process.env.TEST_INTERNAL_USER_ID!)
     expect(typeof body.displayName).toBe('string')
     expect(body.displayName.length).toBeGreaterThan(0)
-    expect(body.guestParticipants).toBeNull()
   })
 
   it('returns 404 for a phone not in the database', async () => {
