@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { FastifyInstance } from 'fastify'
 import { userDetails } from '../db/schema.js'
 import { syncAllParticipantsForUser } from '../services/profile-sync.js'
+import { fetchSupabaseUserMetadata } from '../utils/supabase-admin.js'
 
 const AUTH_RATE_LIMIT = {
   max: 10,
@@ -204,9 +205,18 @@ export async function authRoutes(fastify: FastifyInstance) {
       }
 
       try {
+        const supabaseMeta = await fetchSupabaseUserMetadata(
+          request.user.id,
+          request.log
+        )
+        const user =
+          supabaseMeta?.phone && !request.user.phone
+            ? { ...request.user, phone: supabaseMeta.phone }
+            : request.user
+
         const synced = await syncAllParticipantsForUser(
           fastify.db,
-          request.user,
+          user,
           request.log
         )
 

@@ -44,6 +44,7 @@ describe('resolveUserByPhone', () => {
     })
     vi.mocked(fetchSupabaseUserMetadata).mockResolvedValue({
       displayName: 'Alex Guberman',
+      phone: '+972501234567',
     })
 
     const result = await resolveUserByPhone(db, '+972501234567')
