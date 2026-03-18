@@ -34,6 +34,7 @@ interface TestTokenClaims {
   sub?: string
   email?: string | null
   role?: string | null
+  session_id?: string
   app_metadata?: { role?: string } | null
   user_metadata?: TestUserMetadata | null
   exp?: number
@@ -60,6 +61,10 @@ export async function signTestJwt(
 
   if (claims.user_metadata !== null && claims.user_metadata !== undefined) {
     payload.user_metadata = claims.user_metadata
+  }
+
+  if (claims.session_id !== undefined) {
+    payload.session_id = claims.session_id
   }
 
   return new SignJWT(payload)

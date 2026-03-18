@@ -4977,6 +4977,11 @@
                         "email",
                         "role"
                       ]
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Supabase session ID — stable across token refreshes, changes on new login. Use this as a correlation key for client-side logging and analytics."
                     }
                   },
                   "required": [

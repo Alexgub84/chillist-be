@@ -32,6 +32,12 @@ export async function authRoutes(fastify: FastifyInstance) {
                 },
                 required: ['id', 'email', 'role'],
               },
+              sessionId: {
+                type: 'string',
+                nullable: true,
+                description:
+                  'Supabase session ID — stable across token refreshes, changes on new login. Use this as a correlation key for client-side logging and analytics.',
+              },
             },
             required: ['user'],
           },
@@ -47,7 +53,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ message: 'Unauthorized' })
       }
 
-      return { user: request.user }
+      return { user: request.user, sessionId: request.sessionId ?? null }
     }
   )
 

@@ -49,7 +49,7 @@ describe('resolveUserByPhone', () => {
     const result = await resolveUserByPhone(db, '+972501234567')
 
     expect(result).toEqual({ userId: USER_ID, displayName: 'Alex Guberman' })
-    expect(fetchSupabaseUserMetadata).toHaveBeenCalledWith(USER_ID)
+    expect(fetchSupabaseUserMetadata).toHaveBeenCalledWith(USER_ID, undefined)
   })
 
   it('falls back to participant displayName when Supabase returns null', async () => {

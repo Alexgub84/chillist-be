@@ -64,7 +64,46 @@ describe('JWT Auth (injected JWKS)', () => {
           email: 'alex@example.com',
           role: 'authenticated',
         },
+        sessionId: null,
       })
+    })
+
+    it('returns sessionId when JWT contains session_id claim', async () => {
+      const token = await signTestJwt({
+        sub: 'user-uuid-1234',
+        email: 'alex@example.com',
+        role: 'authenticated',
+        session_id: 'test-session-uuid-5678',
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/auth/me',
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toMatchObject({
+        user: { id: 'user-uuid-1234' },
+        sessionId: 'test-session-uuid-5678',
+      })
+    })
+
+    it('returns sessionId null when JWT has no session_id claim', async () => {
+      const token = await signTestJwt({
+        sub: 'user-uuid-1234',
+        email: 'alex@example.com',
+        role: 'authenticated',
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/auth/me',
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().sessionId).toBeNull()
     })
 
     it('defaults email to empty string when not in token', async () => {
