@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  vi,
+} from 'vitest'
 import { buildApp } from '../../src/app.js'
 import { FastifyInstance } from 'fastify'
 import {
@@ -16,6 +24,12 @@ import { Database } from '../../src/db/index.js'
 import { eq } from 'drizzle-orm'
 import { plans, participants } from '../../src/db/schema.js'
 import { randomBytes } from 'node:crypto'
+
+vi.mock('../../src/utils/supabase-admin.js', () => ({
+  fetchSupabaseUserMetadata: vi.fn().mockResolvedValue(null),
+}))
+
+import { fetchSupabaseUserMetadata } from '../../src/utils/supabase-admin.js'
 
 const USER_A_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
 const USER_B_ID = 'bbbbbbbb-1111-2222-3333-444444444444'
@@ -224,6 +238,72 @@ describe('POST /auth/sync-profile', () => {
     })
 
     expect(response.statusCode).toBe(401)
+  })
+
+  it('syncs phone from Supabase user_metadata when JWT lacks phone', async () => {
+    const { participant } = await createPlanWithParticipant(db, USER_A_ID, {
+      name: 'Alex',
+      lastName: 'G',
+      contactPhone: '',
+    })
+
+    vi.mocked(fetchSupabaseUserMetadata).mockResolvedValueOnce({
+      displayName: 'Alex G',
+      phone: '+972501234567',
+    })
+
+    const jwt = await signTestJwt({
+      sub: USER_A_ID,
+      email: 'alex@example.com',
+      user_metadata: { first_name: 'Alex', last_name: 'G' },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/sync-profile',
+      headers: { authorization: `Bearer ${jwt}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().synced).toBe(1)
+
+    const [row] = await db
+      .select()
+      .from(participants)
+      .where(eq(participants.participantId, participant.participantId))
+
+    expect(row.contactPhone).toBe('+972501234567')
+  })
+
+  it('does not overwrite JWT phone with Supabase phone when JWT already has phone', async () => {
+    await createPlanWithParticipant(db, USER_A_ID, {
+      name: 'Alex',
+      lastName: 'G',
+      contactPhone: '+15550000001',
+    })
+
+    vi.mocked(fetchSupabaseUserMetadata).mockResolvedValueOnce({
+      displayName: 'Alex G',
+      phone: '+972501234567',
+    })
+
+    const jwt = await signTestJwt({
+      sub: USER_A_ID,
+      email: 'alex@example.com',
+      user_metadata: {
+        first_name: 'Alex',
+        last_name: 'G',
+        phone: '+15550000001',
+      },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/sync-profile',
+      headers: { authorization: `Bearer ${jwt}` },
+    })
+
+    expect(response.statusCode).toBe(200)
   })
 
   it('handles Google OAuth full_name parsing across all plans', async () => {

@@ -7,6 +7,7 @@ interface SupabaseAdminUser {
     last_name?: string
     full_name?: string
     name?: string
+    phone?: string
   }
 }
 
@@ -18,7 +19,7 @@ interface MinimalLogger {
 export async function fetchSupabaseUserMetadata(
   userId: string,
   log?: MinimalLogger
-): Promise<{ displayName: string } | null> {
+): Promise<{ displayName: string; phone?: string } | null> {
   if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
     log?.warn({ userId }, 'Supabase config missing — skipping metadata fetch')
     return null
@@ -57,5 +58,5 @@ export async function fetchSupabaseUserMetadata(
 
   const displayName = lastName ? `${firstName} ${lastName}` : firstName
   log?.info({ userId }, 'Supabase displayName resolved')
-  return { displayName }
+  return { displayName, ...(meta.phone && { phone: meta.phone }) }
 }
