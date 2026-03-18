@@ -14,6 +14,7 @@ export interface JwtUser {
   id: string
   email: string
   role: string
+  sessionId?: string
   firstName?: string
   lastName?: string
   phone?: string
@@ -37,6 +38,7 @@ interface SupabaseUserMetadata {
 interface SupabaseJwtPayload extends JWTPayload {
   email?: string
   role?: string
+  session_id?: string
   app_metadata?: { role?: string }
   user_metadata?: SupabaseUserMetadata
 }
@@ -51,6 +53,7 @@ function extractUser(payload: SupabaseJwtPayload): JwtUser | null {
     id: payload.sub,
     email: payload.email ?? '',
     role: payload.app_metadata?.role ?? payload.role ?? 'authenticated',
+    ...(payload.session_id && { sessionId: payload.session_id }),
     ...names,
     ...(meta?.phone && { phone: meta.phone }),
     ...(meta?.avatar_url && { avatarUrl: meta.avatar_url }),
@@ -67,6 +70,7 @@ async function authPlugin(
   opts: AuthPluginOptions = {}
 ) {
   fastify.decorateRequest('user', null)
+  fastify.decorateRequest('sessionId', null)
   fastify.decorate('jwtEnabled', false)
 
   let jwks = opts.jwks
@@ -112,8 +116,13 @@ async function authPlugin(
       request.user = extractUser(payload as SupabaseJwtPayload)
 
       if (request.user) {
+        request.sessionId = request.user.sessionId ?? null
         request.log.info(
-          { userId: request.user.id, role: request.user.role },
+          {
+            userId: request.user.id,
+            role: request.user.role,
+            sessionId: request.sessionId,
+          },
           'User authenticated via JWT'
         )
       }

@@ -42,7 +42,11 @@ export async function internalRoutes(fastify: FastifyInstance) {
 
       request.log.info({ phonePrefix }, 'Identifying user by phone')
 
-      const user = await resolveUserByPhone(fastify.db, phoneNumber)
+      const user = await resolveUserByPhone(
+        fastify.db,
+        phoneNumber,
+        request.log
+      )
 
       if (!user) {
         request.log.info({ phonePrefix }, 'User not found')

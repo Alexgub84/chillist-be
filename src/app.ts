@@ -151,6 +151,7 @@ export async function buildApp(
         origin: request.headers.origin ?? null,
         hasJwt: !!request.headers.authorization?.startsWith('Bearer '),
         hasInviteToken: !!request.headers['x-invite-token'],
+        sessionId: request.sessionId ?? null,
       },
       'Incoming request'
     )
@@ -193,6 +194,7 @@ export async function buildApp(
         statusCode: reply.statusCode,
         userId: request.user?.id ?? null,
         guestParticipantId: request.guestParticipant?.participantId ?? null,
+        sessionId: request.sessionId ?? null,
         corsOrigin: reply.getHeader('access-control-allow-origin') ?? null,
         responseTimeMs: reply.elapsedTime,
       },

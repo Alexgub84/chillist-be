@@ -10,10 +10,19 @@ interface SupabaseAdminUser {
   }
 }
 
+interface MinimalLogger {
+  info: (obj: Record<string, unknown>, msg: string) => void
+  warn: (obj: Record<string, unknown>, msg: string) => void
+}
+
 export async function fetchSupabaseUserMetadata(
-  userId: string
+  userId: string,
+  log?: MinimalLogger
 ): Promise<{ displayName: string } | null> {
-  if (!config.supabaseUrl || !config.supabaseServiceRoleKey) return null
+  if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
+    log?.warn({ userId }, 'Supabase config missing — skipping metadata fetch')
+    return null
+  }
 
   const url = `${config.supabaseUrl}/auth/v1/admin/users/${userId}`
 
@@ -24,16 +33,29 @@ export async function fetchSupabaseUserMetadata(
     },
   })
 
-  if (!response.ok) return null
+  if (!response.ok) {
+    log?.warn(
+      { userId, status: response.status },
+      'Supabase metadata fetch failed'
+    )
+    return null
+  }
 
   const data = (await response.json()) as SupabaseAdminUser
   const meta = data.user_metadata
 
-  if (!meta) return null
+  if (!meta) {
+    log?.warn({ userId }, 'Supabase user has no user_metadata')
+    return null
+  }
 
   const { firstName, lastName } = parseNameFromMetadata(meta)
-  if (!firstName) return null
+  if (!firstName) {
+    log?.warn({ userId }, 'Supabase metadata has no parseable first name')
+    return null
+  }
 
   const displayName = lastName ? `${firstName} ${lastName}` : firstName
+  log?.info({ userId }, 'Supabase displayName resolved')
   return { displayName }
 }

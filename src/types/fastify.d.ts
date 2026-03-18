@@ -15,5 +15,6 @@ declare module 'fastify' {
     user: JwtUser | null
     guestParticipant: GuestParticipant | null
     internalUserId: string | null
+    sessionId: string | null
   }
 }

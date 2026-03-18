@@ -1,4 +1,5 @@
 import fp from 'fastify-plugin'
+import { createHash } from 'node:crypto'
 import { FastifyInstance, FastifyRequest } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { participants } from '../db/schema.js'
@@ -37,6 +38,11 @@ async function guestAuthPlugin(fastify: FastifyInstance) {
         planId: participant.planId,
       }
 
+      const guestSessionId =
+        'guest_' +
+        createHash('sha256').update(inviteToken).digest('hex').slice(0, 16)
+      request.sessionId = guestSessionId
+
       await fastify.db
         .update(participants)
         .set({ lastActivityAt: new Date() })
@@ -46,6 +52,7 @@ async function guestAuthPlugin(fastify: FastifyInstance) {
         {
           participantId: participant.participantId,
           planId: participant.planId,
+          sessionId: guestSessionId,
         },
         'Guest authenticated via invite token'
       )
