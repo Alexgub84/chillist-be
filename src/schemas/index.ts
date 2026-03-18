@@ -89,6 +89,8 @@ import {
 import {
   identifyRequestSchema,
   identifyResponseSchema,
+  internalPlanSummarySchema,
+  internalPlansResponseSchema,
 } from './internal.schema.js'
 
 const schemas = [
@@ -163,6 +165,8 @@ const schemas = [
   sendListResponseSchema,
   identifyRequestSchema,
   identifyResponseSchema,
+  internalPlanSummarySchema,
+  internalPlansResponseSchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
