@@ -1,6 +1,11 @@
 import { eq } from 'drizzle-orm'
 import type { Database } from '../db/index.js'
-import { participants, userDetails, Participant } from '../db/schema.js'
+import {
+  participants,
+  userDetails,
+  Participant,
+  DietaryMembers,
+} from '../db/schema.js'
 import { addParticipantToAllFlaggedItems } from './item.service.js'
 
 export interface AddParticipantData {
@@ -15,6 +20,7 @@ export interface AddParticipantData {
   kidsCount?: number | null
   foodPreferences?: string | null
   allergies?: string | null
+  dietaryMembers?: DietaryMembers | null
   notes?: string | null
   role?: 'participant' | 'viewer'
   inviteToken?: string | null
@@ -59,6 +65,7 @@ export async function addParticipantToPlan(
       kidsCount: data.kidsCount ?? null,
       foodPreferences,
       allergies,
+      dietaryMembers: data.dietaryMembers ?? null,
       notes: data.notes ?? null,
       role: data.role ?? 'participant',
       inviteToken: data.inviteToken ?? null,

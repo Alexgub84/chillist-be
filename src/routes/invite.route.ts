@@ -7,6 +7,7 @@ import {
   Unit,
   ItemCategory,
   Assignment,
+  DietaryMembers,
 } from '../db/schema.js'
 import * as schema from '../db/schema.js'
 import { recordItemCreated, recordItemUpdated } from '../utils/item-changes.js'
@@ -64,6 +65,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             kidsCount: participants.kidsCount,
             foodPreferences: participants.foodPreferences,
             allergies: participants.allergies,
+            dietaryMembers: participants.dietaryMembers,
             notes: participants.notes,
           })
           .from(participants)
@@ -161,6 +163,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             kidsCount: participant.kidsCount,
             foodPreferences: participant.foodPreferences,
             allergies: participant.allergies,
+            dietaryMembers: participant.dietaryMembers,
             notes: participant.notes,
           },
         }
@@ -196,6 +199,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
       kidsCount?: number | null
       foodPreferences?: string | null
       allergies?: string | null
+      dietaryMembers?: DietaryMembers | null
       notes?: string | null
       rsvpStatus?: 'confirmed' | 'not_sure'
     }
@@ -289,6 +293,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           kidsCount: updated.kidsCount,
           foodPreferences: updated.foodPreferences,
           allergies: updated.allergies,
+          dietaryMembers: updated.dietaryMembers,
           notes: updated.notes,
         }
       } catch (error) {

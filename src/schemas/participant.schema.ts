@@ -26,6 +26,11 @@ export const participantSchema = {
     kidsCount: { type: 'integer', nullable: true },
     foodPreferences: { type: 'string', nullable: true },
     allergies: { type: 'string', nullable: true },
+    dietaryMembers: {
+      oneOf: [{ $ref: 'DietaryMembersBody#' }, { type: 'null' }],
+      description:
+        'Per-person dietary preferences for each adult/kid in this participant group. Replaces the legacy foodPreferences/allergies text fields for new clients.',
+    },
     notes: { type: 'string', nullable: true },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
@@ -73,6 +78,11 @@ export const createParticipantBodySchema = {
     kidsCount: { type: 'integer', minimum: 0 },
     foodPreferences: { type: 'string' },
     allergies: { type: 'string' },
+    dietaryMembers: {
+      $ref: 'DietaryMembersBody#',
+      description:
+        'Per-person dietary preferences. Optional on create — send to populate structured dietary data for the participant group.',
+    },
     notes: { type: 'string' },
   },
   required: ['name', 'lastName', 'contactPhone'],
@@ -100,6 +110,11 @@ export const updateParticipantBodySchema = {
     kidsCount: { type: 'integer', minimum: 0, nullable: true },
     foodPreferences: { type: 'string', nullable: true },
     allergies: { type: 'string', nullable: true },
+    dietaryMembers: {
+      oneOf: [{ $ref: 'DietaryMembersBody#' }, { type: 'null' }],
+      description:
+        'Per-person dietary preferences. Send null to clear. Partial updates are not supported — send the full members array each time.',
+    },
     notes: { type: 'string', nullable: true },
     rsvpStatus: {
       type: 'string',

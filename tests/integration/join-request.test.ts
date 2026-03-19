@@ -244,6 +244,41 @@ describe('Join Request Management', () => {
       expect(body.allergies).toBe('peanuts')
     })
 
+    it('carries dietaryMembers from join request to participant on approval', async () => {
+      const { plan } = await createPlanWithOwner(db, OWNER_USER_ID)
+      const joinRequest = await seedTestJoinRequests(
+        plan.planId,
+        REQUESTER_USER_ID,
+        {
+          name: 'Jane',
+          lastName: 'Doe',
+          contactPhone: '+15559990000',
+          dietaryMembers: {
+            members: [
+              { type: 'adult', index: 0, diet: 'vegan', allergies: ['nuts'] },
+              { type: 'kid', index: 0, diet: 'everything', allergies: [] },
+            ],
+          },
+        }
+      )
+
+      const ownerToken = await signTestJwt({ sub: OWNER_USER_ID })
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/join-requests/${joinRequest.requestId}`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { status: 'approved' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const approved = response.json()
+      expect(approved.dietaryMembers).toBeDefined()
+      expect(approved.dietaryMembers.members).toHaveLength(2)
+      expect(approved.dietaryMembers.members[0].diet).toBe('vegan')
+      expect(approved.dietaryMembers.members[0].allergies).toEqual(['nuts'])
+      expect(approved.dietaryMembers.members[1].type).toBe('kid')
+    })
+
     it('returns 409 for already-approved request', async () => {
       const { plan } = await createPlanWithOwner(db, OWNER_USER_ID)
       const joinRequest = await seedTestJoinRequests(

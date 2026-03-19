@@ -420,6 +420,70 @@ describe('Participants Route', () => {
       expect(updated.contactEmail).toBe('new@example.com')
     })
 
+    it('updates dietaryMembers and returns structured dietary data', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const [participant] = await seedTestParticipants(plan.planId, 1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          dietaryMembers: {
+            members: [
+              {
+                type: 'adult',
+                index: 0,
+                diet: 'vegetarian',
+                allergies: ['nuts'],
+              },
+              { type: 'kid', index: 0, diet: 'everything', allergies: [] },
+            ],
+          },
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const updated = response.json()
+      expect(updated.dietaryMembers).toBeDefined()
+      expect(updated.dietaryMembers.members).toHaveLength(2)
+      expect(updated.dietaryMembers.members[0].diet).toBe('vegetarian')
+      expect(updated.dietaryMembers.members[0].allergies).toEqual(['nuts'])
+      expect(updated.dietaryMembers.members[1].type).toBe('kid')
+    })
+
+    it('clears dietaryMembers when null is sent', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const [participant] = await seedTestParticipants(plan.planId, 1)
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          dietaryMembers: {
+            members: [
+              { type: 'adult', index: 0, diet: 'vegan', allergies: [] },
+            ],
+          },
+        },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${participant.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { dietaryMembers: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().dietaryMembers).toBeNull()
+    })
+
     it('sets nullable fields to null', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: TEST_USER_ID,

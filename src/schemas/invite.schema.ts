@@ -78,6 +78,11 @@ export const inviteMyPreferencesSchema = {
     kidsCount: { type: 'integer', nullable: true },
     foodPreferences: { type: 'string', nullable: true },
     allergies: { type: 'string', nullable: true },
+    dietaryMembers: {
+      oneOf: [{ $ref: 'DietaryMembersBody#' }, { type: 'null' }],
+      description:
+        'Per-person dietary preferences for this participant group. Null if not yet set.',
+    },
     notes: { type: 'string', nullable: true },
   },
 } as const
@@ -110,6 +115,11 @@ export const updateInvitePreferencesBodySchema = {
     kidsCount: { type: 'integer', minimum: 0, nullable: true },
     foodPreferences: { type: 'string', nullable: true },
     allergies: { type: 'string', nullable: true },
+    dietaryMembers: {
+      oneOf: [{ $ref: 'DietaryMembersBody#' }, { type: 'null' }],
+      description:
+        'Per-person dietary preferences. Send null to clear. Send the full members array each time — partial updates are not supported.',
+    },
     notes: { type: 'string', nullable: true },
     rsvpStatus: { type: 'string', enum: ['confirmed', 'not_sure'] },
   },
@@ -130,6 +140,10 @@ export const invitePreferencesResponseSchema = {
     kidsCount: { type: 'integer', nullable: true },
     foodPreferences: { type: 'string', nullable: true },
     allergies: { type: 'string', nullable: true },
+    dietaryMembers: {
+      oneOf: [{ $ref: 'DietaryMembersBody#' }, { type: 'null' }],
+      description: 'Per-person dietary preferences after the update.',
+    },
     notes: { type: 'string', nullable: true },
   },
   required: ['participantId', 'role', 'rsvpStatus'],

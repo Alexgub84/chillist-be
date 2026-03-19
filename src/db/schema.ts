@@ -119,6 +119,45 @@ export type Location = {
   timezone?: string
 }
 
+export const DIET_TYPE_VALUES = [
+  'everything',
+  'vegetarian',
+  'vegan',
+  'pescatarian',
+  'kosher',
+  'halal',
+  'gluten_free',
+  'dairy_free',
+  'keto',
+  'paleo',
+] as const
+export type DietType = (typeof DIET_TYPE_VALUES)[number]
+
+export const ALLERGY_TYPE_VALUES = [
+  'none',
+  'nuts',
+  'peanuts',
+  'gluten',
+  'dairy',
+  'eggs',
+  'soy',
+  'shellfish',
+  'sesame',
+  'fish',
+] as const
+export type AllergyType = (typeof ALLERGY_TYPE_VALUES)[number]
+
+export type DietaryMember = {
+  type: 'adult' | 'kid'
+  index: number
+  diet: DietType
+  allergies: AllergyType[]
+}
+
+export type DietaryMembers = {
+  members: DietaryMember[]
+}
+
 export const plans = pgTable('plans', {
   planId: uuid('plan_id').primaryKey().defaultRandom(),
   title: varchar('title', { length: 255 }).notNull(),
@@ -166,6 +205,7 @@ export const participants = pgTable('participants', {
   kidsCount: integer('kids_count'),
   foodPreferences: text('food_preferences'),
   allergies: text('allergies'),
+  dietaryMembers: jsonb('dietary_members').$type<DietaryMembers>(),
   notes: text('notes'),
   rsvpStatus: rsvpStatusEnum('rsvp_status').default('pending').notNull(),
   lastActivityAt: timestamp('last_activity_at', { withTimezone: true }),
@@ -259,6 +299,7 @@ export const participantJoinRequests = pgTable(
     kidsCount: integer('kids_count'),
     foodPreferences: text('food_preferences'),
     allergies: text('allergies'),
+    dietaryMembers: jsonb('dietary_members').$type<DietaryMembers>(),
     notes: text('notes'),
     status: joinRequestStatusEnum('status').default('pending').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })

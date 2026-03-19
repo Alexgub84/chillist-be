@@ -1,6 +1,11 @@
 import { FastifyInstance } from 'fastify'
 import { eq, and } from 'drizzle-orm'
-import { plans, participants, participantJoinRequests } from '../db/schema.js'
+import {
+  plans,
+  participants,
+  participantJoinRequests,
+  DietaryMembers,
+} from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { addParticipantToPlan } from '../services/participant.service.js'
 import { config } from '../config.js'
@@ -22,6 +27,7 @@ interface CreateJoinRequestBody {
   kidsCount?: number
   foodPreferences?: string
   allergies?: string
+  dietaryMembers?: DietaryMembers
   notes?: string
 }
 
@@ -146,6 +152,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             kidsCount: existing.kidsCount,
             foodPreferences: existing.foodPreferences,
             allergies: existing.allergies,
+            dietaryMembers: existing.dietaryMembers,
             notes: existing.notes,
             status: existing.status,
             createdAt: existing.createdAt,
@@ -167,6 +174,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             kidsCount: body.kidsCount ?? null,
             foodPreferences: body.foodPreferences ?? null,
             allergies: body.allergies ?? null,
+            dietaryMembers: body.dietaryMembers ?? null,
             notes: body.notes ?? null,
           })
           .returning()
@@ -229,6 +237,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
           kidsCount: created.kidsCount,
           foodPreferences: created.foodPreferences,
           allergies: created.allergies,
+          dietaryMembers: created.dietaryMembers,
           notes: created.notes,
           status: created.status,
           createdAt: created.createdAt,
@@ -367,6 +376,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             kidsCount: joinRequest.kidsCount,
             foodPreferences: joinRequest.foodPreferences,
             allergies: joinRequest.allergies,
+            dietaryMembers: joinRequest.dietaryMembers,
             notes: joinRequest.notes,
             inviteStatus: 'accepted',
           })
@@ -453,6 +463,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
           kidsCount: updated.kidsCount,
           foodPreferences: updated.foodPreferences,
           allergies: updated.allergies,
+          dietaryMembers: updated.dietaryMembers,
           notes: updated.notes,
           status: updated.status,
           createdAt: updated.createdAt,

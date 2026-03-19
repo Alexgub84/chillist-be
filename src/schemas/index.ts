@@ -92,6 +92,10 @@ import {
   internalPlanSummarySchema,
   internalPlansResponseSchema,
 } from './internal.schema.js'
+import {
+  dietaryMemberSchema,
+  dietaryMembersBodySchema,
+} from './dietary.schema.js'
 
 const schemas = [
   errorResponseSchema,
@@ -167,6 +171,8 @@ const schemas = [
   identifyResponseSchema,
   internalPlanSummarySchema,
   internalPlansResponseSchema,
+  dietaryMemberSchema,
+  dietaryMembersBodySchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
@@ -186,3 +192,4 @@ export * from './join-request.schema.js'
 export * from './expense.schema.js'
 export * from './send-list.schema.js'
 export * from './internal.schema.js'
+export * from './dietary.schema.js'

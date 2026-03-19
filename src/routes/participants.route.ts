@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
-import { participants, plans } from '../db/schema.js'
+import { participants, plans, DietaryMembers } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { removeParticipantFromAssignments } from '../services/item.service.js'
 import { config } from '../config.js'
@@ -27,6 +27,7 @@ interface CreateParticipantBody {
   kidsCount?: number
   foodPreferences?: string
   allergies?: string
+  dietaryMembers?: DietaryMembers
   notes?: string
 }
 
@@ -42,6 +43,7 @@ interface UpdateParticipantBody {
   kidsCount?: number | null
   foodPreferences?: string | null
   allergies?: string | null
+  dietaryMembers?: DietaryMembers | null
   notes?: string | null
   rsvpStatus?: 'pending' | 'confirmed' | 'not_sure'
 }
