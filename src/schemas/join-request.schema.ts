@@ -19,6 +19,11 @@ export const createJoinRequestBodySchema = {
     kidsCount: { type: 'integer', minimum: 0 },
     foodPreferences: { type: 'string' },
     allergies: { type: 'string' },
+    dietaryMembers: {
+      $ref: 'DietaryMembersBody#',
+      description:
+        'Per-person dietary preferences for this join request. Optional — carried through to the participant record on approval.',
+    },
     notes: { type: 'string' },
   },
   required: ['name', 'lastName', 'contactPhone'],
@@ -65,6 +70,11 @@ export const joinRequestSchema = {
     kidsCount: { type: 'integer', nullable: true },
     foodPreferences: { type: 'string', nullable: true },
     allergies: { type: 'string', nullable: true },
+    dietaryMembers: {
+      oneOf: [{ $ref: 'DietaryMembersBody#' }, { type: 'null' }],
+      description:
+        'Per-person dietary preferences carried from the join request.',
+    },
     notes: { type: 'string', nullable: true },
     status: {
       type: 'string',

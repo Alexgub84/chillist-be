@@ -327,6 +327,76 @@ describe('Invite Route', () => {
       expect(response.json().foodPreferences).toBeNull()
     })
 
+    it('accepts and returns dietaryMembers structured data', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: {
+          adultsCount: 2,
+          kidsCount: 1,
+          dietaryMembers: {
+            members: [
+              {
+                type: 'adult',
+                index: 0,
+                diet: 'vegetarian',
+                allergies: ['nuts'],
+              },
+              { type: 'adult', index: 1, diet: 'everything', allergies: [] },
+              {
+                type: 'kid',
+                index: 0,
+                diet: 'everything',
+                allergies: ['gluten'],
+              },
+            ],
+          },
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.adultsCount).toBe(2)
+      expect(body.kidsCount).toBe(1)
+      expect(body.dietaryMembers).toBeDefined()
+      expect(body.dietaryMembers.members).toHaveLength(3)
+      expect(body.dietaryMembers.members[0].diet).toBe('vegetarian')
+      expect(body.dietaryMembers.members[0].allergies).toEqual(['nuts'])
+      expect(body.dietaryMembers.members[2].type).toBe('kid')
+      expect(body.dietaryMembers.members[2].allergies).toEqual(['gluten'])
+    })
+
+    it('clears dietaryMembers when null is sent', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: {
+          dietaryMembers: {
+            members: [
+              { type: 'adult', index: 0, diet: 'vegan', allergies: [] },
+            ],
+          },
+        },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: { dietaryMembers: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().dietaryMembers).toBeNull()
+    })
+
     it('returns 400 when body is empty', async () => {
       const [plan] = await seedTestPlans(1)
       const participants = await seedTestParticipants(plan.planId, 1)
@@ -453,6 +523,7 @@ describe('Invite Route', () => {
       expect(prefs.kidsCount).toBeNull()
       expect(prefs.foodPreferences).toBeNull()
       expect(prefs.allergies).toBeNull()
+      expect(prefs.dietaryMembers).toBeNull()
       expect(prefs.notes).toBeNull()
     })
 
