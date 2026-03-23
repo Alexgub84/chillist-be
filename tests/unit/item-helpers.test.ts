@@ -3,16 +3,28 @@ import {
   resolveItemUnit,
   resolveItemUnitForUpdate,
   classifyDbError,
+  normalizeCategory,
+  isEquipmentCategory,
 } from '../../src/utils/item-helpers.js'
 
 describe('resolveItemUnit', () => {
-  it('returns pcs for equipment regardless of unit', () => {
-    const result = resolveItemUnit('equipment')
+  it('returns pcs for group_equipment regardless of unit', () => {
+    const result = resolveItemUnit('group_equipment')
     expect(result).toEqual({ unit: 'pcs' })
   })
 
-  it('returns pcs for equipment even when a different unit is supplied', () => {
-    const result = resolveItemUnit('equipment', 'kg')
+  it('returns pcs for group_equipment even when a different unit is supplied', () => {
+    const result = resolveItemUnit('group_equipment', 'kg')
+    expect(result).toEqual({ unit: 'pcs' })
+  })
+
+  it('returns pcs for personal_equipment regardless of unit', () => {
+    const result = resolveItemUnit('personal_equipment')
+    expect(result).toEqual({ unit: 'pcs' })
+  })
+
+  it('returns pcs for personal_equipment even when a different unit is supplied', () => {
+    const result = resolveItemUnit('personal_equipment', 'kg')
     expect(result).toEqual({ unit: 'pcs' })
   })
 
@@ -46,22 +58,42 @@ describe('resolveItemUnitForUpdate', () => {
     expect(result).toBeNull()
   })
 
-  it('forces pcs when category changes to equipment', () => {
+  it('forces pcs when category changes to group_equipment', () => {
     const result = resolveItemUnitForUpdate('food', 'kg', {
-      category: 'equipment',
+      category: 'group_equipment',
     })
     expect(result).toEqual({ unit: 'pcs' })
   })
 
-  it('returns error when setting non-pcs unit on equipment item', () => {
-    const result = resolveItemUnitForUpdate('equipment', 'pcs', { unit: 'kg' })
+  it('forces pcs when category changes to personal_equipment', () => {
+    const result = resolveItemUnitForUpdate('food', 'kg', {
+      category: 'personal_equipment',
+    })
+    expect(result).toEqual({ unit: 'pcs' })
+  })
+
+  it('returns error when setting non-pcs unit on group_equipment item', () => {
+    const result = resolveItemUnitForUpdate('group_equipment', 'pcs', {
+      unit: 'kg',
+    })
     expect(result).toEqual({
       error: 'Equipment items must use pcs as the unit',
     })
   })
 
-  it('allows pcs unit explicitly on equipment item', () => {
-    const result = resolveItemUnitForUpdate('equipment', 'pcs', { unit: 'pcs' })
+  it('returns error when setting non-pcs unit on personal_equipment item', () => {
+    const result = resolveItemUnitForUpdate('personal_equipment', 'pcs', {
+      unit: 'kg',
+    })
+    expect(result).toEqual({
+      error: 'Equipment items must use pcs as the unit',
+    })
+  })
+
+  it('allows pcs unit explicitly on group_equipment item', () => {
+    const result = resolveItemUnitForUpdate('group_equipment', 'pcs', {
+      unit: 'pcs',
+    })
     expect(result).toEqual({ unit: 'pcs' })
   })
 
@@ -71,23 +103,23 @@ describe('resolveItemUnitForUpdate', () => {
   })
 
   it('keeps existing unit when changing to food without specifying unit', () => {
-    const result = resolveItemUnitForUpdate('equipment', 'pcs', {
+    const result = resolveItemUnitForUpdate('group_equipment', 'pcs', {
       category: 'food',
     })
     expect(result).toEqual({ unit: 'pcs' })
   })
 
   it('uses new unit when changing to food with a unit', () => {
-    const result = resolveItemUnitForUpdate('equipment', 'pcs', {
+    const result = resolveItemUnitForUpdate('group_equipment', 'pcs', {
       category: 'food',
       unit: 'kg',
     })
     expect(result).toEqual({ unit: 'kg' })
   })
 
-  it('returns pcs when changing to equipment with a unit param that gets overridden', () => {
+  it('returns error when changing to group_equipment with a non-pcs unit', () => {
     const result = resolveItemUnitForUpdate('food', 'kg', {
-      category: 'equipment',
+      category: 'group_equipment',
       unit: 'kg',
     })
     expect(result).toEqual({
@@ -98,6 +130,38 @@ describe('resolveItemUnitForUpdate', () => {
   it('keeps existing food unit when only other fields change', () => {
     const result = resolveItemUnitForUpdate('food', 'ml', { unit: undefined })
     expect(result).toBeNull()
+  })
+})
+
+describe('normalizeCategory', () => {
+  it('maps legacy equipment to group_equipment', () => {
+    expect(normalizeCategory('equipment')).toBe('group_equipment')
+  })
+
+  it('passes through group_equipment unchanged', () => {
+    expect(normalizeCategory('group_equipment')).toBe('group_equipment')
+  })
+
+  it('passes through personal_equipment unchanged', () => {
+    expect(normalizeCategory('personal_equipment')).toBe('personal_equipment')
+  })
+
+  it('passes through food unchanged', () => {
+    expect(normalizeCategory('food')).toBe('food')
+  })
+})
+
+describe('isEquipmentCategory', () => {
+  it('returns true for group_equipment', () => {
+    expect(isEquipmentCategory('group_equipment')).toBe(true)
+  })
+
+  it('returns true for personal_equipment', () => {
+    expect(isEquipmentCategory('personal_equipment')).toBe(true)
+  })
+
+  it('returns false for food', () => {
+    expect(isEquipmentCategory('food')).toBe(false)
   })
 })
 

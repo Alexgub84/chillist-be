@@ -2,6 +2,15 @@ import type { ItemCategory, Unit } from '../db/schema.js'
 
 export type UnitResult = { unit: Unit } | { error: string }
 
+export function isEquipmentCategory(category: string): boolean {
+  return category === 'group_equipment' || category === 'personal_equipment'
+}
+
+export function normalizeCategory(category: string): ItemCategory {
+  if (category === 'equipment') return 'group_equipment'
+  return category as ItemCategory
+}
+
 export function resolveItemUnit(
   category: ItemCategory,
   unit?: Unit
@@ -9,7 +18,7 @@ export function resolveItemUnit(
   if (category === 'food' && !unit) {
     return { error: 'Unit is required for food items' }
   }
-  return { unit: category === 'equipment' ? 'pcs' : unit! }
+  return { unit: isEquipmentCategory(category) ? 'pcs' : unit! }
 }
 
 export function resolveItemUnitForUpdate(
@@ -22,7 +31,7 @@ export function resolveItemUnitForUpdate(
 
   const effectiveCategory = newCategory ?? existingCategory
 
-  if (effectiveCategory === 'equipment') {
+  if (isEquipmentCategory(effectiveCategory)) {
     if (newUnit && newUnit !== 'pcs') {
       return { error: 'Equipment items must use pcs as the unit' }
     }

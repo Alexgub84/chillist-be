@@ -60,7 +60,7 @@ describe('All Participants Items — JSONB assignment model', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Shared Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           isAllParticipants: true,
           assignmentStatusList: planParticipants.map((p) => ({
@@ -96,7 +96,7 @@ describe('All Participants Items — JSONB assignment model', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Subset Item',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           assignmentStatusList: subset.map((p) => ({
             participantId: p.participantId,
@@ -158,7 +158,7 @@ describe('All Participants Items — JSONB assignment model', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Status Item',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           isAllParticipants: true,
           assignmentStatusList: [
@@ -290,7 +290,7 @@ describe('All Participants Items — JSONB assignment model', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Attempt',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           isAllParticipants: true,
           assignmentStatusList: [],
@@ -315,7 +315,7 @@ describe('All Participants Items — JSONB assignment model', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'All Item',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           isAllParticipants: true,
           assignmentStatusList: planParticipants.map((p) => ({
@@ -365,7 +365,7 @@ describe('All Participants Items — JSONB assignment model', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'All Item',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           isAllParticipants: true,
           assignmentStatusList: planParticipants.map((p) => ({

@@ -1343,7 +1343,7 @@ describe('Plans Route', () => {
 
       expect(item.planId).toBe(seededPlan.planId)
       expect(item.name).toBe('Test Item 1')
-      expect(item.category).toBe('equipment')
+      expect(item.category).toBe('group_equipment')
       expect(item.quantity).toBe(1)
       expect(item.unit).toBe('pcs')
     })

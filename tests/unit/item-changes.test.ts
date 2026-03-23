@@ -8,7 +8,7 @@ describe('computeItemDiff', () => {
     'name' | 'category' | 'quantity' | 'unit' | 'subcategory' | 'notes'
   > = {
     name: 'Tent',
-    category: 'equipment',
+    category: 'group_equipment',
     quantity: 2,
     unit: 'pcs',
     subcategory: null,

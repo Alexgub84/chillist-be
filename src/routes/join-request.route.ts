@@ -199,7 +199,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
                 (lang === 'he'
                   ? '\u05d4\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05e9\u05dc\u05da'
                   : 'your plan')
-              const deepLink = `${config.frontendUrl}/plans/${planId}/join-requests`
+              const deepLink = `${config.frontendUrl}/plan/${planId}/join-requests`
               const msg = joinRequestMessage(lang, {
                 requesterName,
                 planTitle,
@@ -402,7 +402,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             const lang = resolveLanguage(plan.defaultLang)
             const planTitle =
               plan.title ?? (lang === 'he' ? 'התוכנית' : 'the plan')
-            const deepLink = `${config.frontendUrl}/plans/${planId}`
+            const deepLink = `${config.frontendUrl}/plan/${planId}`
             const msg = joinRequestApprovedMessage(lang, {
               planTitle,
               deepLink,

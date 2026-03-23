@@ -98,7 +98,7 @@ export async function seedTestItems(
   const testItems = Array.from({ length: count }, (_, i) => ({
     planId,
     name: `Test Item ${i + 1}`,
-    category: 'equipment' as const,
+    category: 'group_equipment' as const,
     quantity: i + 1,
     unit: 'pcs' as const,
     notes: i % 2 === 0 ? `Notes for item ${i + 1}` : null,
@@ -194,7 +194,7 @@ export async function seedTestItemWithAssignment(
     .values({
       planId,
       name: 'Assigned Item',
-      category: 'equipment',
+      category: 'group_equipment',
       quantity: 1,
       unit: 'pcs',
       assignmentStatusList,

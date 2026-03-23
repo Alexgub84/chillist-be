@@ -192,7 +192,7 @@ describe('WebSocket Item Notifications', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 2,
         },
         headers: { authorization: `Bearer ${token}` },
@@ -219,7 +219,7 @@ describe('WebSocket Item Notifications', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 2,
         },
         headers: { authorization: `Bearer ${token}` },
