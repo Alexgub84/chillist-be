@@ -4,14 +4,12 @@ import { FastifyInstance } from 'fastify'
 import {
   cleanupTestDatabase,
   closeTestDatabase,
-  getTestDb,
   seedTestItems,
   seedTestParticipants,
   seedTestParticipantWithUser,
   seedTestPlans,
   setupTestDatabase,
 } from '../helpers/db.js'
-import { addParticipantToPlan } from '../../src/services/participant.service.js'
 import {
   setupTestKeys,
   getTestJWKS,
@@ -328,14 +326,17 @@ describe('All Participants Items — JSONB assignment model', () => {
       const item = createResponse.json()
       expect(item.assignmentStatusList).toHaveLength(2)
 
-      const db = await getTestDb()
-      await addParticipantToPlan(db, {
-        planId: plan.planId,
-        userId: 'cccccccc-1111-2222-3333-444444444444',
-        name: 'New',
-        lastName: 'Joiner',
-        contactPhone: '+15559990000',
+      const addResponse = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/participants`,
+        payload: {
+          name: 'New',
+          lastName: 'Joiner',
+          contactPhone: '+15559990000',
+        },
+        headers: { authorization: `Bearer ${token}` },
       })
+      expect(addResponse.statusCode).toBe(201)
 
       const getResponse = await app.inject({
         method: 'GET',

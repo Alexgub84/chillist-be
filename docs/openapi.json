@@ -1570,6 +1570,18 @@
       "def-37": {
         "type": "object",
         "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "contactPhone": {
+            "type": "string",
+            "nullable": true
+          },
           "adultsCount": {
             "type": "integer",
             "nullable": true

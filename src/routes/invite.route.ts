@@ -62,6 +62,9 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           .select({
             participantId: participants.participantId,
             rsvpStatus: participants.rsvpStatus,
+            name: participants.name,
+            lastName: participants.lastName,
+            contactPhone: participants.contactPhone,
             adultsCount: participants.adultsCount,
             kidsCount: participants.kidsCount,
             foodPreferences: participants.foodPreferences,
@@ -160,6 +163,9 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           myParticipantId: participant.participantId,
           myRsvpStatus: participant.rsvpStatus,
           myPreferences: {
+            name: participant.name,
+            lastName: participant.lastName,
+            contactPhone: participant.contactPhone,
             adultsCount: participant.adultsCount,
             kidsCount: participant.kidsCount,
             foodPreferences: participant.foodPreferences,

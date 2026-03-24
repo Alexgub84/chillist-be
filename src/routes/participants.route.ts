@@ -3,7 +3,10 @@ import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { participants, plans, DietaryMembers } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
-import { removeParticipantFromAssignments } from '../services/item.service.js'
+import {
+  removeParticipantFromAssignments,
+  addParticipantToAllFlaggedItems,
+} from '../services/item.service.js'
 import { config } from '../config.js'
 import {
   resolveLanguage,
@@ -218,6 +221,12 @@ export async function participantsRoutes(fastify: FastifyInstance) {
             inviteToken: generateInviteToken(),
           })
           .returning()
+
+        await addParticipantToAllFlaggedItems(
+          fastify.db,
+          planId,
+          createdParticipant.participantId
+        )
 
         request.log.info(
           { participantId: createdParticipant.participantId, planId },

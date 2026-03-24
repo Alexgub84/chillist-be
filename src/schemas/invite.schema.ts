@@ -74,6 +74,9 @@ export const inviteMyPreferencesSchema = {
   $id: 'InviteMyPreferences',
   type: 'object',
   properties: {
+    name: { type: 'string', nullable: true },
+    lastName: { type: 'string', nullable: true },
+    contactPhone: { type: 'string', nullable: true },
     adultsCount: { type: 'integer', nullable: true },
     kidsCount: { type: 'integer', nullable: true },
     foodPreferences: { type: 'string', nullable: true },
