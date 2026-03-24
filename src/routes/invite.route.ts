@@ -18,10 +18,7 @@ import {
 } from '../services/item.service.js'
 import { classifyDbError } from '../utils/item-helpers.js'
 import { filterAssignmentForParticipant } from '../utils/assignment-helpers.js'
-import {
-  splitUpdatePayload,
-  type CreateItemInput,
-} from '../utils/item-mutation.js'
+import type { CreateItemInput } from '../utils/item-mutation.js'
 
 const INVITE_GUEST_ACCESS: MutationAccessResult = {
   allowed: true,
@@ -435,19 +432,10 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         return reply.status(201).send(createdItem)
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to create guest item')
-
-        const isConnectionError =
-          error instanceof Error &&
-          (error.message.includes('connect') ||
-            error.message.includes('timeout'))
-
-        if (isConnectionError) {
-          return reply
-            .status(503)
-            .send({ message: 'Database connection error' })
-        }
-
-        return reply.status(500).send({ message: 'Failed to create item' })
+        const classified = classifyDbError(error, 'Failed to create item')
+        return reply
+          .status(classified.statusCode)
+          .send({ message: classified.message })
       }
     }
   )
@@ -538,12 +526,6 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ message: 'Item not found' })
         }
 
-        const parsed = splitUpdatePayload(request.body)
-        const hasAssignmentFields =
-          'error' in parsed ? false : parsed.hasAssignmentFields
-        const fieldUpdateKeys =
-          'error' in parsed ? [] : Object.keys(parsed.fieldUpdates)
-
         const result = await processItemUpdate(fastify.db, {
           existingItem,
           body: request.body,
@@ -558,13 +540,18 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           return reply.status(result.status).send({ message: result.message })
         }
 
+        const {
+          assignmentStatusList: _a,
+          unassign: _u,
+          ...fields
+        } = request.body
         request.log.info(
           {
             itemId,
             planId,
             participantId: participant.participantId,
-            fieldChanges: fieldUpdateKeys,
-            assignmentChanged: hasAssignmentFields,
+            fieldChanges: Object.keys(fields),
+            assignmentChanged: _a !== undefined || _u === true,
           },
           'Guest updated item via invite token'
         )

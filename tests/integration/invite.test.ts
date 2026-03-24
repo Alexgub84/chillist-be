@@ -1127,6 +1127,12 @@ describe('Invite Route', () => {
       const body = response.json()
       expect(body.items[0].isAllParticipants).toBe(true)
       expect(body.items[0].assignmentStatusList).toHaveLength(3)
+      const ids = body.items[0].assignmentStatusList.map(
+        (a: { participantId: string }) => a.participantId
+      )
+      expect(ids.sort()).toEqual(
+        participantList.map((p) => p.participantId).sort()
+      )
     })
 
     it('returns 207 with partial success when food item misses unit', async () => {

@@ -59,6 +59,10 @@ export async function checkItemMutationAccess(
   return { allowed: true, participant: p }
 }
 
+// When allowed=true and participant=null, returns true unconditionally.
+// Invite routes must use the guestParticipantId branch in processItemUpdate
+// (which builds its own guestAccess with the participant set) — never pass
+// INVITE_GUEST_ACCESS directly into canEditItem for permission checks.
 export function canEditItem(
   access: MutationAccessResult,
   existingItem: Item
