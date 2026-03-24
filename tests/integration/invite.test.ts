@@ -506,7 +506,7 @@ describe('Invite Route', () => {
       expect(response.json().myRsvpStatus).toBe('pending')
     })
 
-    it('returns myPreferences with default null values', async () => {
+    it('returns myPreferences with default null values and seeded identity fields', async () => {
       const [plan] = await seedTestPlans(1)
       const participantList = await seedTestParticipants(plan.planId, 1)
       const token = participantList[0].inviteToken!
@@ -525,6 +525,26 @@ describe('Invite Route', () => {
       expect(prefs.allergies).toBeNull()
       expect(prefs.dietaryMembers).toBeNull()
       expect(prefs.notes).toBeNull()
+      expect(prefs.name).toBe('First1')
+      expect(prefs.lastName).toBe('Last1')
+      expect(prefs.contactPhone).toBe('+15550000001')
+    })
+
+    it('returns participant contactPhone, name, lastName in myPreferences', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 2)
+      const token = participantList[1].inviteToken!
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/invite/${token}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      const prefs = response.json().myPreferences
+      expect(prefs.name).toBe('First2')
+      expect(prefs.lastName).toBe('Last2')
+      expect(prefs.contactPhone).toBe('+15550000002')
     })
 
     it('returns updated myPreferences after PATCH', async () => {

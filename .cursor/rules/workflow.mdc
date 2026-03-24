@@ -32,15 +32,16 @@ Do NOT scan the entire codebase upfront - only look at files directly related to
 
 Always do the following before committing:
 
-1. Pull main and merge: `git fetch origin main && git merge origin/main` (resolve conflicts if any)
-2. Run `npm run openapi:generate` to regenerate the OpenAPI spec
-3. Update docs in `../chillist-docs/` if the change affects them:
+1. Run through the review checklist (`.windsurf/workflows/review.md`) — verify route→service delegation, test layering, and rule compliance
+2. Pull main and merge: `git fetch origin main && git merge origin/main` (resolve conflicts if any)
+3. Run `npm run openapi:generate` to regenerate the OpenAPI spec
+4. Update docs in `../chillist-docs/` if the change affects them:
    - `current/status.md` — update when features are added, changed, or removed. Keep the "Working Features" and "User Flows" sections accurate. Update the "BE version" line with the commit SHA.
    - `specs/mvp-v1.md` — update Auth status row when auth milestones are reached
    - `specs/user-management.md` — update phase/step status and endpoint tables
    - `guides/backend.md` — update "What's next" section when phases/steps are completed
    - `dev-lessons/backend.md` — add entry if a bug was fixed or a non-obvious lesson learned
-4. Then stage, commit, and push
+5. Then stage, commit, and push
 
 This prevents branch conflicts and keeps documentation in sync with code.
 
