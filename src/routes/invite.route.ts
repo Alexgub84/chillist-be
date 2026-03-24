@@ -12,6 +12,7 @@ import {
 import * as schema from '../db/schema.js'
 import { recordItemCreated, recordItemUpdated } from '../utils/item-changes.js'
 import { persistAssignments } from '../services/item.service.js'
+import { resolveItemUnit, normalizeCategory } from '../utils/item-helpers.js'
 import {
   mergeParticipantAssignment,
   filterAssignmentForParticipant,
@@ -366,15 +367,13 @@ export async function inviteRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { planId, inviteToken } = request.params
-      const { category, unit, ...rest } = request.body
+      const { category: rawCategory, unit, ...rest } = request.body
+      const category = normalizeCategory(rawCategory)
 
-      if (category === 'food' && !unit) {
-        return reply
-          .status(400)
-          .send({ message: 'Unit is required for food items' })
+      const unitResult = resolveItemUnit(category, unit)
+      if ('error' in unitResult) {
+        return reply.status(400).send({ message: unitResult.error })
       }
-
-      const resolvedUnit = category === 'equipment' ? 'pcs' : unit!
 
       try {
         const [participant] = await fastify.db
@@ -414,7 +413,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           .values({
             planId,
             category,
-            unit: resolvedUnit,
+            unit: unitResult.unit,
             ...rest,
           })
           .returning()
@@ -511,6 +510,9 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         unassign,
         ...fieldUpdates
       } = request.body
+      if (fieldUpdates.category) {
+        fieldUpdates.category = normalizeCategory(fieldUpdates.category)
+      }
 
       const hasAssignmentFields =
         bodyAssignments !== undefined || unassign === true
@@ -762,21 +764,22 @@ export async function inviteRoutes(fastify: FastifyInstance) {
         const errors: BulkItemError[] = []
 
         for (const item of itemsToCreate) {
-          const { category, unit, ...rest } = item
+          const { category: rawCategory, unit, ...rest } = item
+          const category = normalizeCategory(rawCategory)
 
-          if (category === 'food' && !unit) {
+          const unitResult = resolveItemUnit(category, unit)
+          if ('error' in unitResult) {
             errors.push({
               name: item.name,
-              message: 'Unit is required for food items',
+              message: unitResult.error,
             })
             continue
           }
 
-          const resolvedUnit = category === 'equipment' ? 'pcs' : unit!
           validValues.push({
             planId,
             category,
-            unit: resolvedUnit,
+            unit: unitResult.unit,
             ...rest,
           })
         }

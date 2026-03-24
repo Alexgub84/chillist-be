@@ -20,12 +20,17 @@ describe('formatItemList', () => {
 
   it('groups items by translated category', () => {
     const items = [
-      { name: 'Tent', quantity: 1, unit: 'pcs', category: 'equipment' },
-      { name: 'Sleeping Bag', quantity: 2, unit: 'pcs', category: 'equipment' },
+      { name: 'Tent', quantity: 1, unit: 'pcs', category: 'group_equipment' },
+      {
+        name: 'Sleeping Bag',
+        quantity: 2,
+        unit: 'pcs',
+        category: 'group_equipment',
+      },
       { name: 'Burgers', quantity: 5, unit: 'kg', category: 'food' },
     ]
     const result = formatItemList(items, 'en')
-    expect(result).toContain('*Equipment*')
+    expect(result).toContain('*Group Equipment*')
     expect(result).toContain('*Food*')
     expect(result).toContain('• Tent')
     expect(result).toContain('• Sleeping Bag (2 pcs)')
@@ -34,11 +39,11 @@ describe('formatItemList', () => {
 
   it('translates categories and units for Hebrew', () => {
     const items = [
-      { name: 'אוהל', quantity: 2, unit: 'pcs', category: 'equipment' },
+      { name: 'אוהל', quantity: 2, unit: 'pcs', category: 'group_equipment' },
       { name: 'המבורגר', quantity: 3, unit: 'kg', category: 'food' },
     ]
     const result = formatItemList(items, 'he')
-    expect(result).toContain('*ציוד*')
+    expect(result).toContain('*ציוד קבוצתי*')
     expect(result).toContain('*אוכל*')
     expect(result).toContain('(2 יח׳)')
     expect(result).toContain('(3 ק"ג)')
@@ -46,10 +51,10 @@ describe('formatItemList', () => {
 
   it('omits quantity/unit when quantity is 1', () => {
     const items = [
-      { name: 'Tent', quantity: 1, unit: 'pcs', category: 'equipment' },
+      { name: 'Tent', quantity: 1, unit: 'pcs', category: 'group_equipment' },
     ]
     const result = formatItemList(items, 'en')
-    expect(result).toBe('*Equipment*\n• Tent\n\n')
+    expect(result).toBe('*Group Equipment*\n• Tent\n\n')
   })
 
   it('handles null category as raw string', () => {
@@ -61,10 +66,37 @@ describe('formatItemList', () => {
 
   it('handles null unit with quantity > 1', () => {
     const items = [
-      { name: 'Stuff', quantity: 3, unit: null, category: 'equipment' },
+      { name: 'Stuff', quantity: 3, unit: null, category: 'group_equipment' },
     ]
     const result = formatItemList(items, 'en')
     expect(result).toContain('• Stuff (3)')
+  })
+
+  it('groups personal_equipment items under correct heading', () => {
+    const items = [
+      {
+        name: 'Headlamp',
+        quantity: 1,
+        unit: 'pcs',
+        category: 'personal_equipment',
+      },
+    ]
+    const result = formatItemList(items, 'en')
+    expect(result).toContain('*Personal Equipment*')
+    expect(result).toContain('• Headlamp')
+  })
+
+  it('groups personal_equipment items in Hebrew', () => {
+    const items = [
+      {
+        name: 'פנס ראש',
+        quantity: 2,
+        unit: 'pcs',
+        category: 'personal_equipment',
+      },
+    ]
+    const result = formatItemList(items, 'he')
+    expect(result).toContain('*ציוד אישי*')
   })
 
   it('handles unknown category as raw string', () => {
@@ -287,7 +319,12 @@ describe('translateCategory', () => {
   it('translates known categories', () => {
     expect(translateCategory('food', 'en')).toBe('Food')
     expect(translateCategory('food', 'he')).toBe('אוכל')
-    expect(translateCategory('equipment', 'en')).toBe('Equipment')
+    expect(translateCategory('group_equipment', 'en')).toBe('Group Equipment')
+    expect(translateCategory('group_equipment', 'he')).toBe('ציוד קבוצתי')
+    expect(translateCategory('personal_equipment', 'en')).toBe(
+      'Personal Equipment'
+    )
+    expect(translateCategory('personal_equipment', 'he')).toBe('ציוד אישי')
   })
 
   it('returns raw string for unknown categories', () => {

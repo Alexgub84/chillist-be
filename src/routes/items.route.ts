@@ -14,6 +14,7 @@ import {
   resolveItemUnit,
   resolveItemUnitForUpdate,
   classifyDbError,
+  normalizeCategory,
 } from '../utils/item-helpers.js'
 import {
   checkItemMutationAccess,
@@ -111,12 +112,13 @@ export async function itemsRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { planId } = request.params
       const {
-        category,
+        category: rawCategory,
         unit,
         assignmentStatusList: bodyAssignments,
         isAllParticipants: bodyIsAll,
         ...rest
       } = request.body
+      const category = normalizeCategory(rawCategory)
 
       const unitResult = resolveItemUnit(category, unit)
       if ('error' in unitResult) {
@@ -146,6 +148,9 @@ export async function itemsRoutes(fastify: FastifyInstance) {
 
         const resolved = resolveAssignments(bodyAssignments)
 
+        const isAll =
+          bodyIsAll ?? (category === 'personal_equipment' ? true : false)
+
         const [createdItem] = await fastify.db
           .insert(items)
           .values({
@@ -153,7 +158,7 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             category,
             unit: unitResult.unit,
             assignmentStatusList: resolved,
-            isAllParticipants: bodyIsAll ?? false,
+            isAllParticipants: isAll,
             ...rest,
           })
           .returning()
@@ -327,6 +332,9 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         unassign,
         ...fieldUpdates
       } = request.body
+      if (fieldUpdates.category) {
+        fieldUpdates.category = normalizeCategory(fieldUpdates.category)
+      }
 
       const hasAssignmentFields =
         bodyAssignments !== undefined ||
@@ -552,12 +560,13 @@ export async function itemsRoutes(fastify: FastifyInstance) {
 
         for (const item of itemsToCreate) {
           const {
-            category,
+            category: rawCategory,
             unit,
             assignmentStatusList: bodyAssignments,
             isAllParticipants: bodyIsAll,
             ...rest
           } = item
+          const category = normalizeCategory(rawCategory)
 
           const unitResult = resolveItemUnit(category, unit)
           if ('error' in unitResult) {
@@ -578,12 +587,15 @@ export async function itemsRoutes(fastify: FastifyInstance) {
 
           const resolved = resolveAssignments(bodyAssignments)
 
+          const isAll =
+            bodyIsAll ?? (category === 'personal_equipment' ? true : false)
+
           validValues.push({
             planId,
             category,
             unit: unitResult.unit,
             assignmentStatusList: resolved,
-            isAllParticipants: bodyIsAll ?? false,
+            isAllParticipants: isAll,
             ...rest,
           })
         }
@@ -702,6 +714,9 @@ export async function itemsRoutes(fastify: FastifyInstance) {
             unassign,
             ...fieldUpdates
           } = entry
+          if (fieldUpdates.category) {
+            fieldUpdates.category = normalizeCategory(fieldUpdates.category)
+          }
           const existing = itemMap.get(itemId)
 
           if (!existing) {

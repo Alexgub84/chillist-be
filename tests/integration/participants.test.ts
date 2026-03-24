@@ -853,7 +853,7 @@ describe('Participants Route', () => {
         headers: { authorization: `Bearer ${token}` },
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           assignmentStatusList: [
             { participantId: nonOwner.participantId, status: 'pending' },

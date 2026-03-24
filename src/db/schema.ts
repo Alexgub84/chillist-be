@@ -75,7 +75,11 @@ export const joinRequestStatusEnum = pgEnum('join_request_status', [
   'approved',
   'rejected',
 ])
-export const itemCategoryEnum = pgEnum('item_category', ['equipment', 'food'])
+export const itemCategoryEnum = pgEnum('item_category', [
+  'group_equipment',
+  'personal_equipment',
+  'food',
+])
 export const ITEM_CATEGORY_VALUES = itemCategoryEnum.enumValues
 export type ItemCategory = (typeof ITEM_CATEGORY_VALUES)[number]
 

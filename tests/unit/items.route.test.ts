@@ -57,7 +57,7 @@ function mockInsertError(
 
 const validEquipmentPayload = {
   name: 'Tent',
-  category: 'equipment',
+  category: 'group_equipment',
   quantity: 1,
 }
 

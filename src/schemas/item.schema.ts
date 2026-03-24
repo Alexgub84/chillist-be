@@ -66,7 +66,12 @@ export const createItemBodySchema = {
   additionalProperties: false,
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },
-    category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
+    category: {
+      type: 'string',
+      enum: [...ITEM_CATEGORY_VALUES, 'equipment'],
+      description:
+        'Item category. "equipment" is accepted as a legacy alias for "group_equipment".',
+    },
     quantity: { type: 'integer', minimum: 1 },
     unit: {
       type: 'string',
@@ -102,7 +107,12 @@ export const updateItemBodySchema = {
   additionalProperties: false,
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },
-    category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
+    category: {
+      type: 'string',
+      enum: [...ITEM_CATEGORY_VALUES, 'equipment'],
+      description:
+        'Item category. "equipment" is accepted as a legacy alias for "group_equipment".',
+    },
     quantity: { type: 'integer', minimum: 1 },
     unit: {
       type: 'string',
@@ -166,7 +176,12 @@ export const bulkUpdateItemEntrySchema = {
   properties: {
     itemId: { type: 'string', format: 'uuid' },
     name: { type: 'string', minLength: 1, maxLength: 255 },
-    category: { type: 'string', enum: [...ITEM_CATEGORY_VALUES] },
+    category: {
+      type: 'string',
+      enum: [...ITEM_CATEGORY_VALUES, 'equipment'],
+      description:
+        'Item category. "equipment" is accepted as a legacy alias for "group_equipment".',
+    },
     quantity: { type: 'integer', minimum: 1 },
     unit: {
       type: 'string',

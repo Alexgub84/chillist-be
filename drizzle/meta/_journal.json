@@ -162,6 +162,13 @@
       "when": 1773935175984,
       "tag": "0022_flat_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1774269659604,
+      "tag": "0023_talented_goblin_queen",
+      "breakpoints": true
     }
   ]
 }

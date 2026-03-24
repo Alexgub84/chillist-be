@@ -173,7 +173,7 @@ describe('Invite Route', () => {
       await db.insert(items).values({
         planId: plan.planId,
         name: 'My Item',
-        category: 'equipment',
+        category: 'group_equipment',
         quantity: 1,
         unit: 'pcs',
         assignmentStatusList: [
@@ -203,14 +203,14 @@ describe('Invite Route', () => {
         {
           planId: plan.planId,
           name: 'Unassigned Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           unit: 'pcs',
         },
         {
           planId: plan.planId,
           name: 'My Sleeping Bag',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           unit: 'pcs',
           assignmentStatusList: [
@@ -223,7 +223,7 @@ describe('Invite Route', () => {
         {
           planId: plan.planId,
           name: 'Other Person Stove',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           unit: 'pcs',
           assignmentStatusList: [
@@ -636,7 +636,7 @@ describe('Invite Route', () => {
         url: `/plans/${plan.planId}/invite/${token}/items`,
         payload: {
           name: 'Sleeping Bag',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
         },
       })
@@ -644,7 +644,7 @@ describe('Invite Route', () => {
       expect(response.statusCode).toBe(201)
       const item = response.json()
       expect(item.name).toBe('Sleeping Bag')
-      expect(item.category).toBe('equipment')
+      expect(item.category).toBe('group_equipment')
       expect(item.quantity).toBe(1)
       expect(item.unit).toBe('pcs')
       expect(item.assignmentStatusList).toBeDefined()
@@ -662,7 +662,7 @@ describe('Invite Route', () => {
         url: `/plans/${plan.planId}/invite/${token}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 2,
         },
       })
@@ -721,7 +721,7 @@ describe('Invite Route', () => {
         url: `/plans/${plan.planId}/invite/${token}/items`,
         payload: {
           name: 'Stove',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           subcategory: 'cooking',
         },
@@ -739,7 +739,7 @@ describe('Invite Route', () => {
         url: `/plans/${plan.planId}/invite/bad-token-value/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
         },
       })
@@ -759,7 +759,7 @@ describe('Invite Route', () => {
         url: `/plans/${plan2.planId}/invite/${participants1[0].inviteToken}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
         },
       })
@@ -778,7 +778,7 @@ describe('Invite Route', () => {
         headers: {},
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
         },
       })
@@ -799,7 +799,7 @@ describe('Invite Route', () => {
         .values({
           planId: plan.planId,
           name: 'Old Name',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           unit: 'pcs',
           assignmentStatusList: [
@@ -839,7 +839,7 @@ describe('Invite Route', () => {
         .values({
           planId: plan.planId,
           name: 'Other Item',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           unit: 'pcs',
           assignmentStatusList: [
@@ -874,7 +874,7 @@ describe('Invite Route', () => {
         .values({
           planId: plan.planId,
           name: 'Unassigned Item',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           unit: 'pcs',
         })
@@ -919,7 +919,7 @@ describe('Invite Route', () => {
         .values({
           planId: plan.planId,
           name: 'Test',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           unit: 'pcs',
           assignmentStatusList: [
@@ -968,7 +968,7 @@ describe('Invite Route', () => {
         .values({
           planId: plan.planId,
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           unit: 'pcs',
           assignmentStatusList: [
@@ -1009,7 +1009,7 @@ describe('Invite Route', () => {
         .values({
           planId: plan.planId,
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           unit: 'pcs',
           assignmentStatusList: [
@@ -1043,7 +1043,7 @@ describe('Invite Route', () => {
         url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
         payload: {
           items: [
-            { name: 'Tent', category: 'equipment', quantity: 1 },
+            { name: 'Tent', category: 'group_equipment', quantity: 1 },
             { name: 'Water', category: 'food', quantity: 5, unit: 'l' },
           ],
         },
@@ -1073,7 +1073,7 @@ describe('Invite Route', () => {
         url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
         payload: {
           items: [
-            { name: 'Sleeping Bag', category: 'equipment', quantity: 1 },
+            { name: 'Sleeping Bag', category: 'group_equipment', quantity: 1 },
             { name: 'Rice', category: 'food', quantity: 2 },
           ],
         },
@@ -1097,7 +1097,7 @@ describe('Invite Route', () => {
         method: 'POST',
         url: `/plans/${plan.planId}/invite/bad-token/items/bulk`,
         payload: {
-          items: [{ name: 'Tent', category: 'equipment', quantity: 1 }],
+          items: [{ name: 'Tent', category: 'group_equipment', quantity: 1 }],
         },
       })
 
@@ -1132,7 +1132,7 @@ describe('Invite Route', () => {
           {
             planId: plan.planId,
             name: 'Item A',
-            category: 'equipment' as const,
+            category: 'group_equipment' as const,
             quantity: 1,
             unit: 'pcs' as const,
             assignmentStatusList: [
@@ -1145,7 +1145,7 @@ describe('Invite Route', () => {
           {
             planId: plan.planId,
             name: 'Item B',
-            category: 'equipment' as const,
+            category: 'group_equipment' as const,
             quantity: 2,
             unit: 'pcs' as const,
             assignmentStatusList: [
@@ -1197,7 +1197,7 @@ describe('Invite Route', () => {
           {
             planId: plan.planId,
             name: 'My Item',
-            category: 'equipment' as const,
+            category: 'group_equipment' as const,
             quantity: 1,
             unit: 'pcs' as const,
             assignmentStatusList: [
@@ -1210,7 +1210,7 @@ describe('Invite Route', () => {
           {
             planId: plan.planId,
             name: 'Other Item',
-            category: 'equipment' as const,
+            category: 'group_equipment' as const,
             quantity: 1,
             unit: 'pcs' as const,
             assignmentStatusList: [
@@ -1347,7 +1347,7 @@ describe('Invite Route', () => {
         url: `/plans/${plan.planId}/invite/${token}/items`,
         payload: {
           name: 'Camp Chair',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 2,
         },
       })
@@ -1370,7 +1370,7 @@ describe('Invite Route', () => {
       expect(changes[0].changes).toMatchObject({
         snapshot: expect.objectContaining({
           name: 'Camp Chair',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 2,
         }),
       })

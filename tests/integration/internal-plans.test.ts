@@ -249,7 +249,7 @@ describe('Internal Plans — GET /api/internal/plans', () => {
         {
           planId: plan.planId,
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           assignmentStatusList: [],
         },
         {
@@ -291,7 +291,7 @@ describe('Internal Plans — GET /api/internal/plans', () => {
         {
           planId: plan.planId,
           name: 'Tent (all packed)',
-          category: 'equipment',
+          category: 'group_equipment',
           assignmentStatusList: [
             { participantId: participant.participantId, status: 'packed' },
           ],
@@ -307,7 +307,7 @@ describe('Internal Plans — GET /api/internal/plans', () => {
         {
           planId: plan.planId,
           name: 'Sleeping bag (pending)',
-          category: 'equipment',
+          category: 'group_equipment',
           assignmentStatusList: [
             { participantId: participant.participantId, status: 'pending' },
           ],
@@ -315,13 +315,13 @@ describe('Internal Plans — GET /api/internal/plans', () => {
         {
           planId: plan.planId,
           name: 'Firewood (unassigned)',
-          category: 'equipment',
+          category: 'group_equipment',
           assignmentStatusList: [],
         },
         {
           planId: plan.planId,
           name: 'Mixed status item',
-          category: 'equipment',
+          category: 'group_equipment',
           assignmentStatusList: [
             { participantId: participant.participantId, status: 'packed' },
             { participantId: OTHER_USER_ID, status: 'pending' },

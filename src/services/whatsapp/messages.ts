@@ -1,7 +1,8 @@
 export type Lang = 'he' | 'en'
 
 const categoryTranslations: Record<string, Record<Lang, string>> = {
-  equipment: { en: 'Equipment', he: 'ציוד' },
+  group_equipment: { en: 'Group Equipment', he: 'ציוד קבוצתי' },
+  personal_equipment: { en: 'Personal Equipment', he: 'ציוד אישי' },
   food: { en: 'Food', he: 'אוכל' },
 }
 

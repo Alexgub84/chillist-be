@@ -780,7 +780,7 @@ describe('Plan Access Control', () => {
       await db.insert(items).values({
         planId: plan.planId,
         name: 'Tent',
-        category: 'equipment',
+        category: 'group_equipment',
         quantity: 1,
         unit: 'pcs',
       })
@@ -806,7 +806,7 @@ describe('Plan Access Control', () => {
       await db.insert(items).values({
         planId: plan.planId,
         name: 'Sleeping bag',
-        category: 'equipment',
+        category: 'group_equipment',
         quantity: 1,
         unit: 'pcs',
       })
@@ -863,7 +863,7 @@ describe('Plan Access Control', () => {
       await db.insert(items).values({
         planId: plan.planId,
         name: 'Admin View Item',
-        category: 'equipment',
+        category: 'group_equipment',
         quantity: 1,
         unit: 'pcs',
       })

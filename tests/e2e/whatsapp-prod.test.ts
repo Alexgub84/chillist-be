@@ -124,7 +124,7 @@ describe.skipIf(
         name: 'Test Item',
         quantity: 1,
         unit: 'pcs',
-        category: 'equipment' as const,
+        category: 'group_equipment' as const,
       },
     ])
 

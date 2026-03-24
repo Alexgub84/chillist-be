@@ -233,7 +233,7 @@ describe('WhatsApp Integration', () => {
           name: 'Tent',
           quantity: 1,
           unit: 'pcs' as const,
-          category: 'equipment' as const,
+          category: 'group_equipment' as const,
         },
         {
           planId: plan.planId,
@@ -274,7 +274,7 @@ describe('WhatsApp Integration', () => {
           name: 'Tent',
           quantity: 1,
           unit: 'pcs' as const,
-          category: 'equipment' as const,
+          category: 'group_equipment' as const,
         },
       ])
 
@@ -328,7 +328,7 @@ describe('WhatsApp Integration', () => {
           name: 'Tent',
           quantity: 1,
           unit: 'pcs' as const,
-          category: 'equipment' as const,
+          category: 'group_equipment' as const,
         },
       ])
 
@@ -374,7 +374,7 @@ describe('WhatsApp Integration', () => {
           name: 'Tent',
           quantity: 1,
           unit: 'pcs' as const,
-          category: 'equipment' as const,
+          category: 'group_equipment' as const,
         },
       ])
 
@@ -402,17 +402,17 @@ describe('WhatsApp Integration', () => {
 
       await seedTestItemWithAssignment(plan.planId, [], {
         name: 'Unassigned Item',
-        category: 'equipment',
+        category: 'group_equipment',
         isAllParticipants: false,
       })
       await seedTestItemWithAssignment(
         plan.planId,
         [{ participantId: owner.participantId, status: 'pending' }],
-        { name: 'Assigned Item', category: 'equipment' }
+        { name: 'Assigned Item', category: 'group_equipment' }
       )
       await seedTestItemWithAssignment(plan.planId, [], {
         name: 'AllParticipants Item',
-        category: 'equipment',
+        category: 'group_equipment',
         isAllParticipants: true,
       })
 

@@ -57,7 +57,7 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 2,
         },
         headers: { authorization: `Bearer ${token}` },
@@ -69,7 +69,7 @@ describe('Items Route', () => {
       expect(item.itemId).toBeDefined()
       expect(item.planId).toBe(plan.planId)
       expect(item.name).toBe('Tent')
-      expect(item.category).toBe('equipment')
+      expect(item.category).toBe('group_equipment')
       expect(item.quantity).toBe(2)
       expect(item.unit).toBe('pcs')
       expect(item.subcategory).toBeNull()
@@ -78,6 +78,71 @@ describe('Items Route', () => {
       expect(item.isAllParticipants).toBe(false)
       expect(item.createdAt).toBeDefined()
       expect(item.updatedAt).toBeDefined()
+    })
+
+    it('creates personal_equipment item with pcs unit and isAllParticipants defaulting to true', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Headlamp',
+          category: 'personal_equipment',
+          quantity: 1,
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const item = response.json()
+      expect(item.category).toBe('personal_equipment')
+      expect(item.unit).toBe('pcs')
+      expect(item.isAllParticipants).toBe(true)
+    })
+
+    it('allows explicit isAllParticipants false on personal_equipment', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Headlamp',
+          category: 'personal_equipment',
+          quantity: 1,
+          isAllParticipants: false,
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const item = response.json()
+      expect(item.category).toBe('personal_equipment')
+      expect(item.isAllParticipants).toBe(false)
+    })
+
+    it('accepts legacy equipment category and stores as group_equipment', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Tent',
+          category: 'equipment',
+          quantity: 1,
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const item = response.json()
+      expect(item.category).toBe('group_equipment')
+      expect(item.unit).toBe('pcs')
     })
 
     it('creates equipment item with optional notes', async () => {
@@ -89,7 +154,7 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Sleeping Bag',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           notes: 'Bring the warm one',
         },
@@ -215,7 +280,7 @@ describe('Items Route', () => {
         url: `/plans/${nonExistentId}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
         },
         headers: { authorization: `Bearer ${token}` },
@@ -228,9 +293,9 @@ describe('Items Route', () => {
     })
 
     it.each([
-      ['name', { category: 'equipment', quantity: 1 }],
+      ['name', { category: 'group_equipment', quantity: 1 }],
       ['category', { name: 'Tent', quantity: 1 }],
-      ['quantity', { name: 'Tent', category: 'equipment' }],
+      ['quantity', { name: 'Tent', category: 'group_equipment' }],
     ])('returns 400 when %s is missing', async (_field, payload) => {
       const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
       await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
@@ -279,7 +344,7 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity,
         },
         headers: { authorization: `Bearer ${token}` },
@@ -297,7 +362,7 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: '',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
         },
         headers: { authorization: `Bearer ${token}` },
@@ -312,7 +377,7 @@ describe('Items Route', () => {
         url: '/plans/invalid-uuid/items',
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
         },
         headers: { authorization: `Bearer ${token}` },
@@ -330,7 +395,7 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Backpack',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
         },
         headers: { authorization: `Bearer ${token}` },
@@ -389,7 +454,7 @@ describe('Items Route', () => {
       expect(firstItem.itemId).toBe(seededItems[0].itemId)
       expect(firstItem.planId).toBe(plan.planId)
       expect(firstItem.name).toBe('Test Item 1')
-      expect(firstItem.category).toBe('equipment')
+      expect(firstItem.category).toBe('group_equipment')
       expect(firstItem.quantity).toBe(1)
       expect(firstItem.unit).toBe('pcs')
       expect(firstItem.createdAt).toBeDefined()
@@ -700,7 +765,7 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           assignmentStatusList: [
             { participantId: participant.participantId, status: 'pending' },
@@ -750,7 +815,7 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 1,
           assignmentStatusList: [
             { participantId: participant.participantId, status: 'pending' },
@@ -784,7 +849,7 @@ describe('Items Route', () => {
           items: [
             {
               name: 'Tent',
-              category: 'equipment',
+              category: 'group_equipment',
               quantity: 2,
             },
             {
@@ -819,7 +884,7 @@ describe('Items Route', () => {
           items: [
             {
               name: 'Tent',
-              category: 'equipment',
+              category: 'group_equipment',
               quantity: 1,
             },
             { name: 'Rice', category: 'food', quantity: 2 },
@@ -849,7 +914,7 @@ describe('Items Route', () => {
           items: [
             {
               name: 'Tent',
-              category: 'equipment',
+              category: 'group_equipment',
               quantity: 1,
             },
           ],
@@ -1027,7 +1092,7 @@ describe('Items Route', () => {
         url: `/plans/${plan.planId}/items`,
         payload: {
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 2,
         },
         headers: { authorization: `Bearer ${token}` },
@@ -1049,7 +1114,7 @@ describe('Items Route', () => {
       expect(changes[0].changes).toMatchObject({
         snapshot: expect.objectContaining({
           name: 'Tent',
-          category: 'equipment',
+          category: 'group_equipment',
           quantity: 2,
         }),
       })
@@ -1149,12 +1214,12 @@ describe('Items Route', () => {
           items: [
             {
               name: 'Item A',
-              category: 'equipment',
+              category: 'group_equipment',
               quantity: 1,
             },
             {
               name: 'Item B',
-              category: 'equipment',
+              category: 'group_equipment',
               quantity: 1,
             },
           ],

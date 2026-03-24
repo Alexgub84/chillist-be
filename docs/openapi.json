@@ -537,7 +537,8 @@
           "category": {
             "type": "string",
             "enum": [
-              "equipment",
+              "group_equipment",
+              "personal_equipment",
               "food"
             ]
           },
@@ -640,9 +641,12 @@
           "category": {
             "type": "string",
             "enum": [
-              "equipment",
-              "food"
-            ]
+              "group_equipment",
+              "personal_equipment",
+              "food",
+              "equipment"
+            ],
+            "description": "Item category. \"equipment\" is accepted as a legacy alias for \"group_equipment\"."
           },
           "quantity": {
             "type": "integer",
@@ -723,9 +727,12 @@
           "category": {
             "type": "string",
             "enum": [
-              "equipment",
-              "food"
-            ]
+              "group_equipment",
+              "personal_equipment",
+              "food",
+              "equipment"
+            ],
+            "description": "Item category. \"equipment\" is accepted as a legacy alias for \"group_equipment\"."
           },
           "quantity": {
             "type": "integer",
@@ -1872,9 +1879,12 @@
           "category": {
             "type": "string",
             "enum": [
-              "equipment",
-              "food"
-            ]
+              "group_equipment",
+              "personal_equipment",
+              "food",
+              "equipment"
+            ],
+            "description": "Item category. \"equipment\" is accepted as a legacy alias for \"group_equipment\"."
           },
           "quantity": {
             "type": "integer",
@@ -1924,9 +1934,12 @@
           "category": {
             "type": "string",
             "enum": [
-              "equipment",
-              "food"
-            ]
+              "group_equipment",
+              "personal_equipment",
+              "food",
+              "equipment"
+            ],
+            "description": "Item category. \"equipment\" is accepted as a legacy alias for \"group_equipment\"."
           },
           "quantity": {
             "type": "integer",
@@ -2023,9 +2036,12 @@
           "category": {
             "type": "string",
             "enum": [
-              "equipment",
-              "food"
-            ]
+              "group_equipment",
+              "personal_equipment",
+              "food",
+              "equipment"
+            ],
+            "description": "Item category. \"equipment\" is accepted as a legacy alias for \"group_equipment\"."
           },
           "quantity": {
             "type": "integer",
@@ -2179,7 +2195,8 @@
           "category": {
             "type": "string",
             "enum": [
-              "equipment",
+              "group_equipment",
+              "personal_equipment",
               "food"
             ]
           },
