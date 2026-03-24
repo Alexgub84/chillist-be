@@ -672,6 +672,33 @@ describe('Invite Route', () => {
       expect(item.planId).toBe(plan.planId)
     })
 
+    it('auto-fills assignmentStatusList for personal_equipment for all plan participants', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 3)
+      const token = participantList[1].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items`,
+        payload: {
+          name: 'My towel',
+          category: 'personal_equipment',
+          quantity: 1,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const item = response.json()
+      expect(item.isAllParticipants).toBe(true)
+      expect(item.assignmentStatusList).toHaveLength(3)
+      const ids = item.assignmentStatusList.map(
+        (a: { participantId: string }) => a.participantId
+      )
+      expect(ids.sort()).toEqual(
+        participantList.map((p) => p.participantId).sort()
+      )
+    })
+
     it('defaults equipment unit to pcs', async () => {
       const [plan] = await seedTestPlans(1)
       const participantList = await seedTestParticipants(plan.planId, 1)
@@ -1081,6 +1108,25 @@ describe('Invite Route', () => {
           expect(Array.isArray(item.assignmentStatusList)).toBe(true)
         }
       )
+    })
+
+    it('bulk create personal_equipment fills assignment lists for all participants', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 3)
+      const token = participantList[1].inviteToken!
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/invite/${token}/items/bulk`,
+        payload: {
+          items: [{ name: 'Hat', category: 'personal_equipment', quantity: 1 }],
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items[0].isAllParticipants).toBe(true)
+      expect(body.items[0].assignmentStatusList).toHaveLength(3)
     })
 
     it('returns 207 with partial success when food item misses unit', async () => {

@@ -4726,7 +4726,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Creates a new item (no top-level status field). Equipment items default to pcs; food items require a unit. The item is not auto-assigned — send assignmentStatusList separately via PATCH if needed.",
+        "description": "Creates a new item (no top-level status field). Equipment items default to pcs; food items require a unit. personal_equipment defaults to isAllParticipants=true and assignmentStatusList is populated for all plan participants when the list is omitted. Only the plan owner can set assignments on create via authenticated routes.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4938,7 +4938,7 @@
         "tags": [
           "invite"
         ],
-        "description": "Creates multiple items (no top-level status field). Each item is validated independently — valid items are created, invalid items are reported in the errors array. Items are not auto-assigned.",
+        "description": "Creates multiple items (no top-level status field). Each item is validated independently — valid items are created, invalid items are reported in the errors array. personal_equipment defaults behave as for single create.",
         "requestBody": {
           "content": {
             "application/json": {

@@ -1,8 +1,18 @@
 import { eq, and, inArray } from 'drizzle-orm'
 import type { Database } from '../db/index.js'
 import { items, participants } from '../db/schema.js'
-import type { Item, Assignment } from '../db/schema.js'
+import type { Item, Assignment, Unit } from '../db/schema.js'
 import type { JwtUser } from '../plugins/auth.js'
+import { recordItemCreated, recordItemUpdated } from '../utils/item-changes.js'
+import { resolveItemUnitForUpdate } from '../utils/item-helpers.js'
+import {
+  prepareItemForCreate,
+  splitUpdatePayload,
+  computeFinalAssignmentState,
+  validateNonOwnerAssignmentChange,
+  type CreateItemInput,
+} from '../utils/item-mutation.js'
+import { filterAssignmentForParticipant } from '../utils/assignment-helpers.js'
 
 export interface ValidationResult {
   valid: boolean
@@ -195,4 +205,191 @@ export async function addParticipantToAllFlaggedItems(
     updatedCount++
   }
   return updatedCount
+}
+
+export interface BulkItemError {
+  name: string
+  message: string
+}
+
+export async function createPlanItems(
+  db: Database,
+  options: {
+    planId: string
+    inputs: CreateItemInput[]
+    isOwner: boolean
+    changedBy: { userId?: string | null; participantId?: string | null }
+  }
+): Promise<{ items: Item[]; errors: BulkItemError[] }> {
+  const { planId, inputs, isOwner, changedBy } = options
+  const participantIds = await getPlanParticipantIds(db, planId)
+  const validValues: Array<{
+    planId: string
+    name: string
+    category: Item['category']
+    quantity: number
+    unit: Item['unit']
+    subcategory?: string | null
+    notes?: string | null
+    assignmentStatusList: Assignment[]
+    isAllParticipants: boolean
+  }> = []
+  const errors: BulkItemError[] = []
+
+  for (const input of inputs) {
+    const prepared = prepareItemForCreate(input, isOwner, participantIds)
+    if ('error' in prepared) {
+      errors.push({ name: input.name, message: prepared.error })
+      continue
+    }
+    validValues.push({ planId, ...prepared.values })
+  }
+
+  let createdItems: Item[] = []
+  if (validValues.length > 0) {
+    createdItems = await db.insert(items).values(validValues).returning()
+  }
+  for (const created of createdItems) {
+    recordItemCreated(db, {
+      itemId: created.itemId,
+      planId,
+      snapshot: created as unknown as Record<string, unknown>,
+      changedByUserId: changedBy.userId ?? null,
+      changedByParticipantId: changedBy.participantId ?? null,
+    })
+  }
+  return { items: createdItems, errors }
+}
+
+export type ProcessItemUpdateBody = {
+  assignmentStatusList?: Assignment[]
+  isAllParticipants?: boolean
+  unassign?: boolean
+  name?: string
+  category?: string
+  quantity?: number
+  unit?: Unit
+  subcategory?: string | null
+  notes?: string | null
+}
+
+export type ProcessItemUpdateResult =
+  | { ok: true; item: Item }
+  | { ok: false; status: 400 | 403 | 404; message: string }
+
+export async function processItemUpdate(
+  db: Database,
+  args: {
+    existingItem: Item
+    body: ProcessItemUpdateBody
+    access: MutationAccessResult
+    isOwner: boolean
+    guestParticipantId: string | null
+    changedByUserId: string | null
+    changedByParticipantId: string | null
+  }
+): Promise<ProcessItemUpdateResult> {
+  const {
+    existingItem,
+    body,
+    access,
+    isOwner,
+    guestParticipantId,
+    changedByUserId,
+    changedByParticipantId,
+  } = args
+  const itemId = existingItem.itemId
+
+  const split = splitUpdatePayload(body)
+  if ('error' in split) {
+    return { ok: false, status: 400, message: split.error }
+  }
+
+  if (guestParticipantId) {
+    const guestAccess: MutationAccessResult = {
+      allowed: true,
+      participant: { participantId: guestParticipantId, role: 'participant' },
+    }
+    if (!canEditItem(guestAccess, existingItem)) {
+      return {
+        ok: false,
+        status: 403,
+        message: 'You can only edit items assigned to you',
+      }
+    }
+  } else if (!canEditItem(access, existingItem)) {
+    return { ok: false, status: 404, message: 'Item not found' }
+  }
+
+  const participantIdForMerge =
+    access.participant?.participantId ?? guestParticipantId!
+  if (split.hasAssignmentFields && !isOwner && !split.unassign) {
+    const v = validateNonOwnerAssignmentChange(
+      split.bodyAssignments,
+      split.bodyIsAll,
+      existingItem.isAllParticipants,
+      participantIdForMerge
+    )
+    if ('error' in v) {
+      return { ok: false, status: 400, message: v.error }
+    }
+  }
+
+  const fieldUpdates = { ...split.fieldUpdates }
+  const unitResult = resolveItemUnitForUpdate(
+    existingItem.category,
+    existingItem.unit,
+    fieldUpdates
+  )
+  if (unitResult && 'error' in unitResult) {
+    return { ok: false, status: 400, message: unitResult.error }
+  }
+  if (unitResult) {
+    fieldUpdates.unit = unitResult.unit
+  }
+
+  let finalItem: Item = existingItem
+
+  if (Object.keys(fieldUpdates).length > 0) {
+    const [updated] = await db
+      .update(items)
+      .set({ ...fieldUpdates, updatedAt: new Date() })
+      .where(eq(items.itemId, itemId))
+      .returning()
+    finalItem = updated
+  }
+
+  if (split.hasAssignmentFields) {
+    const { finalList, finalIsAll } = computeFinalAssignmentState(
+      existingItem,
+      split.bodyAssignments,
+      split.bodyIsAll,
+      split.unassign,
+      isOwner,
+      participantIdForMerge
+    )
+    finalItem = await persistAssignments(db, itemId, finalList, finalIsAll)
+  }
+
+  if (!isOwner && (access.participant || guestParticipantId)) {
+    const pid = access.participant?.participantId ?? guestParticipantId!
+    finalItem = {
+      ...finalItem,
+      assignmentStatusList: filterAssignmentForParticipant(
+        finalItem.assignmentStatusList as Assignment[],
+        pid
+      ),
+    }
+  }
+
+  recordItemUpdated(db, {
+    itemId,
+    planId: existingItem.planId,
+    existing: existingItem,
+    updates: fieldUpdates,
+    changedByUserId,
+    changedByParticipantId,
+  })
+
+  return { ok: true, item: finalItem }
 }
