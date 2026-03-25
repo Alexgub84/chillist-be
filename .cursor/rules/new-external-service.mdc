@@ -1,5 +1,7 @@
 ---
 description: Checklist for adding a new external service with a fake test double
+globs: src/services/**,src/plugins/**
+alwaysApply: false
 ---
 
 # Adding a New External Service
