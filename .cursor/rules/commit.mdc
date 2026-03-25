@@ -1,5 +1,6 @@
 ---
 description: How to commit changes and push to a new branch
+alwaysApply: false
 ---
 
 # Commit and Push
@@ -8,7 +9,6 @@ When the user asks to commit changes, follow these steps in order:
 
 ## 1. Regenerate OpenAPI spec
 
-// turbo
 ```bash
 npx tsx scripts/generate-openapi.ts
 ```

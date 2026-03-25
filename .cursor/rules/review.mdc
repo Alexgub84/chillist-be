@@ -1,5 +1,6 @@
 ---
 description: Pre-push review checklist — run before every commit
+alwaysApply: false
 ---
 
 # Pre-Push Review Checklist

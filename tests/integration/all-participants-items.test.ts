@@ -79,6 +79,67 @@ describe('All Participants Items — JSONB assignment model', () => {
       const expectedIds = planParticipants.map((p) => p.participantId)
       expect(assignedIds.sort()).toEqual(expectedIds.sort())
     })
+
+    it('auto-fills assignmentStatusList for personal_equipment when omitted', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const planParticipants = await seedTestParticipants(plan.planId, 3, {
+        ownerUserId: TEST_USER_ID,
+      })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        payload: {
+          name: 'Personal flashlight',
+          category: 'personal_equipment',
+          quantity: 1,
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const created = response.json()
+      expect(created.isAllParticipants).toBe(true)
+      expect(created.assignmentStatusList).toHaveLength(3)
+      const ids = created.assignmentStatusList.map(
+        (a: { participantId: string }) => a.participantId
+      )
+      expect(ids.sort()).toEqual(
+        planParticipants.map((p) => p.participantId).sort()
+      )
+    })
+  })
+
+  describe('Bulk create personal_equipment', () => {
+    it('auto-fills assignmentStatusList for each item when omitted', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const planParticipants = await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: TEST_USER_ID,
+      })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items/bulk`,
+        payload: {
+          items: [
+            { name: 'Towel', category: 'personal_equipment', quantity: 1 },
+          ],
+        },
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.items).toHaveLength(1)
+      expect(body.items[0].isAllParticipants).toBe(true)
+      expect(body.items[0].assignmentStatusList).toHaveLength(2)
+      const ids = body.items[0].assignmentStatusList.map(
+        (a: { participantId: string }) => a.participantId
+      )
+      expect(ids.sort()).toEqual(
+        planParticipants.map((p) => p.participantId).sort()
+      )
+    })
   })
 
   describe('Create item with explicit subset assignmentStatusList', () => {

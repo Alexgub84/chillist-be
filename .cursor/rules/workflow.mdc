@@ -25,6 +25,10 @@ Before writing any code, FIRST use the Read tool on ALL of these files:
 4. ../chillist-docs/specs/mvp-v1.md (product requirements, entities, API endpoints)
 5. ../chillist-docs/dev-lessons/backend.md (past bugs - check before debugging)
 
+**For WhatsApp-related tasks**, also read:
+
+6. ../chillist-docs/specs/whatsapp.md (WhatsApp integration spec — endpoints, invitation messaging, BE architecture, testing pattern)
+
 Read the docs FIRST, then explore the specific files in this repo that are relevant to the task.
 Do NOT scan the entire codebase upfront - only look at files directly related to the work.
 
@@ -32,7 +36,7 @@ Do NOT scan the entire codebase upfront - only look at files directly related to
 
 Always do the following before committing:
 
-1. Run through the review checklist (`.windsurf/workflows/review.md`) — verify route→service delegation, test layering, and rule compliance
+1. Run through the review checklist (`.cursor/rules/review.mdc`) — verify route→service delegation, test layering, and rule compliance
 2. Pull main and merge: `git fetch origin main && git merge origin/main` (resolve conflicts if any)
 3. Run `npm run openapi:generate` to regenerate the OpenAPI spec
 4. Update docs in `../chillist-docs/` if the change affects them:

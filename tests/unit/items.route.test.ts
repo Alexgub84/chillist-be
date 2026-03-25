@@ -44,6 +44,19 @@ function mockAccessCheckSuccess(mockDb: ReturnType<typeof createMockDb>) {
   })
 }
 
+function mockPlanParticipantIdsQuery(
+  mockDb: ReturnType<typeof createMockDb>,
+  ids: string[] = [VALID_UUID]
+) {
+  mockDb.select.mockReturnValueOnce({
+    from: vi.fn().mockReturnValue({
+      where: vi
+        .fn()
+        .mockResolvedValue(ids.map((id) => ({ participantId: id }))),
+    }),
+  })
+}
+
 function mockInsertError(
   mockDb: ReturnType<typeof createMockDb>,
   error: unknown
@@ -131,6 +144,7 @@ describe('Items Route - Error Scenarios', () => {
       'returns correct status when item insert fails with "%s"',
       async (errorMessage, expectedStatus, expectedMessage) => {
         mockAccessCheckSuccess(mockDb)
+        mockPlanParticipantIdsQuery(mockDb)
         mockInsertError(mockDb, new Error(errorMessage))
 
         const response = await app.inject({
@@ -147,6 +161,7 @@ describe('Items Route - Error Scenarios', () => {
 
     it('returns 500 when non-Error is thrown on item insert', async () => {
       mockAccessCheckSuccess(mockDb)
+      mockPlanParticipantIdsQuery(mockDb)
       mockInsertError(mockDb, 'string error')
 
       const response = await app.inject({
