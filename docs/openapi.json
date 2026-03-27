@@ -2842,6 +2842,72 @@
           "members"
         ],
         "title": "DietaryMembersBody"
+      },
+      "def-75": {
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "subcategory",
+          "quantity",
+          "unit",
+          "reason"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "group_equipment",
+              "personal_equipment",
+              "food"
+            ]
+          },
+          "subcategory": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "pcs",
+              "kg",
+              "g",
+              "lb",
+              "oz",
+              "l",
+              "ml",
+              "m",
+              "cm",
+              "pack",
+              "set"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "title": "AiSuggestionItem"
+      },
+      "def-76": {
+        "type": "object",
+        "required": [
+          "suggestions"
+        ],
+        "properties": {
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-75"
+            }
+          }
+        },
+        "title": "AiSuggestionsResponse"
       }
     }
   },
@@ -6119,6 +6185,83 @@
               "application/json": {
                 "schema": {
                   "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}/ai-suggestions": {
+      "post": {
+        "summary": "Generate AI item suggestions for a plan",
+        "tags": [
+          "items"
+        ],
+        "description": "Uses AI to generate a list of suggested packing/food items based on plan context (dates, location, tags, participants). JWT required. Must be a participant.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI-generated item suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "AI-generated item suggestions",
+                  "$ref": "#/components/schemas/def-76"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — plan does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found — plan does not exist",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }

@@ -14,4 +14,7 @@ export const config = {
   greenApiToken: env.GREEN_API_TOKEN,
   chatbotServiceKey: env.CHATBOT_SERVICE_KEY,
   supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+  aiProvider: env.AI_PROVIDER,
+  anthropicApiKey: env.ANTHROPIC_API_KEY,
+  openaiApiKey: env.OPENAI_API_KEY,
 } as const

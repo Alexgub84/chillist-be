@@ -13,6 +13,7 @@ const PROD_BASE = {
   GREEN_API_INSTANCE_ID: 'instance-123',
   GREEN_API_TOKEN: 'token-abc',
   CHATBOT_SERVICE_KEY: 'some-service-key',
+  ANTHROPIC_API_KEY: 'sk-ant-test-key',
 }
 
 describe('Internal auth env validation guards', () => {

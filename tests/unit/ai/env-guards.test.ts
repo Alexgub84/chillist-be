@@ -11,85 +11,91 @@ const PROD_BASE = {
   SUPABASE_URL: 'https://example.supabase.co',
   CHATBOT_SERVICE_KEY: 'some-service-key',
   SUPABASE_SERVICE_ROLE_KEY: 'some-service-role-key',
-  ANTHROPIC_API_KEY: 'sk-ant-test-key',
+  WHATSAPP_PROVIDER: 'green_api',
+  GREEN_API_INSTANCE_ID: 'instance-123',
+  GREEN_API_TOKEN: 'token-abc',
 }
 
-describe('WhatsApp env validation guards', () => {
-  it('rejects WHATSAPP_PROVIDER=fake in production', () => {
+describe('AI env validation guards', () => {
+  it('rejects production without ANTHROPIC_API_KEY when AI_PROVIDER=anthropic', () => {
     const result = envSchema.safeParse({
       ...PROD_BASE,
-      WHATSAPP_PROVIDER: 'fake',
+      AI_PROVIDER: 'anthropic',
     })
 
     expect(result.success).toBe(false)
     if (!result.success) {
       const messages = result.error.issues.map((i) => i.message)
       expect(messages).toContain(
-        'WHATSAPP_PROVIDER=fake is not allowed in production — set to green_api'
+        'ANTHROPIC_API_KEY is required when AI_PROVIDER=anthropic'
       )
     }
   })
 
-  it('rejects green_api without GREEN_API_INSTANCE_ID', () => {
+  it('rejects production without OPENAI_API_KEY when AI_PROVIDER=openai', () => {
     const result = envSchema.safeParse({
       ...PROD_BASE,
-      WHATSAPP_PROVIDER: 'green_api',
-      GREEN_API_TOKEN: 'some-token',
+      AI_PROVIDER: 'openai',
     })
 
     expect(result.success).toBe(false)
     if (!result.success) {
       const messages = result.error.issues.map((i) => i.message)
       expect(messages).toContain(
-        'GREEN_API_INSTANCE_ID and GREEN_API_TOKEN are required when WHATSAPP_PROVIDER=green_api'
+        'OPENAI_API_KEY is required when AI_PROVIDER=openai'
       )
     }
   })
 
-  it('rejects green_api without GREEN_API_TOKEN', () => {
+  it('accepts production with ANTHROPIC_API_KEY when AI_PROVIDER=anthropic', () => {
     const result = envSchema.safeParse({
       ...PROD_BASE,
-      WHATSAPP_PROVIDER: 'green_api',
-      GREEN_API_INSTANCE_ID: 'some-id',
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      const messages = result.error.issues.map((i) => i.message)
-      expect(messages).toContain(
-        'GREEN_API_INSTANCE_ID and GREEN_API_TOKEN are required when WHATSAPP_PROVIDER=green_api'
-      )
-    }
-  })
-
-  it('accepts green_api with all credentials in production', () => {
-    const result = envSchema.safeParse({
-      ...PROD_BASE,
-      WHATSAPP_PROVIDER: 'green_api',
-      GREEN_API_INSTANCE_ID: 'instance-123',
-      GREEN_API_TOKEN: 'token-abc',
+      AI_PROVIDER: 'anthropic',
+      ANTHROPIC_API_KEY: 'sk-ant-test-key',
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('allows WHATSAPP_PROVIDER=fake in development', () => {
+  it('accepts production with OPENAI_API_KEY when AI_PROVIDER=openai', () => {
+    const result = envSchema.safeParse({
+      ...PROD_BASE,
+      AI_PROVIDER: 'openai',
+      OPENAI_API_KEY: 'sk-test-key',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('allows missing API keys in development', () => {
     const result = envSchema.safeParse({
       ...BASE_ENV,
       NODE_ENV: 'development',
-      WHATSAPP_PROVIDER: 'fake',
+      AI_PROVIDER: 'anthropic',
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('allows WHATSAPP_PROVIDER=fake in test', () => {
+  it('allows missing API keys in test', () => {
     const result = envSchema.safeParse({
       ...BASE_ENV,
       NODE_ENV: 'test',
-      WHATSAPP_PROVIDER: 'fake',
+      AI_PROVIDER: 'openai',
     })
 
     expect(result.success).toBe(true)
+  })
+
+  it('defaults AI_PROVIDER to anthropic', () => {
+    const result = envSchema.safeParse({
+      ...BASE_ENV,
+      NODE_ENV: 'development',
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.AI_PROVIDER).toBe('anthropic')
+    }
   })
 })
