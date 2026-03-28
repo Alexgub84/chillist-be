@@ -448,7 +448,7 @@ describePromptQuality(
     describe('Dietary context (vegan party)', () => {
       it('includes at least two vegan-related food items', async () => {
         const { suggestions } = await runScenario(
-          'vegan-party',
+          'vegan_party',
           SCENARIOS.vegan_party.plan
         )
         const food = suggestions.filter((s) => s.category === 'food')
@@ -458,7 +458,7 @@ describePromptQuality(
 
       it('does not pair meat/fish product names with vegan labeling', async () => {
         const { suggestions } = await runScenario(
-          'vegan-party',
+          'vegan_party',
           SCENARIOS.vegan_party.plan
         )
         const food = suggestions.filter((s) => s.category === 'food')
