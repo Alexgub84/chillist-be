@@ -21,7 +21,9 @@ import authPlugin, { AuthPluginOptions } from './plugins/auth.js'
 import guestAuthPlugin from './plugins/guest-auth.js'
 import websocketPlugin, { WebSocketPluginOptions } from './plugins/websocket.js'
 import whatsappPlugin, { WhatsAppPluginOptions } from './plugins/whatsapp.js'
+import aiModelPlugin, { AiModelPluginOptions } from './plugins/ai-model.js'
 import internalAuthPlugin from './plugins/internal-auth.js'
+import { aiSuggestionsRoutes } from './routes/ai-suggestions.route.js'
 import { internalRoutes } from './routes/internal.route.js'
 
 export interface AppDependencies {
@@ -34,6 +36,7 @@ export interface BuildAppOptions {
   auth?: AuthPluginOptions
   websocket?: WebSocketPluginOptions
   whatsapp?: WhatsAppPluginOptions
+  aiModel?: AiModelPluginOptions
   rateLimit?: { max: number; timeWindow: string } | false
 }
 
@@ -47,6 +50,7 @@ export async function buildApp(
     auth,
     websocket,
     whatsapp,
+    aiModel,
     rateLimit,
   } = options
 
@@ -136,6 +140,7 @@ export async function buildApp(
   await fastify.register(authPlugin, auth ?? {})
   await fastify.register(guestAuthPlugin)
   await fastify.register(whatsappPlugin, whatsapp ?? {})
+  await fastify.register(aiModelPlugin, aiModel ?? {})
   await fastify.register(websocketPlugin, websocket ?? {})
   await fastify.register(internalAuthPlugin)
 
@@ -212,6 +217,7 @@ export async function buildApp(
   await fastify.register(joinRequestRoutes)
   await fastify.register(expensesRoutes)
   await fastify.register(sendListRoutes)
+  await fastify.register(aiSuggestionsRoutes)
   await fastify.register(internalRoutes, { prefix: '/api/internal' })
 
   return fastify

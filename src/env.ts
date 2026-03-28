@@ -18,6 +18,9 @@ export const envSchema = z
     GREEN_API_TOKEN: z.string().optional(),
     CHATBOT_SERVICE_KEY: z.string().optional(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+    AI_PROVIDER: z.enum(['anthropic', 'openai']).default('anthropic'),
+    ANTHROPIC_API_KEY: z.string().optional(),
+    OPENAI_API_KEY: z.string().optional(),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SUPABASE_URL, {
     message: 'SUPABASE_URL is required in production',
@@ -45,6 +48,26 @@ export const envSchema = z
     message: 'CHATBOT_SERVICE_KEY is required in production',
     path: ['CHATBOT_SERVICE_KEY'],
   })
+  .refine(
+    (env) =>
+      env.NODE_ENV !== 'production' ||
+      env.AI_PROVIDER !== 'anthropic' ||
+      !!env.ANTHROPIC_API_KEY,
+    {
+      message: 'ANTHROPIC_API_KEY is required when AI_PROVIDER=anthropic',
+      path: ['ANTHROPIC_API_KEY'],
+    }
+  )
+  .refine(
+    (env) =>
+      env.NODE_ENV !== 'production' ||
+      env.AI_PROVIDER !== 'openai' ||
+      !!env.OPENAI_API_KEY,
+    {
+      message: 'OPENAI_API_KEY is required when AI_PROVIDER=openai',
+      path: ['OPENAI_API_KEY'],
+    }
+  )
 
 export type Env = z.infer<typeof envSchema>
 

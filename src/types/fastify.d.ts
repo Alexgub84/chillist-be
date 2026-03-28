@@ -1,3 +1,4 @@
+import type { LanguageModelV2 } from '@ai-sdk/provider'
 import { Database } from '../db/index.js'
 import { JwtUser } from '../plugins/auth.js'
 import { GuestParticipant } from '../plugins/guest-auth.js'
@@ -9,6 +10,7 @@ declare module 'fastify' {
     jwtEnabled: boolean
     notifyItemChange: (planId: string) => void
     whatsapp: IWhatsAppService
+    aiModel: LanguageModelV2
   }
 
   interface FastifyRequest {
