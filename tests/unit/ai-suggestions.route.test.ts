@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Fastify from 'fastify'
 import { MockLanguageModelV2 } from 'ai/test'
 import * as itemSuggestions from '../../src/services/ai/item-suggestions/index.js'
+import * as modelProvider from '../../src/services/ai/model-provider.js'
 import { aiSuggestionsRoutes } from '../../src/routes/ai-suggestions.route.js'
 import { registerSchemas } from '../../src/schemas/index.js'
 
@@ -60,6 +61,7 @@ const FAKE_SUGGESTIONS = [
 function createMockDb() {
   return {
     select: vi.fn(),
+    update: vi.fn(),
     query: { plans: { findFirst: vi.fn() } },
   }
 }
@@ -114,6 +116,25 @@ function mockPlanDataQuery(
   })
 }
 
+function mockParticipantDietaryQuery(
+  mockDb: ReturnType<typeof createMockDb>,
+  rows: Array<{ foodPreferences: string | null; dietaryMembers: null }> = []
+) {
+  mockDb.select.mockReturnValueOnce({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(rows),
+    }),
+  })
+}
+
+function mockAiGenerationIncrement(mockDb: ReturnType<typeof createMockDb>) {
+  mockDb.update.mockReturnValue({
+    set: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(undefined),
+    }),
+  })
+}
+
 describe('AI Suggestions Route', () => {
   let app: ReturnType<typeof Fastify>
   let mockDb: ReturnType<typeof createMockDb>
@@ -122,8 +143,10 @@ describe('AI Suggestions Route', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     mockDb = createMockDb()
+    mockAiGenerationIncrement(mockDb)
     const model = createMockModel()
     generateSpy = vi.spyOn(itemSuggestions, 'generateItemSuggestions')
+    vi.spyOn(modelProvider, 'resolveLanguageModel').mockReturnValue(model)
 
     app = Fastify({ logger: false })
     app.decorate('db', mockDb)
@@ -165,6 +188,7 @@ describe('AI Suggestions Route', () => {
   it('returns 200 with suggestions on success (defaultLang null -> en)', async () => {
     mockPlanAccessAllowed(mockDb)
     mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+    mockParticipantDietaryQuery(mockDb, [])
 
     const response = await app.inject({
       method: 'POST',
@@ -183,11 +207,13 @@ describe('AI Suggestions Route', () => {
       expect.objectContaining({ title: 'Beach trip' }),
       'en'
     )
+    expect(mockDb.update).toHaveBeenCalled()
   })
 
   it('resolves defaultLang=he and passes he to generateItemSuggestions', async () => {
     mockPlanAccessAllowed(mockDb)
     mockPlanDataQuery(mockDb, { ...FAKE_PLAN_ROW, defaultLang: 'he' })
+    mockParticipantDietaryQuery(mockDb, [])
 
     const response = await app.inject({
       method: 'POST',
@@ -206,6 +232,7 @@ describe('AI Suggestions Route', () => {
   it('resolves defaultLang=es and passes es to generateItemSuggestions', async () => {
     mockPlanAccessAllowed(mockDb)
     mockPlanDataQuery(mockDb, { ...FAKE_PLAN_ROW, defaultLang: 'es' })
+    mockParticipantDietaryQuery(mockDb, [])
 
     const response = await app.inject({
       method: 'POST',
@@ -224,6 +251,7 @@ describe('AI Suggestions Route', () => {
   it('returns correct structure for each suggestion', async () => {
     mockPlanAccessAllowed(mockDb)
     mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+    mockParticipantDietaryQuery(mockDb, [])
 
     const response = await app.inject({
       method: 'POST',
@@ -251,7 +279,10 @@ describe('AI Suggestions Route', () => {
       },
     })
 
+    vi.mocked(modelProvider.resolveLanguageModel).mockReturnValueOnce(failModel)
+
     const failDb = createMockDb()
+    mockAiGenerationIncrement(failDb)
     const failApp = Fastify({ logger: false })
     failApp.decorate('db', failDb)
     failApp.decorate('aiModel', failModel)
@@ -267,6 +298,7 @@ describe('AI Suggestions Route', () => {
 
     mockPlanAccessAllowed(failDb)
     mockPlanDataQuery(failDb, FAKE_PLAN_ROW)
+    mockParticipantDietaryQuery(failDb, [])
 
     const response = await failApp.inject({
       method: 'POST',
@@ -276,6 +308,7 @@ describe('AI Suggestions Route', () => {
 
     expect(response.statusCode).toBe(503)
     expect(response.json().message).toContain('AI service')
+    expect(failDb.update).not.toHaveBeenCalled()
     await failApp.close()
   })
 

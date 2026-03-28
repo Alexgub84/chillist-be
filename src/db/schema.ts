@@ -178,6 +178,7 @@ export const plans = pgTable('plans', {
   currency: varchar('currency', { length: 10 }),
   estimatedAdults: integer('estimated_adults'),
   estimatedKids: integer('estimated_kids'),
+  aiGenerationCount: integer('ai_generation_count').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

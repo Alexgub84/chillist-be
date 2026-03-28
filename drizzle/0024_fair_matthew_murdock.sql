@@ -1,0 +1,1 @@
+ALTER TABLE "plans" ADD COLUMN "ai_generation_count" integer DEFAULT 0 NOT NULL;

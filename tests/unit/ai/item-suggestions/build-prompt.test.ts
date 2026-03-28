@@ -199,4 +199,41 @@ describe('buildItemSuggestionsPrompt', () => {
     expect(prompt).toContain('item name, subcategory, and reason')
     expect(prompt).not.toContain('Subcategory MUST stay in English')
   })
+
+  it('includes Hebrew quality guard lines when lang is he', () => {
+    const prompt = buildItemSuggestionsPrompt(basePlan, 'he')
+    expect(prompt).toContain('natural, correct Hebrew')
+    expect(prompt).toContain('Do not mix scripts')
+    expect(prompt).toContain('Do not invent fake Hebrew words')
+  })
+
+  it('includes subcategory count guidance (4-8)', () => {
+    const prompt = buildItemSuggestionsPrompt(basePlan)
+    expect(prompt).toContain('4-8 distinct subcategory')
+  })
+
+  it('includes dietary section when dietarySummary is set', () => {
+    const prompt = buildItemSuggestionsPrompt(
+      {
+        ...basePlan,
+        dietarySummary: '1 vegan, 1 no restrictions',
+      },
+      'en'
+    )
+    expect(prompt).toContain('Dietary needs:')
+    expect(prompt).toContain('1 vegan, 1 no restrictions')
+    expect(prompt).toContain('Respect all dietary restrictions')
+  })
+
+  it('omits dietary section when dietarySummary is absent', () => {
+    const prompt = buildItemSuggestionsPrompt(basePlan)
+    expect(prompt).not.toContain('Dietary needs:')
+  })
+
+  it('omits dietary section when dietarySummary is empty or whitespace', () => {
+    const a = buildItemSuggestionsPrompt({ ...basePlan, dietarySummary: '' })
+    const b = buildItemSuggestionsPrompt({ ...basePlan, dietarySummary: '   ' })
+    expect(a).not.toContain('Dietary needs:')
+    expect(b).not.toContain('Dietary needs:')
+  })
 })
