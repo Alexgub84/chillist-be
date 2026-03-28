@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Fastify from 'fastify'
 import { MockLanguageModelV2 } from 'ai/test'
+import * as itemSuggestions from '../../src/services/ai/item-suggestions/index.js'
 import { aiSuggestionsRoutes } from '../../src/routes/ai-suggestions.route.js'
 import { registerSchemas } from '../../src/schemas/index.js'
 
@@ -26,6 +27,7 @@ const FAKE_PLAN_ROW = {
   tags: ['beach', 'swimming'],
   estimatedAdults: 3,
   estimatedKids: 0,
+  defaultLang: null as string | null,
 }
 
 const FAKE_SUGGESTIONS = [
@@ -115,11 +117,13 @@ function mockPlanDataQuery(
 describe('AI Suggestions Route', () => {
   let app: ReturnType<typeof Fastify>
   let mockDb: ReturnType<typeof createMockDb>
+  let generateSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(async () => {
     vi.clearAllMocks()
     mockDb = createMockDb()
     const model = createMockModel()
+    generateSpy = vi.spyOn(itemSuggestions, 'generateItemSuggestions')
 
     app = Fastify({ logger: false })
     app.decorate('db', mockDb)
@@ -158,7 +162,7 @@ describe('AI Suggestions Route', () => {
     expect(response.statusCode).toBe(404)
   })
 
-  it('returns 200 with suggestions on success', async () => {
+  it('returns 200 with suggestions on success (defaultLang null -> en)', async () => {
     mockPlanAccessAllowed(mockDb)
     mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
 
@@ -174,6 +178,47 @@ describe('AI Suggestions Route', () => {
     expect(body.suggestions[0].name).toBe('Sunscreen')
     expect(body.suggestions[0].category).toBe('personal_equipment')
     expect(body.suggestions[2].category).toBe('food')
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ title: 'Beach trip' }),
+      'en'
+    )
+  })
+
+  it('resolves defaultLang=he and passes he to generateItemSuggestions', async () => {
+    mockPlanAccessAllowed(mockDb)
+    mockPlanDataQuery(mockDb, { ...FAKE_PLAN_ROW, defaultLang: 'he' })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+      headers: AUTH_HEADERS,
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ title: 'Beach trip' }),
+      'he'
+    )
+  })
+
+  it('resolves defaultLang=es and passes es to generateItemSuggestions', async () => {
+    mockPlanAccessAllowed(mockDb)
+    mockPlanDataQuery(mockDb, { ...FAKE_PLAN_ROW, defaultLang: 'es' })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+      headers: AUTH_HEADERS,
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ title: 'Beach trip' }),
+      'es'
+    )
   })
 
   it('returns correct structure for each suggestion', async () => {

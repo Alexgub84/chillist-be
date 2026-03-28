@@ -2,7 +2,10 @@ import { FastifyInstance } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { plans } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
-import { generateItemSuggestions } from '../services/ai/item-suggestions/index.js'
+import {
+  generateItemSuggestions,
+  resolveAiLang,
+} from '../services/ai/item-suggestions/index.js'
 import type { PlanForAiContext } from '../services/ai/plan-context-formatters.js'
 
 export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
@@ -26,7 +29,7 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
         tags: ['items'],
         summary: 'Generate AI item suggestions for a plan',
         description:
-          'Uses AI to generate a list of suggested packing/food items based on plan context (dates, location, tags, participants). JWT required. Must be a participant.',
+          'Uses AI to generate a list of suggested packing/food items based on plan context (dates, location, tags, participants). Output language is determined by the plan defaultLang field (en, he, es). JWT required. Must be a participant.',
         params: { $ref: 'PlanIdParam#' },
         response: {
           200: {
@@ -76,6 +79,7 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
             tags: plans.tags,
             estimatedAdults: plans.estimatedAdults,
             estimatedKids: plans.estimatedKids,
+            defaultLang: plans.defaultLang,
           })
           .from(plans)
           .where(eq(plans.planId, planId))
@@ -83,6 +87,8 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
         if (!plan) {
           return reply.status(404).send({ message: 'Plan not found' })
         }
+
+        const lang = resolveAiLang(plan.defaultLang)
 
         const planContext: PlanForAiContext = {
           title: plan.title,
@@ -96,12 +102,14 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
 
         const result = await generateItemSuggestions(
           fastify.aiModel,
-          planContext
+          planContext,
+          lang
         )
 
         request.log.info(
           {
             planId,
+            lang,
             promptLength: result.prompt.length,
             suggestionsCount: result.suggestions.length,
             usage: result.usage,

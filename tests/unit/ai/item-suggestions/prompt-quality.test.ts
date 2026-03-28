@@ -2,11 +2,17 @@
  * Prompt quality validation tests — SKIPPED by default.
  *
  * These tests call the REAL AI API to validate that the prompt produces
- * sensible, context-aware item suggestions. Run them manually:
+ * sensible, context-aware item suggestions. Run them manually from repo root:
  *
- *   AI_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-ant-... npx vitest run tests/unit/ai/item-suggestions/prompt-quality.test.ts
+ *   npm run test:ai-prompt-quality
  *
- * Remove `.skip` from the describe block to enable.
+ * (Sets RUN_PROMPT_QUALITY=true and loads AI keys from .env — see
+ * scripts/test-ai-prompt-quality.sh.) Or one-liner:
+ *
+ *   RUN_PROMPT_QUALITY=true AI_PROVIDER=anthropic ANTHROPIC_API_KEY=... npx vitest run tests/unit/ai/item-suggestions/prompt-quality.test.ts
+ *
+ * Without RUN_PROMPT_QUALITY=true the suite is skipped. If `source .env` fails,
+ * the script exports only AI vars via grep (same pattern as above one-liner).
  *
  * NOTE: Schema compliance (valid category, unit, non-empty fields) is NOT
  * tested here — it is already enforced by Zod in generateObject. These tests
@@ -15,17 +21,9 @@
 import { describe, it, expect } from 'vitest'
 import { generateItemSuggestions } from '../../../../src/services/ai/item-suggestions/generate.js'
 import { resolveLanguageModel } from '../../../../src/services/ai/model-provider.js'
-import {
-  EQUIPMENT_SUBCATEGORIES,
-  FOOD_SUBCATEGORIES,
-} from '../../../../src/services/ai/subcategories.js'
 import type { PlanForAiContext } from '../../../../src/services/ai/plan-context-formatters.js'
 import type { ItemSuggestion } from '../../../../src/services/ai/item-suggestions/output-schema.js'
-
-const KNOWN_SUBCATEGORIES = [
-  ...EQUIPMENT_SUBCATEGORIES,
-  ...FOOD_SUBCATEGORIES,
-] as readonly string[]
+import type { SupportedAiLang } from '../../../../src/services/ai/item-suggestions/prompt-templates.js'
 
 // ---------------------------------------------------------------------------
 // Keyword matchers — fuzzy item detection by name
@@ -252,256 +250,325 @@ type ScenarioResult = {
 }
 const resultCache = new Map<string, ScenarioResult>()
 
+function cacheKey(key: string, lang: SupportedAiLang) {
+  return `${key}:${lang}`
+}
+
 async function runScenario(
   model: ReturnType<typeof resolveModel>,
   key: string,
-  plan: PlanForAiContext
+  plan: PlanForAiContext,
+  lang: SupportedAiLang = 'en'
 ): Promise<ScenarioResult> {
-  const cached = resultCache.get(key)
+  const ck = cacheKey(key, lang)
+  const cached = resultCache.get(ck)
   if (cached) return cached
 
-  const result = await generateItemSuggestions(model, plan)
-  logResult(key, result.suggestions, result.usage)
+  const result = await generateItemSuggestions(model, plan, lang)
+  logResult(`${key} [${lang}]`, result.suggestions, result.usage)
   const entry = { suggestions: result.suggestions, usage: result.usage }
-  resultCache.set(key, entry)
+  resultCache.set(ck, entry)
   return entry
+}
+
+function hasHebrewScript(text: string): boolean {
+  return /[\u0590-\u05FF]/.test(text)
 }
 
 // ===========================================================================
 // Tests
 // ===========================================================================
 
-describe.skip('Prompt quality — heuristic assertions (real API)', () => {
-  const model = resolveModel()
+const runPromptQuality = process.env.RUN_PROMPT_QUALITY === 'true'
+const provider = process.env.AI_PROVIDER ?? 'anthropic'
+const hasRealApiKey =
+  provider === 'openai'
+    ? Boolean(process.env.OPENAI_API_KEY?.trim())
+    : Boolean(process.env.ANTHROPIC_API_KEY?.trim())
 
-  // -------------------------------------------------------------------------
-  // Shared assertions for every scenario
-  // -------------------------------------------------------------------------
-  for (const [key, { label, plan }] of Object.entries(SCENARIOS)) {
-    describe(label, () => {
-      it('generates 15-50 items across all three categories', async () => {
-        const { suggestions } = await runScenario(model, key, plan)
+const describePromptQuality =
+  runPromptQuality && hasRealApiKey ? describe : describe.skip
+
+describePromptQuality(
+  'Prompt quality — heuristic assertions (real API)',
+  () => {
+    const model = resolveModel()
+
+    // -------------------------------------------------------------------------
+    // Shared assertions for every scenario
+    // -------------------------------------------------------------------------
+    for (const [key, { label, plan }] of Object.entries(SCENARIOS)) {
+      describe(label, () => {
+        it('generates 15-50 items across all three categories', async () => {
+          const { suggestions } = await runScenario(model, key, plan)
+          expect(suggestions.length).toBeGreaterThanOrEqual(15)
+          expect(suggestions.length).toBeLessThanOrEqual(50)
+
+          const categories = new Set(suggestions.map((s) => s.category))
+          expect(categories.has('group_equipment')).toBe(true)
+          expect(categories.has('personal_equipment')).toBe(true)
+          expect(categories.has('food')).toBe(true)
+        }, 30_000)
+
+        it('personal_equipment items have quantity = 1', async () => {
+          const { suggestions } = await runScenario(model, key, plan)
+          const personal = suggestions.filter(
+            (s) => s.category === 'personal_equipment'
+          )
+          for (const s of personal) {
+            expect(s.quantity).toBe(1)
+          }
+        })
+
+        it('every item has a non-empty subcategory (custom labels allowed)', async () => {
+          const { suggestions } = await runScenario(model, key, plan)
+          for (const s of suggestions) {
+            expect(s.subcategory.trim().length).toBeGreaterThan(0)
+          }
+        })
+      })
+    }
+
+    // -------------------------------------------------------------------------
+    // Context-specific heuristic checks
+    // -------------------------------------------------------------------------
+    describe('Context sensitivity', () => {
+      it('camping trip includes sleeping gear and cooking gear', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'camping',
+          SCENARIOS.camping.plan
+        )
+
+        const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
+        expect(sleeping.length).toBeGreaterThanOrEqual(1)
+
+        const cooking = anyNameMatches(suggestions, COOKING_GEAR)
+        expect(cooking.length).toBeGreaterThanOrEqual(1)
+      }, 30_000)
+
+      it('camping trip with kids includes kid-relevant items', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'camping',
+          SCENARIOS.camping.plan
+        )
+
+        const kidRelated = anyFieldMatches(suggestions, KID_ITEMS)
+        expect(kidRelated.length).toBeGreaterThanOrEqual(1)
+      }, 30_000)
+
+      it('beach day trip includes sun protection items', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'beach',
+          SCENARIOS.beach.plan
+        )
+
+        const sunItems = anyFieldMatches(suggestions, SUN_PROTECTION)
+        expect(sunItems.length).toBeGreaterThanOrEqual(1)
+      }, 30_000)
+
+      it('beach day trip does NOT include sleeping gear', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'beach',
+          SCENARIOS.beach.plan
+        )
+
+        const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
+        expect(sleeping).toEqual([])
+      }, 30_000)
+
+      it('hotel trip does NOT include sleeping gear, tent, or cooking gear', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'hotel',
+          SCENARIOS.hotel.plan
+        )
+
+        const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
+        expect(sleeping).toEqual([])
+
+        const cooking = anyNameMatches(suggestions, COOKING_GEAR)
+        expect(cooking).toEqual([])
+      }, 30_000)
+
+      it('winter camping includes warm clothing / cold weather gear', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'winter',
+          SCENARIOS.winter.plan
+        )
+
+        const warmItems = anyFieldMatches(suggestions, WARM_CLOTHING)
+        expect(warmItems.length).toBeGreaterThanOrEqual(1)
+      }, 30_000)
+
+      it('winter camping includes sleeping gear', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'winter',
+          SCENARIOS.winter.plan
+        )
+
+        const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
+        expect(sleeping.length).toBeGreaterThanOrEqual(1)
+      }, 30_000)
+    })
+
+    // -------------------------------------------------------------------------
+    // Category assignment correctness
+    // -------------------------------------------------------------------------
+    describe('Category assignment', () => {
+      it('tent is group_equipment, sleeping bag is personal_equipment', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'camping',
+          SCENARIOS.camping.plan
+        )
+
+        const tents = suggestions.filter((s) =>
+          s.name.toLowerCase().includes('tent')
+        )
+        for (const t of tents) {
+          expect(t.category).toBe('group_equipment')
+        }
+
+        const sleepingBags = suggestions.filter((s) =>
+          s.name.toLowerCase().includes('sleeping bag')
+        )
+        for (const sb of sleepingBags) {
+          expect(sb.category).toBe('personal_equipment')
+        }
+      }, 30_000)
+
+      it('food/drink items are categorized as food', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'camping',
+          SCENARIOS.camping.plan
+        )
+
+        const foodKeywords = [
+          'bread',
+          'rice',
+          'pasta',
+          'snack',
+          'juice',
+          'coffee',
+          'cheese',
+          'egg',
+        ]
+        const foodItems = anyNameMatches(suggestions, foodKeywords)
+        for (const f of foodItems) {
+          expect(f.category).toBe('food')
+        }
+      }, 30_000)
+    })
+
+    // -------------------------------------------------------------------------
+    // Quantity scaling — larger group should get more food
+    // -------------------------------------------------------------------------
+    describe('Quantity scaling', () => {
+      it('larger group (8 people) gets higher total food quantity than small group (2 people)', async () => {
+        const smallResult = await runScenario(model, 'small-group', SMALL_GROUP)
+        const largeResult = await runScenario(model, 'large-group', LARGE_GROUP)
+
+        const totalFoodQty = (items: ItemSuggestion[]) =>
+          items
+            .filter((s) => s.category === 'food')
+            .reduce((sum, s) => sum + s.quantity, 0)
+
+        const smallTotal = totalFoodQty(smallResult.suggestions)
+        const largeTotal = totalFoodQty(largeResult.suggestions)
+
+        console.log(
+          `Food qty — small group (2): ${smallTotal}, large group (8): ${largeTotal}`
+        )
+        expect(largeTotal).toBeGreaterThan(smallTotal)
+      }, 60_000)
+    })
+
+    // -------------------------------------------------------------------------
+    // No context hallucination — minimal scenario
+    // -------------------------------------------------------------------------
+    describe('No context hallucination', () => {
+      it('minimal context (title only) does NOT include climate-specific gear', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'minimal',
+          SCENARIOS.minimal.plan
+        )
+
+        const climateSpecific = anyNameMatches(suggestions, CLIMATE_SPECIFIC)
+
+        if (climateSpecific.length > 0) {
+          console.warn(
+            'Possible hallucination — climate-specific items with no location/tags:',
+            climateSpecific.map((s) => s.name)
+          )
+        }
+        expect(climateSpecific.length).toBeLessThanOrEqual(3)
+      }, 30_000)
+
+      it('minimal context still produces a reasonable number of items', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'minimal',
+          SCENARIOS.minimal.plan
+        )
+        expect(suggestions.length).toBeGreaterThanOrEqual(10)
+        expect(suggestions.length).toBeLessThanOrEqual(50)
+      }, 30_000)
+    })
+
+    describe('Hebrew output (camping) — names/reasons in Hebrew', () => {
+      it('generates 15–50 items with Hebrew script in most item names or reasons', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'camping-he',
+          SCENARIOS.camping.plan,
+          'he'
+        )
         expect(suggestions.length).toBeGreaterThanOrEqual(15)
         expect(suggestions.length).toBeLessThanOrEqual(50)
 
-        const categories = new Set(suggestions.map((s) => s.category))
-        expect(categories.has('group_equipment')).toBe(true)
-        expect(categories.has('personal_equipment')).toBe(true)
-        expect(categories.has('food')).toBe(true)
-      }, 30_000)
+        const withHebrew = suggestions.filter(
+          (s) => hasHebrewScript(s.name) || hasHebrewScript(s.reason)
+        )
+        expect(withHebrew.length / suggestions.length).toBeGreaterThanOrEqual(
+          0.6
+        )
+      }, 60_000)
 
-      it('personal_equipment items have quantity = 1', async () => {
-        const { suggestions } = await runScenario(model, key, plan)
+      it('personal_equipment items have quantity = 1 (Hebrew)', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'camping-he',
+          SCENARIOS.camping.plan,
+          'he'
+        )
         const personal = suggestions.filter(
           (s) => s.category === 'personal_equipment'
         )
         for (const s of personal) {
           expect(s.quantity).toBe(1)
         }
-      })
+      }, 60_000)
 
-      it('most subcategories come from the known vocabulary (>=70%)', async () => {
-        const { suggestions } = await runScenario(model, key, plan)
-        const knownCount = suggestions.filter((s) =>
-          KNOWN_SUBCATEGORIES.includes(s.subcategory)
-        ).length
-        const ratio = knownCount / suggestions.length
-        expect(ratio).toBeGreaterThanOrEqual(0.7)
-      })
+      it('covers all three categories (Hebrew)', async () => {
+        const { suggestions } = await runScenario(
+          model,
+          'camping-he',
+          SCENARIOS.camping.plan,
+          'he'
+        )
+        const categories = new Set(suggestions.map((s) => s.category))
+        expect(categories.has('group_equipment')).toBe(true)
+        expect(categories.has('personal_equipment')).toBe(true)
+        expect(categories.has('food')).toBe(true)
+      }, 60_000)
     })
   }
-
-  // -------------------------------------------------------------------------
-  // Context-specific heuristic checks
-  // -------------------------------------------------------------------------
-  describe('Context sensitivity', () => {
-    it('camping trip includes sleeping gear and cooking gear', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'camping',
-        SCENARIOS.camping.plan
-      )
-
-      const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
-      expect(sleeping.length).toBeGreaterThanOrEqual(1)
-
-      const cooking = anyNameMatches(suggestions, COOKING_GEAR)
-      expect(cooking.length).toBeGreaterThanOrEqual(1)
-    }, 30_000)
-
-    it('camping trip with kids includes kid-relevant items', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'camping',
-        SCENARIOS.camping.plan
-      )
-
-      const kidRelated = anyFieldMatches(suggestions, KID_ITEMS)
-      expect(kidRelated.length).toBeGreaterThanOrEqual(1)
-    }, 30_000)
-
-    it('beach day trip includes sun protection items', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'beach',
-        SCENARIOS.beach.plan
-      )
-
-      const sunItems = anyFieldMatches(suggestions, SUN_PROTECTION)
-      expect(sunItems.length).toBeGreaterThanOrEqual(1)
-    }, 30_000)
-
-    it('beach day trip does NOT include sleeping gear', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'beach',
-        SCENARIOS.beach.plan
-      )
-
-      const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
-      expect(sleeping).toEqual([])
-    }, 30_000)
-
-    it('hotel trip does NOT include sleeping gear, tent, or cooking gear', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'hotel',
-        SCENARIOS.hotel.plan
-      )
-
-      const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
-      expect(sleeping).toEqual([])
-
-      const cooking = anyNameMatches(suggestions, COOKING_GEAR)
-      expect(cooking).toEqual([])
-    }, 30_000)
-
-    it('winter camping includes warm clothing / cold weather gear', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'winter',
-        SCENARIOS.winter.plan
-      )
-
-      const warmItems = anyFieldMatches(suggestions, WARM_CLOTHING)
-      expect(warmItems.length).toBeGreaterThanOrEqual(1)
-    }, 30_000)
-
-    it('winter camping includes sleeping gear', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'winter',
-        SCENARIOS.winter.plan
-      )
-
-      const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
-      expect(sleeping.length).toBeGreaterThanOrEqual(1)
-    }, 30_000)
-  })
-
-  // -------------------------------------------------------------------------
-  // Category assignment correctness
-  // -------------------------------------------------------------------------
-  describe('Category assignment', () => {
-    it('tent is group_equipment, sleeping bag is personal_equipment', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'camping',
-        SCENARIOS.camping.plan
-      )
-
-      const tents = suggestions.filter((s) =>
-        s.name.toLowerCase().includes('tent')
-      )
-      for (const t of tents) {
-        expect(t.category).toBe('group_equipment')
-      }
-
-      const sleepingBags = suggestions.filter((s) =>
-        s.name.toLowerCase().includes('sleeping bag')
-      )
-      for (const sb of sleepingBags) {
-        expect(sb.category).toBe('personal_equipment')
-      }
-    }, 30_000)
-
-    it('food/drink items are categorized as food', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'camping',
-        SCENARIOS.camping.plan
-      )
-
-      const foodKeywords = [
-        'bread',
-        'rice',
-        'pasta',
-        'snack',
-        'juice',
-        'coffee',
-        'cheese',
-        'egg',
-      ]
-      const foodItems = anyNameMatches(suggestions, foodKeywords)
-      for (const f of foodItems) {
-        expect(f.category).toBe('food')
-      }
-    }, 30_000)
-  })
-
-  // -------------------------------------------------------------------------
-  // Quantity scaling — larger group should get more food
-  // -------------------------------------------------------------------------
-  describe('Quantity scaling', () => {
-    it('larger group (8 people) gets higher total food quantity than small group (2 people)', async () => {
-      const smallResult = await runScenario(model, 'small-group', SMALL_GROUP)
-      const largeResult = await runScenario(model, 'large-group', LARGE_GROUP)
-
-      const totalFoodQty = (items: ItemSuggestion[]) =>
-        items
-          .filter((s) => s.category === 'food')
-          .reduce((sum, s) => sum + s.quantity, 0)
-
-      const smallTotal = totalFoodQty(smallResult.suggestions)
-      const largeTotal = totalFoodQty(largeResult.suggestions)
-
-      console.log(
-        `Food qty — small group (2): ${smallTotal}, large group (8): ${largeTotal}`
-      )
-      expect(largeTotal).toBeGreaterThan(smallTotal)
-    }, 60_000)
-  })
-
-  // -------------------------------------------------------------------------
-  // No context hallucination — minimal scenario
-  // -------------------------------------------------------------------------
-  describe('No context hallucination', () => {
-    it('minimal context (title only) does NOT include climate-specific gear', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'minimal',
-        SCENARIOS.minimal.plan
-      )
-
-      const climateSpecific = anyNameMatches(suggestions, CLIMATE_SPECIFIC)
-
-      if (climateSpecific.length > 0) {
-        console.warn(
-          'Possible hallucination — climate-specific items with no location/tags:',
-          climateSpecific.map((s) => s.name)
-        )
-      }
-      expect(climateSpecific.length).toBeLessThanOrEqual(3)
-    }, 30_000)
-
-    it('minimal context still produces a reasonable number of items', async () => {
-      const { suggestions } = await runScenario(
-        model,
-        'minimal',
-        SCENARIOS.minimal.plan
-      )
-      expect(suggestions.length).toBeGreaterThanOrEqual(10)
-      expect(suggestions.length).toBeLessThanOrEqual(50)
-    }, 30_000)
-  })
-})
+)

@@ -6199,7 +6199,7 @@
         "tags": [
           "items"
         ],
-        "description": "Uses AI to generate a list of suggested packing/food items based on plan context (dates, location, tags, participants). JWT required. Must be a participant.",
+        "description": "Uses AI to generate a list of suggested packing/food items based on plan context (dates, location, tags, participants). Output language is determined by the plan defaultLang field (en, he, es). JWT required. Must be a participant.",
         "parameters": [
           {
             "schema": {

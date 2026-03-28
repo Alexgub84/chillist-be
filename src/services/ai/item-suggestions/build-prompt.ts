@@ -6,11 +6,13 @@ import {
 } from '../plan-context-formatters.js'
 import {
   SYSTEM_INSTRUCTION,
+  getLanguageInstruction,
   CONTEXT_GUIDANCE,
   CATEGORY_RULES,
   SUBCATEGORY_GUIDANCE,
   VALID_ENUMS,
   CLOSING_INSTRUCTION,
+  type SupportedAiLang,
 } from './prompt-templates.js'
 
 const MS_PER_DAY = 86_400_000
@@ -25,7 +27,10 @@ function computeNightsCount(
   return Math.floor(diff / MS_PER_DAY)
 }
 
-export function buildItemSuggestionsPrompt(plan: PlanForAiContext): string {
+export function buildItemSuggestionsPrompt(
+  plan: PlanForAiContext,
+  lang: SupportedAiLang = 'en'
+): string {
   const {
     adults,
     kids,
@@ -38,6 +43,8 @@ export function buildItemSuggestionsPrompt(plan: PlanForAiContext): string {
 
   const sections: string[] = [
     SYSTEM_INSTRUCTION,
+    '',
+    getLanguageInstruction(lang),
     '',
     `Plan title: ${plan.title}`,
   ]

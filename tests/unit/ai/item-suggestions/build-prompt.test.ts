@@ -177,4 +177,26 @@ describe('buildItemSuggestionsPrompt', () => {
     expect(typeof prompt).toBe('string')
     expect(prompt.length).toBeGreaterThan(100)
   })
+
+  it('includes English output language instruction by default', () => {
+    const prompt = buildItemSuggestionsPrompt(basePlan)
+    expect(prompt).toContain('Output language:')
+    expect(prompt).toContain('English')
+  })
+
+  it('includes Hebrew output language instruction when lang is he', () => {
+    const prompt = buildItemSuggestionsPrompt(basePlan, 'he')
+    expect(prompt).toContain('Hebrew')
+    expect(prompt).toContain('עברית')
+    expect(prompt).toContain('item name, subcategory, and reason')
+    expect(prompt).not.toContain('Subcategory MUST stay in English')
+  })
+
+  it('includes Spanish output language instruction when lang is es', () => {
+    const prompt = buildItemSuggestionsPrompt(basePlan, 'es')
+    expect(prompt).toContain('Spanish')
+    expect(prompt).toContain('Español')
+    expect(prompt).toContain('item name, subcategory, and reason')
+    expect(prompt).not.toContain('Subcategory MUST stay in English')
+  })
 })

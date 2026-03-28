@@ -1,5 +1,5 @@
 import type { Location } from '../../db/schema.js'
-import { EQUIPMENT_SUBCATEGORIES, FOOD_SUBCATEGORIES } from './subcategories.js'
+import { SUBCATEGORY_GUIDANCE } from './item-suggestions/prompt-templates.js'
 
 const MS_PER_DAY = 86_400_000
 
@@ -105,13 +105,7 @@ function buildPrompt(ctx: {
 
   lines.push(
     '',
-    'Prefer these subcategory labels when assigning items (you may use a new label if nothing fits):',
-    '',
-    'Equipment subcategories:',
-    ...EQUIPMENT_SUBCATEGORIES.map((s) => `- ${s}`),
-    '',
-    'Food subcategories:',
-    ...FOOD_SUBCATEGORIES.map((s) => `- ${s}`),
+    SUBCATEGORY_GUIDANCE,
     '',
     'Suggest practical items for this trip. Each item must use a valid category (group_equipment, personal_equipment, food) and unit from the allowed list.'
   )

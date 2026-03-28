@@ -88,6 +88,13 @@ describe('generateItemSuggestions', () => {
     expect(result.prompt).toContain('Lake Tahoe')
   })
 
+  it('includes Hebrew language instruction when lang is he', async () => {
+    const model = createMockModel(fakeSuggestions)
+    const result = await generateItemSuggestions(model, basePlan, 'he')
+
+    expect(result.prompt).toContain('עברית')
+  })
+
   it('returns token usage from the model response', async () => {
     const model = createMockModel(fakeSuggestions, {
       inputTokens: 200,

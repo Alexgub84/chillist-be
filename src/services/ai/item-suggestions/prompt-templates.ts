@@ -4,16 +4,47 @@ import {
 } from '../subcategories.js'
 import { ITEM_CATEGORY_VALUES, UNIT_VALUES } from '../../../db/schema.js'
 
+export const SUPPORTED_AI_LANGS = ['en', 'he', 'es'] as const
+export type SupportedAiLang = (typeof SUPPORTED_AI_LANGS)[number]
+
+export function resolveAiLang(
+  defaultLang: string | null | undefined
+): SupportedAiLang {
+  if (defaultLang === 'he') return 'he'
+  if (defaultLang === 'es') return 'es'
+  return 'en'
+}
+
+export function getLanguageInstruction(lang: SupportedAiLang): string {
+  switch (lang) {
+    case 'he':
+      return [
+        'Output language: Hebrew (עברית) for item name, subcategory, and reason.',
+        'Category and unit MUST stay exactly as the English enum values listed later (never translate category or unit).',
+      ].join(' ')
+    case 'es':
+      return [
+        'Output language: Spanish (Español) for item name, subcategory, and reason.',
+        'Category and unit MUST stay exactly as the English enum values listed later (never translate category or unit).',
+      ].join(' ')
+    default:
+      return 'Output language: generate every item name, subcategory label, and reason in English. The category and unit fields MUST stay exactly as the English enum values listed below.'
+  }
+}
+
 export const SYSTEM_INSTRUCTION =
   'You are helping plan a shared packing and food checklist for a group trip or event.'
 
 export const SUBCATEGORY_GUIDANCE = [
-  'Prefer these subcategory labels when assigning items (you may use a new label if nothing fits):',
+  'Subcategory guidance:',
+  'Use the subcategory examples below as inspiration — they are not an exhaustive list.',
+  'Create subcategories that best fit this plan and its activities (e.g. fishing trip → "Fishing Gear", ski trip → "Ski Equipment", beach day → "Water Sports").',
+  'You are encouraged to invent new subcategory labels when the plan needs a grouping that does not match any example.',
   '',
-  'Equipment subcategories:',
+  'Example equipment subcategories:',
   ...EQUIPMENT_SUBCATEGORIES.map((s) => `- ${s}`),
   '',
-  'Food subcategories:',
+  'Example food subcategories:',
   ...FOOD_SUBCATEGORIES.map((s) => `- ${s}`),
 ].join('\n')
 

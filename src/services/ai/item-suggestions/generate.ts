@@ -3,6 +3,7 @@ import type { LanguageModelV2 } from '@ai-sdk/provider'
 import { itemSuggestionSchema, type ItemSuggestion } from './output-schema.js'
 import { buildItemSuggestionsPrompt } from './build-prompt.js'
 import type { PlanForAiContext } from '../plan-context-formatters.js'
+import type { SupportedAiLang } from './prompt-templates.js'
 
 export interface ItemSuggestionsResult {
   suggestions: ItemSuggestion[]
@@ -31,9 +32,10 @@ function salvageFromRawText(text: string): ItemSuggestion[] {
 
 export async function generateItemSuggestions(
   model: LanguageModelV2,
-  plan: PlanForAiContext
+  plan: PlanForAiContext,
+  lang: SupportedAiLang = 'en'
 ): Promise<ItemSuggestionsResult> {
-  const prompt = buildItemSuggestionsPrompt(plan)
+  const prompt = buildItemSuggestionsPrompt(plan, lang)
 
   try {
     const { object: suggestions, usage } = await generateObject({
