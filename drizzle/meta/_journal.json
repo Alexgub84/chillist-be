@@ -169,6 +169,13 @@
       "when": 1774269659604,
       "tag": "0023_talented_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1774712982840,
+      "tag": "0024_fair_matthew_murdock",
+      "breakpoints": true
     }
   ]
 }

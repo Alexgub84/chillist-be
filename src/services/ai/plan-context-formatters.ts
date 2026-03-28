@@ -20,6 +20,7 @@ export interface PlanForAiContext {
   tags: string[] | null | undefined
   estimatedAdults: number | null
   estimatedKids: number | null
+  dietarySummary?: string
 }
 
 export function formatLocationForAi(location: Location): string {

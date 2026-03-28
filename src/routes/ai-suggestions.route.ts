@@ -1,11 +1,14 @@
 import { FastifyInstance } from 'fastify'
-import { eq } from 'drizzle-orm'
-import { plans } from '../db/schema.js'
+import { and, eq, inArray, sql } from 'drizzle-orm'
+import { participants, plans } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
+import { config } from '../config.js'
 import {
   generateItemSuggestions,
   resolveAiLang,
 } from '../services/ai/item-suggestions/index.js'
+import { resolveLanguageModel } from '../services/ai/model-provider.js'
+import { aggregateDietarySummary } from '../services/ai/dietary-summary.js'
 import type { PlanForAiContext } from '../services/ai/plan-context-formatters.js'
 
 export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
@@ -90,6 +93,21 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
 
         const lang = resolveAiLang(plan.defaultLang)
 
+        const participantDietRows = await fastify.db
+          .select({
+            foodPreferences: participants.foodPreferences,
+            dietaryMembers: participants.dietaryMembers,
+          })
+          .from(participants)
+          .where(
+            and(
+              eq(participants.planId, planId),
+              inArray(participants.rsvpStatus, ['confirmed', 'pending'])
+            )
+          )
+
+        const dietarySummary = aggregateDietarySummary(participantDietRows)
+
         const planContext: PlanForAiContext = {
           title: plan.title,
           startDate: plan.startDate,
@@ -98,23 +116,33 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
           tags: plan.tags,
           estimatedAdults: plan.estimatedAdults,
           estimatedKids: plan.estimatedKids,
+          ...(dietarySummary ? { dietarySummary } : {}),
         }
 
-        const result = await generateItemSuggestions(
-          fastify.aiModel,
-          planContext,
-          lang
-        )
+        const startMs = Date.now()
+
+        const model = resolveLanguageModel(config.aiProvider, lang)
+
+        const result = await generateItemSuggestions(model, planContext, lang)
+
+        await fastify.db
+          .update(plans)
+          .set({ aiGenerationCount: sql`${plans.aiGenerationCount} + 1` })
+          .where(eq(plans.planId, planId))
+
+        const durationSec = ((Date.now() - startMs) / 1000).toFixed(1)
 
         request.log.info(
           {
             planId,
             lang,
+            modelId: model.modelId,
             promptLength: result.prompt.length,
             suggestionsCount: result.suggestions.length,
             usage: result.usage,
+            durationSec,
           },
-          'AI item suggestions generated'
+          `AI item suggestions generated in ${durationSec}s — ${result.suggestions.length} items, ${result.usage.totalTokens ?? '?'} tokens (${model.modelId})`
         )
 
         return { suggestions: result.suggestions }

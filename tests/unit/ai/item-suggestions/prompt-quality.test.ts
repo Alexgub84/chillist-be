@@ -122,9 +122,9 @@ function logResult(
   console.log('===\n')
 }
 
-function resolveModel() {
+function resolveModel(lang: SupportedAiLang = 'en') {
   const provider = process.env.AI_PROVIDER ?? 'anthropic'
-  return resolveLanguageModel(provider)
+  return resolveLanguageModel(provider, lang)
 }
 
 // ---------------------------------------------------------------------------
@@ -215,6 +215,24 @@ const SCENARIOS = {
       estimatedKids: 0,
     } satisfies PlanForAiContext,
   },
+
+  vegan_party: {
+    label: 'Dinner party — mixed vegan/vegetarian guests',
+    plan: {
+      title: 'Vegan dinner party',
+      startDate: new Date('2026-09-01T18:00:00Z'),
+      endDate: new Date('2026-09-01T23:00:00Z'),
+      location: {
+        locationId: 'loc-vp',
+        name: 'Home',
+        country: 'USA',
+      },
+      tags: ['dinner_party', 'dinner_home'],
+      estimatedAdults: 4,
+      estimatedKids: 0,
+      dietarySummary: '2 vegan, 1 vegetarian, 1 no restrictions',
+    } satisfies PlanForAiContext,
+  },
 } as const
 
 // Quantity-scaling comparison scenarios
@@ -255,7 +273,6 @@ function cacheKey(key: string, lang: SupportedAiLang) {
 }
 
 async function runScenario(
-  model: ReturnType<typeof resolveModel>,
   key: string,
   plan: PlanForAiContext,
   lang: SupportedAiLang = 'en'
@@ -264,6 +281,7 @@ async function runScenario(
   const cached = resultCache.get(ck)
   if (cached) return cached
 
+  const model = resolveModel(lang)
   const result = await generateItemSuggestions(model, plan, lang)
   logResult(`${key} [${lang}]`, result.suggestions, result.usage)
   const entry = { suggestions: result.suggestions, usage: result.usage }
@@ -274,6 +292,34 @@ async function runScenario(
 function hasHebrewScript(text: string): boolean {
   return /[\u0590-\u05FF]/.test(text)
 }
+
+function hasScriptContamination(text: string): boolean {
+  if (/[A-Za-z]/.test(text)) return true
+  if (/[\u0600-\u06FF]/.test(text)) return true
+  if (/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/.test(text)) return true
+  return false
+}
+
+const VEGAN_KEYWORDS = [
+  'vegan',
+  'plant',
+  'tofu',
+  'tempeh',
+  'legume',
+  'hummus',
+  'vegetable',
+]
+const MEAT_FISH_KEYWORDS = [
+  'chicken',
+  'beef',
+  'pork',
+  'salmon',
+  'tuna',
+  'steak',
+  'fish',
+  'meat',
+  'turkey',
+]
 
 // ===========================================================================
 // Tests
@@ -292,15 +338,13 @@ const describePromptQuality =
 describePromptQuality(
   'Prompt quality — heuristic assertions (real API)',
   () => {
-    const model = resolveModel()
-
     // -------------------------------------------------------------------------
     // Shared assertions for every scenario
     // -------------------------------------------------------------------------
     for (const [key, { label, plan }] of Object.entries(SCENARIOS)) {
       describe(label, () => {
         it('generates 15-50 items across all three categories', async () => {
-          const { suggestions } = await runScenario(model, key, plan)
+          const { suggestions } = await runScenario(key, plan)
           expect(suggestions.length).toBeGreaterThanOrEqual(15)
           expect(suggestions.length).toBeLessThanOrEqual(50)
 
@@ -311,7 +355,7 @@ describePromptQuality(
         }, 30_000)
 
         it('personal_equipment items have quantity = 1', async () => {
-          const { suggestions } = await runScenario(model, key, plan)
+          const { suggestions } = await runScenario(key, plan)
           const personal = suggestions.filter(
             (s) => s.category === 'personal_equipment'
           )
@@ -321,7 +365,7 @@ describePromptQuality(
         })
 
         it('every item has a non-empty subcategory (custom labels allowed)', async () => {
-          const { suggestions } = await runScenario(model, key, plan)
+          const { suggestions } = await runScenario(key, plan)
           for (const s of suggestions) {
             expect(s.subcategory.trim().length).toBeGreaterThan(0)
           }
@@ -335,7 +379,6 @@ describePromptQuality(
     describe('Context sensitivity', () => {
       it('camping trip includes sleeping gear and cooking gear', async () => {
         const { suggestions } = await runScenario(
-          model,
           'camping',
           SCENARIOS.camping.plan
         )
@@ -349,7 +392,6 @@ describePromptQuality(
 
       it('camping trip with kids includes kid-relevant items', async () => {
         const { suggestions } = await runScenario(
-          model,
           'camping',
           SCENARIOS.camping.plan
         )
@@ -359,33 +401,21 @@ describePromptQuality(
       }, 30_000)
 
       it('beach day trip includes sun protection items', async () => {
-        const { suggestions } = await runScenario(
-          model,
-          'beach',
-          SCENARIOS.beach.plan
-        )
+        const { suggestions } = await runScenario('beach', SCENARIOS.beach.plan)
 
         const sunItems = anyFieldMatches(suggestions, SUN_PROTECTION)
         expect(sunItems.length).toBeGreaterThanOrEqual(1)
       }, 30_000)
 
       it('beach day trip does NOT include sleeping gear', async () => {
-        const { suggestions } = await runScenario(
-          model,
-          'beach',
-          SCENARIOS.beach.plan
-        )
+        const { suggestions } = await runScenario('beach', SCENARIOS.beach.plan)
 
         const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
         expect(sleeping).toEqual([])
       }, 30_000)
 
       it('hotel trip does NOT include sleeping gear, tent, or cooking gear', async () => {
-        const { suggestions } = await runScenario(
-          model,
-          'hotel',
-          SCENARIOS.hotel.plan
-        )
+        const { suggestions } = await runScenario('hotel', SCENARIOS.hotel.plan)
 
         const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
         expect(sleeping).toEqual([])
@@ -396,7 +426,6 @@ describePromptQuality(
 
       it('winter camping includes warm clothing / cold weather gear', async () => {
         const { suggestions } = await runScenario(
-          model,
           'winter',
           SCENARIOS.winter.plan
         )
@@ -407,7 +436,6 @@ describePromptQuality(
 
       it('winter camping includes sleeping gear', async () => {
         const { suggestions } = await runScenario(
-          model,
           'winter',
           SCENARIOS.winter.plan
         )
@@ -417,13 +445,43 @@ describePromptQuality(
       }, 30_000)
     })
 
+    describe('Dietary context (vegan party)', () => {
+      it('includes at least two vegan-related food items', async () => {
+        const { suggestions } = await runScenario(
+          'vegan_party',
+          SCENARIOS.vegan_party.plan
+        )
+        const food = suggestions.filter((s) => s.category === 'food')
+        const veganish = anyFieldMatches(food, VEGAN_KEYWORDS)
+        expect(veganish.length).toBeGreaterThanOrEqual(2)
+      }, 60_000)
+
+      it('does not pair meat/fish product names with vegan labeling', async () => {
+        const { suggestions } = await runScenario(
+          'vegan_party',
+          SCENARIOS.vegan_party.plan
+        )
+        const food = suggestions.filter((s) => s.category === 'food')
+        const veganLabeled = food.filter((s) => {
+          const t = `${s.name} ${s.subcategory} ${s.reason}`.toLowerCase()
+          return t.includes('vegan')
+        })
+        expect(veganLabeled.length).toBeGreaterThanOrEqual(1)
+        for (const s of veganLabeled) {
+          const lower = s.name.toLowerCase()
+          for (const kw of MEAT_FISH_KEYWORDS) {
+            expect(lower.includes(kw)).toBe(false)
+          }
+        }
+      }, 60_000)
+    })
+
     // -------------------------------------------------------------------------
     // Category assignment correctness
     // -------------------------------------------------------------------------
     describe('Category assignment', () => {
       it('tent is group_equipment, sleeping bag is personal_equipment', async () => {
         const { suggestions } = await runScenario(
-          model,
           'camping',
           SCENARIOS.camping.plan
         )
@@ -445,7 +503,6 @@ describePromptQuality(
 
       it('food/drink items are categorized as food', async () => {
         const { suggestions } = await runScenario(
-          model,
           'camping',
           SCENARIOS.camping.plan
         )
@@ -472,8 +529,8 @@ describePromptQuality(
     // -------------------------------------------------------------------------
     describe('Quantity scaling', () => {
       it('larger group (8 people) gets higher total food quantity than small group (2 people)', async () => {
-        const smallResult = await runScenario(model, 'small-group', SMALL_GROUP)
-        const largeResult = await runScenario(model, 'large-group', LARGE_GROUP)
+        const smallResult = await runScenario('small-group', SMALL_GROUP)
+        const largeResult = await runScenario('large-group', LARGE_GROUP)
 
         const totalFoodQty = (items: ItemSuggestion[]) =>
           items
@@ -496,7 +553,6 @@ describePromptQuality(
     describe('No context hallucination', () => {
       it('minimal context (title only) does NOT include climate-specific gear', async () => {
         const { suggestions } = await runScenario(
-          model,
           'minimal',
           SCENARIOS.minimal.plan
         )
@@ -514,7 +570,6 @@ describePromptQuality(
 
       it('minimal context still produces a reasonable number of items', async () => {
         const { suggestions } = await runScenario(
-          model,
           'minimal',
           SCENARIOS.minimal.plan
         )
@@ -526,7 +581,6 @@ describePromptQuality(
     describe('Hebrew output (camping) — names/reasons in Hebrew', () => {
       it('generates 15–50 items with Hebrew script in most item names or reasons', async () => {
         const { suggestions } = await runScenario(
-          model,
           'camping-he',
           SCENARIOS.camping.plan,
           'he'
@@ -544,7 +598,6 @@ describePromptQuality(
 
       it('personal_equipment items have quantity = 1 (Hebrew)', async () => {
         const { suggestions } = await runScenario(
-          model,
           'camping-he',
           SCENARIOS.camping.plan,
           'he'
@@ -559,7 +612,6 @@ describePromptQuality(
 
       it('covers all three categories (Hebrew)', async () => {
         const { suggestions } = await runScenario(
-          model,
           'camping-he',
           SCENARIOS.camping.plan,
           'he'
@@ -569,6 +621,56 @@ describePromptQuality(
         expect(categories.has('personal_equipment')).toBe(true)
         expect(categories.has('food')).toBe(true)
       }, 60_000)
+
+      it('name and subcategory avoid Latin, Arabic, CJK, or Hangul (Hebrew)', async () => {
+        const { suggestions } = await runScenario(
+          'camping-he',
+          SCENARIOS.camping.plan,
+          'he'
+        )
+        for (const s of suggestions) {
+          expect(hasScriptContamination(s.name)).toBe(false)
+          expect(hasScriptContamination(s.subcategory)).toBe(false)
+        }
+      }, 60_000)
+
+      it('uses a bounded number of distinct subcategories (3–10, Hebrew)', async () => {
+        const { suggestions } = await runScenario(
+          'camping-he',
+          SCENARIOS.camping.plan,
+          'he'
+        )
+        const subs = new Set(suggestions.map((s) => s.subcategory.trim()))
+        expect(subs.size).toBeGreaterThanOrEqual(3)
+        expect(subs.size).toBeLessThanOrEqual(10)
+      }, 60_000)
+    })
+
+    describe('Hebrew output (vegan dinner party)', () => {
+      it('mentions vegan or vegetarian in Hebrew on at least one food item', async () => {
+        const { suggestions } = await runScenario(
+          'vegan-party-he',
+          SCENARIOS.vegan_party.plan,
+          'he'
+        )
+        const food = suggestions.filter((s) => s.category === 'food')
+        const hebrewDiet = food.filter((s) =>
+          /טבעוני|צמחוני/.test(`${s.name} ${s.subcategory} ${s.reason}`)
+        )
+        expect(hebrewDiet.length).toBeGreaterThanOrEqual(1)
+      }, 90_000)
+
+      it('name and subcategory avoid mixed scripts (vegan party, Hebrew)', async () => {
+        const { suggestions } = await runScenario(
+          'vegan-party-he',
+          SCENARIOS.vegan_party.plan,
+          'he'
+        )
+        for (const s of suggestions) {
+          expect(hasScriptContamination(s.name)).toBe(false)
+          expect(hasScriptContamination(s.subcategory)).toBe(false)
+        }
+      }, 90_000)
     })
   }
 )

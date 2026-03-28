@@ -83,6 +83,7 @@ async function seed() {
         currency: 'ILS',
         estimatedAdults: 7,
         estimatedKids: 5,
+        aiGenerationCount: 0,
         ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
       })
       .returning()
@@ -480,6 +481,7 @@ async function seed() {
         tags: ['beach', 'beach_day', 'beach_cooking'],
         defaultLang: 'en',
         currency: 'USD',
+        aiGenerationCount: 0,
         ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
       })
       .returning()
@@ -620,6 +622,7 @@ async function seed() {
         tags: ['dinner_party', 'dinner_bbq', 'bbq_shared_food'],
         defaultLang: 'he',
         currency: 'ILS',
+        aiGenerationCount: 0,
       })
       .returning()
 

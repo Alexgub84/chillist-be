@@ -21,6 +21,9 @@ export function getLanguageInstruction(lang: SupportedAiLang): string {
       return [
         'Output language: Hebrew (עברית) for item name, subcategory, and reason.',
         'Category and unit MUST stay exactly as the English enum values listed later (never translate category or unit).',
+        'Write in natural, correct Hebrew. Do not invent fake Hebrew words.',
+        'Do not mix scripts (no Latin, Arabic, or other non-Hebrew characters in Hebrew text).',
+        'If you are unsure how to say something in Hebrew, use a common loanword or describe it plainly.',
       ].join(' ')
     case 'es':
       return [
@@ -35,8 +38,18 @@ export function getLanguageInstruction(lang: SupportedAiLang): string {
 export const SYSTEM_INSTRUCTION =
   'You are helping plan a shared packing and food checklist for a group trip or event.'
 
+export function getDietaryInstruction(dietarySummary: string): string {
+  return [
+    'Dietary needs:',
+    dietarySummary,
+    'Include appropriate food options and label restrictions clearly (name, subcategory, or reason).',
+    'Respect all dietary restrictions when suggesting food items.',
+  ].join(' ')
+}
+
 export const SUBCATEGORY_GUIDANCE = [
   'Subcategory guidance:',
+  'Aim for 4-8 distinct subcategory labels total. Too many subcategories fragments the list — group related items under broader labels.',
   'Use the subcategory examples below as inspiration — they are not an exhaustive list.',
   'Create subcategories that best fit this plan and its activities (e.g. fishing trip → "Fishing Gear", ski trip → "Ski Equipment", beach day → "Water Sports").',
   'You are encouraged to invent new subcategory labels when the plan needs a grouping that does not match any example.',

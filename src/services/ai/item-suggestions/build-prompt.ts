@@ -7,6 +7,7 @@ import {
 import {
   SYSTEM_INSTRUCTION,
   getLanguageInstruction,
+  getDietaryInstruction,
   CONTEXT_GUIDANCE,
   CATEGORY_RULES,
   SUBCATEGORY_GUIDANCE,
@@ -75,6 +76,10 @@ export function buildItemSuggestionsPrompt(
     sections.push(
       `Estimated group size: ${adults} adult(s), ${kids} kid(s), ${totalParticipants} people total.`
     )
+  }
+
+  if (plan.dietarySummary?.trim()) {
+    sections.push('', getDietaryInstruction(plan.dietarySummary.trim()))
   }
 
   sections.push(
