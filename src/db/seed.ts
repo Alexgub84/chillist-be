@@ -10,6 +10,7 @@ import {
   items,
   participantExpenses,
   participantJoinRequests,
+  aiUsageLogs,
   type Location,
   type Assignment,
 } from './schema.js'
@@ -50,7 +51,7 @@ async function seed() {
 
   try {
     await db.execute(
-      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, user_details, whatsapp_notifications CASCADE`
+      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, user_details, whatsapp_notifications, ai_usage_logs CASCADE`
     )
     console.log('Cleared all tables')
 
@@ -847,6 +848,80 @@ async function seed() {
     console.log('Created BBQ plan:', bbqPlan.planId)
     console.log('  Title:', bbqPlan.title)
     console.log('  Participants: 3, Items: 10, Expenses: 3')
+
+    await db.insert(aiUsageLogs).values([
+      {
+        featureType: 'item_suggestions',
+        planId: negevPlan.planId,
+        userId: seedOwnerUserId,
+        provider: 'anthropic',
+        modelId: 'claude-sonnet-4-20250514',
+        lang: 'he',
+        status: 'success',
+        inputTokens: 1850,
+        outputTokens: 3200,
+        totalTokens: 5050,
+        estimatedCost: '0.053550',
+        durationMs: 8400,
+        promptLength: 2100,
+        resultCount: 38,
+        metadata: { planTitle: negevPlan.title },
+      },
+      {
+        featureType: 'item_suggestions',
+        planId: bbqPlan.planId,
+        userId: null,
+        provider: 'anthropic',
+        modelId: 'claude-sonnet-4-20250514',
+        lang: 'he',
+        status: 'partial',
+        inputTokens: 1600,
+        outputTokens: 2800,
+        totalTokens: 4400,
+        estimatedCost: '0.046800',
+        durationMs: 7200,
+        promptLength: 1800,
+        resultCount: 25,
+        metadata: { planTitle: bbqPlan.title },
+      },
+      {
+        featureType: 'item_suggestions',
+        planId: joinTestPlan.planId,
+        userId: seedOwnerUserId,
+        provider: 'anthropic',
+        modelId: 'claude-haiku-4-5-20251001',
+        lang: 'en',
+        status: 'success',
+        inputTokens: 1400,
+        outputTokens: 2500,
+        totalTokens: 3900,
+        estimatedCost: '0.011120',
+        durationMs: 4100,
+        promptLength: 1600,
+        resultCount: 32,
+        metadata: { planTitle: joinTestPlan.title },
+      },
+      {
+        featureType: 'item_suggestions',
+        planId: negevPlan.planId,
+        userId: seedOwnerUserId,
+        provider: 'anthropic',
+        modelId: 'claude-sonnet-4-20250514',
+        lang: 'he',
+        status: 'error',
+        inputTokens: undefined,
+        outputTokens: undefined,
+        totalTokens: undefined,
+        estimatedCost: undefined,
+        durationMs: 12000,
+        promptLength: 2100,
+        resultCount: undefined,
+        errorMessage: 'AI_APICallError: 529 Overloaded',
+        metadata: { planTitle: negevPlan.title },
+      },
+    ])
+
+    console.log('Created 4 AI usage logs (2 success, 1 partial, 1 error)')
 
     console.log('\n--- Seed Summary ---')
     console.log('')

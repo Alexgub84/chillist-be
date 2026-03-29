@@ -3,6 +3,7 @@ import Fastify from 'fastify'
 import { MockLanguageModelV2 } from 'ai/test'
 import * as itemSuggestions from '../../src/services/ai/item-suggestions/index.js'
 import * as modelProvider from '../../src/services/ai/model-provider.js'
+import * as usageTracking from '../../src/services/ai/usage-tracking.js'
 import { aiSuggestionsRoutes } from '../../src/routes/ai-suggestions.route.js'
 import { registerSchemas } from '../../src/schemas/index.js'
 
@@ -139,6 +140,7 @@ describe('AI Suggestions Route', () => {
   let app: ReturnType<typeof Fastify>
   let mockDb: ReturnType<typeof createMockDb>
   let generateSpy: ReturnType<typeof vi.spyOn>
+  let recordUsageSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -147,6 +149,9 @@ describe('AI Suggestions Route', () => {
     const model = createMockModel()
     generateSpy = vi.spyOn(itemSuggestions, 'generateItemSuggestions')
     vi.spyOn(modelProvider, 'resolveLanguageModel').mockReturnValue(model)
+    recordUsageSpy = vi
+      .spyOn(usageTracking, 'recordAiUsage')
+      .mockResolvedValue(undefined)
 
     app = Fastify({ logger: false })
     app.decorate('db', mockDb)
@@ -210,6 +215,33 @@ describe('AI Suggestions Route', () => {
     expect(mockDb.update).toHaveBeenCalled()
   })
 
+  it('records AI usage on successful generation', async () => {
+    mockPlanAccessAllowed(mockDb)
+    mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+    mockParticipantDietaryQuery(mockDb, [])
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+      headers: AUTH_HEADERS,
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(recordUsageSpy).toHaveBeenCalledOnce()
+    expect(recordUsageSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        featureType: 'item_suggestions',
+        planId: VALID_PLAN_ID,
+        userId: FAKE_USER.id,
+        status: 'success',
+        lang: 'en',
+        resultCount: 3,
+        metadata: { planTitle: 'Beach trip' },
+      })
+    )
+  })
+
   it('resolves defaultLang=he and passes he to generateItemSuggestions', async () => {
     mockPlanAccessAllowed(mockDb)
     mockPlanDataQuery(mockDb, { ...FAKE_PLAN_ROW, defaultLang: 'he' })
@@ -270,7 +302,7 @@ describe('AI Suggestions Route', () => {
     }
   })
 
-  it('returns 503 when AI model throws AI-prefixed error', async () => {
+  it('returns 503 when AI model throws AI-prefixed error and records error usage', async () => {
     const failModel = new MockLanguageModelV2({
       doGenerate: () => {
         const err = new Error('Rate limit exceeded')
@@ -309,6 +341,14 @@ describe('AI Suggestions Route', () => {
     expect(response.statusCode).toBe(503)
     expect(response.json().message).toContain('AI service')
     expect(failDb.update).not.toHaveBeenCalled()
+    expect(recordUsageSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        featureType: 'item_suggestions',
+        status: 'error',
+        errorMessage: 'Rate limit exceeded',
+      })
+    )
     await failApp.close()
   })
 

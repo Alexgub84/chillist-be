@@ -8,6 +8,7 @@ import type { SupportedAiLang } from './prompt-templates.js'
 export interface ItemSuggestionsResult {
   suggestions: ItemSuggestion[]
   prompt: string
+  status: 'success' | 'partial'
   usage: {
     inputTokens: number | undefined
     outputTokens: number | undefined
@@ -48,6 +49,7 @@ export async function generateItemSuggestions(
     return {
       suggestions,
       prompt,
+      status: 'success' as const,
       usage: {
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
@@ -61,6 +63,7 @@ export async function generateItemSuggestions(
         return {
           suggestions: salvaged,
           prompt,
+          status: 'partial' as const,
           usage: {
             inputTokens: error.usage?.inputTokens,
             outputTokens: error.usage?.outputTokens,

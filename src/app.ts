@@ -24,6 +24,7 @@ import whatsappPlugin, { WhatsAppPluginOptions } from './plugins/whatsapp.js'
 import aiModelPlugin, { AiModelPluginOptions } from './plugins/ai-model.js'
 import internalAuthPlugin from './plugins/internal-auth.js'
 import { aiSuggestionsRoutes } from './routes/ai-suggestions.route.js'
+import { adminAiUsageRoutes } from './routes/admin-ai-usage.route.js'
 import { internalRoutes } from './routes/internal.route.js'
 
 export interface AppDependencies {
@@ -93,6 +94,7 @@ export async function buildApp(
           { name: 'invite', description: 'Invite link access' },
           { name: 'guest', description: 'Guest access via invite token' },
           { name: 'auth', description: 'Authentication' },
+          { name: 'admin', description: 'Admin-only endpoints' },
           { name: 'internal', description: 'Internal service-to-service API' },
         ],
         components: {
@@ -218,6 +220,7 @@ export async function buildApp(
   await fastify.register(expensesRoutes)
   await fastify.register(sendListRoutes)
   await fastify.register(aiSuggestionsRoutes)
+  await fastify.register(adminAiUsageRoutes)
   await fastify.register(internalRoutes, { prefix: '/api/internal' })
 
   return fastify

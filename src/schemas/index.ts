@@ -100,6 +100,15 @@ import {
   aiSuggestionItemSchema,
   aiSuggestionsResponseSchema,
 } from './ai-suggestions.schema.js'
+import {
+  aiUsageLogSchema,
+  aiUsageLogListSchema,
+  aiUsageFeatureSummarySchema,
+  aiUsageModelSummarySchema,
+  aiUsageSummarySchema,
+  aiUsageQuerySchema,
+  aiUsageResponseSchema,
+} from './ai-usage.schema.js'
 
 const schemas = [
   errorResponseSchema,
@@ -179,6 +188,13 @@ const schemas = [
   dietaryMembersBodySchema,
   aiSuggestionItemSchema,
   aiSuggestionsResponseSchema,
+  aiUsageLogSchema,
+  aiUsageLogListSchema,
+  aiUsageFeatureSummarySchema,
+  aiUsageModelSummarySchema,
+  aiUsageSummarySchema,
+  aiUsageQuerySchema,
+  aiUsageResponseSchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
@@ -200,3 +216,4 @@ export * from './send-list.schema.js'
 export * from './internal.schema.js'
 export * from './dietary.schema.js'
 export * from './ai-suggestions.schema.js'
+export * from './ai-usage.schema.js'
