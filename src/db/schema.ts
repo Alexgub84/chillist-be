@@ -96,6 +96,16 @@ export const itemChangeTypeEnum = pgEnum('item_change_type', [
   'created',
   'updated',
 ])
+
+export const aiFeatureTypeEnum = pgEnum('ai_feature_type', ['item_suggestions'])
+export const AI_FEATURE_TYPE_VALUES = aiFeatureTypeEnum.enumValues
+export type AiFeatureType = (typeof AI_FEATURE_TYPE_VALUES)[number]
+
+export const aiUsageStatusEnum = pgEnum('ai_usage_status', [
+  'success',
+  'partial',
+  'error',
+])
 export const unitEnum = pgEnum('unit', [
   'pcs',
   'kg',
@@ -376,6 +386,31 @@ export const participantExpenses = pgTable('participant_expenses', {
     .notNull(),
 })
 
+export const aiUsageLogs = pgTable('ai_usage_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  featureType: aiFeatureTypeEnum('feature_type').notNull(),
+  planId: uuid('plan_id').references(() => plans.planId, {
+    onDelete: 'set null',
+  }),
+  userId: uuid('user_id'),
+  provider: varchar('provider', { length: 50 }).notNull(),
+  modelId: varchar('model_id', { length: 100 }).notNull(),
+  lang: varchar('lang', { length: 10 }),
+  status: aiUsageStatusEnum('status').notNull(),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  totalTokens: integer('total_tokens'),
+  estimatedCost: numeric('estimated_cost', { precision: 10, scale: 6 }),
+  durationMs: integer('duration_ms').notNull(),
+  promptLength: integer('prompt_length'),
+  resultCount: integer('result_count'),
+  errorMessage: text('error_message'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+})
+
 export const guestProfilesRelations = relations(guestProfiles, ({ many }) => ({
   participants: many(participants),
 }))
@@ -387,6 +422,7 @@ export const plansRelations = relations(plans, ({ many }) => ({
   joinRequests: many(participantJoinRequests),
   expenses: many(participantExpenses),
   whatsappNotifications: many(whatsappNotifications),
+  aiUsageLogs: many(aiUsageLogs),
 }))
 
 export const itemsRelations = relations(items, ({ one, many }) => ({
@@ -469,6 +505,13 @@ export const whatsappNotificationsRelations = relations(
   })
 )
 
+export const aiUsageLogsRelations = relations(aiUsageLogs, ({ one }) => ({
+  plan: one(plans, {
+    fields: [aiUsageLogs.planId],
+    references: [plans.planId],
+  }),
+}))
+
 export type GuestProfile = typeof guestProfiles.$inferSelect
 export type NewGuestProfile = typeof guestProfiles.$inferInsert
 export type UserDetail = typeof userDetails.$inferSelect
@@ -491,3 +534,5 @@ export type ParticipantExpense = typeof participantExpenses.$inferSelect
 export type NewParticipantExpense = typeof participantExpenses.$inferInsert
 export type WhatsappNotification = typeof whatsappNotifications.$inferSelect
 export type NewWhatsappNotification = typeof whatsappNotifications.$inferInsert
+export type AiUsageLog = typeof aiUsageLogs.$inferSelect
+export type NewAiUsageLog = typeof aiUsageLogs.$inferInsert

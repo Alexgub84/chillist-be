@@ -9,6 +9,7 @@ import {
 } from '../services/ai/item-suggestions/index.js'
 import { resolveLanguageModel } from '../services/ai/model-provider.js'
 import { aggregateDietarySummary } from '../services/ai/dietary-summary.js'
+import { recordAiUsage } from '../services/ai/usage-tracking.js'
 import type { PlanForAiContext } from '../services/ai/plan-context-formatters.js'
 
 export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
@@ -123,43 +124,88 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
 
         const model = resolveLanguageModel(config.aiProvider, lang)
 
-        const result = await generateItemSuggestions(model, planContext, lang)
+        try {
+          const result = await generateItemSuggestions(model, planContext, lang)
+          const durationMs = Date.now() - startMs
 
-        await fastify.db
-          .update(plans)
-          .set({ aiGenerationCount: sql`${plans.aiGenerationCount} + 1` })
-          .where(eq(plans.planId, planId))
+          await fastify.db
+            .update(plans)
+            .set({ aiGenerationCount: sql`${plans.aiGenerationCount} + 1` })
+            .where(eq(plans.planId, planId))
 
-        const durationSec = ((Date.now() - startMs) / 1000).toFixed(1)
-
-        request.log.info(
-          {
+          recordAiUsage(fastify.db, {
+            featureType: 'item_suggestions',
             planId,
-            lang,
+            userId: request.user?.id,
+            provider: config.aiProvider,
             modelId: model.modelId,
+            lang,
+            status: result.status,
+            inputTokens: result.usage.inputTokens,
+            outputTokens: result.usage.outputTokens,
+            totalTokens: result.usage.totalTokens,
+            durationMs,
             promptLength: result.prompt.length,
-            suggestionsCount: result.suggestions.length,
-            usage: result.usage,
-            durationSec,
-          },
-          `AI item suggestions generated in ${durationSec}s — ${result.suggestions.length} items, ${result.usage.totalTokens ?? '?'} tokens (${model.modelId})`
-        )
+            resultCount: result.suggestions.length,
+            metadata: { planTitle: plan.title },
+          })
 
-        return { suggestions: result.suggestions }
+          const durationSec = (durationMs / 1000).toFixed(1)
+          request.log.info(
+            {
+              planId,
+              lang,
+              modelId: model.modelId,
+              promptLength: result.prompt.length,
+              suggestionsCount: result.suggestions.length,
+              usage: result.usage,
+              durationSec,
+            },
+            `AI item suggestions generated in ${durationSec}s — ${result.suggestions.length} items, ${result.usage.totalTokens ?? '?'} tokens (${model.modelId})`
+          )
+
+          return { suggestions: result.suggestions }
+        } catch (error) {
+          const durationMs = Date.now() - startMs
+
+          recordAiUsage(fastify.db, {
+            featureType: 'item_suggestions',
+            planId,
+            userId: request.user?.id,
+            provider: config.aiProvider,
+            modelId: model.modelId,
+            lang,
+            status: 'error',
+            durationMs,
+            promptLength: undefined,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            metadata: { planTitle: plan.title },
+          })
+
+          request.log.error(
+            { err: error, planId },
+            'Failed to generate AI suggestions'
+          )
+
+          const isAiError =
+            error instanceof Error && error.name?.startsWith('AI_')
+
+          if (isAiError) {
+            return reply.status(503).send({
+              message: 'AI service temporarily unavailable',
+            })
+          }
+
+          return reply.status(500).send({
+            message: 'Failed to generate suggestions',
+          })
+        }
       } catch (error) {
         request.log.error(
           { err: error, planId },
           'Failed to generate AI suggestions'
         )
-
-        const isAiError =
-          error instanceof Error && error.name?.startsWith('AI_')
-
-        if (isAiError) {
-          return reply.status(503).send({
-            message: 'AI service temporarily unavailable',
-          })
-        }
 
         return reply.status(500).send({
           message: 'Failed to generate suggestions',

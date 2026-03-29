@@ -30,9 +30,19 @@ export async function internalRoutes(fastify: FastifyInstance) {
           'Identifies a registered user by their phone number. Returns the Supabase userId and display name. Returns 404 if the phone is not linked to any registered Chillist account.',
         body: { $ref: 'IdentifyRequest#' },
         response: {
-          200: { $ref: 'IdentifyResponse#' },
-          401: { $ref: 'ErrorResponse#' },
-          404: { $ref: 'ErrorResponse#' },
+          200: {
+            description:
+              'Supabase user id and display name for the phone number',
+            $ref: 'IdentifyResponse#',
+          },
+          401: {
+            description: 'Missing or invalid x-service-key',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'No registered user linked to this phone number',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -67,9 +77,19 @@ export async function internalRoutes(fastify: FastifyInstance) {
         description:
           'Returns a chatbot-friendly summary of all plans the user is a member of (owner, participant, or viewer). Requires x-service-key and x-user-id headers. completedItemCount counts items where every assignment entry has status packed or purchased.',
         response: {
-          200: { $ref: 'InternalPlansResponse#' },
-          401: { $ref: 'ErrorResponse#' },
-          500: { $ref: 'ErrorResponse#' },
+          200: {
+            description: 'Plans the user belongs to with counts and roles',
+            $ref: 'InternalPlansResponse#',
+          },
+          401: {
+            description:
+              'Missing x-user-id, invalid x-service-key, or user could not be resolved',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Unexpected error while loading plans',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },

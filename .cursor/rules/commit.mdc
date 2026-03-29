@@ -1,5 +1,5 @@
 ---
-description: How to commit changes and push to a new branch
+description: How to commit on a branch; push only when the user asks
 alwaysApply: false
 ---
 
@@ -28,7 +28,11 @@ If currently on `main`, create a new descriptively-named branch **before** commi
 git checkout -b <descriptive-branch-name>
 ```
 
-## 4. Push
+## 4. Push (only when the user asks)
+
+Do **not** run `git push` unless the user explicitly requests it. After a local commit, they may push the branch and open a PR themselves.
+
+When the user does ask to push:
 
 ```bash
 git push -u origin <branch-name>
