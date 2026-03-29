@@ -28,6 +28,7 @@ describe('Profile Endpoints', () => {
       {
         logger: false,
         auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
+        rateLimit: false,
       }
     )
   })
@@ -267,6 +268,54 @@ describe('Profile Endpoints', () => {
       expect(response.statusCode).toBe(200)
       expect(response.json().preferences.foodPreferences).toBeNull()
       expect(response.json().preferences.allergies).toBe('nuts')
+    })
+
+    it('clears phone when sent as null', async () => {
+      const token = await signTestJwt({
+        sub: TEST_USER_ID,
+        email: TEST_EMAIL,
+      })
+
+      await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { phone: '+972501234567' },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { phone: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().preferences.phone).toBeNull()
+    })
+
+    it('updates phone replacing old phone number', async () => {
+      const token = await signTestJwt({
+        sub: TEST_USER_ID,
+        email: TEST_EMAIL,
+      })
+
+      await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { phone: '+972501234567' },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { phone: '+14155550001' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().preferences.phone).toBe('+14155550001')
     })
   })
 })

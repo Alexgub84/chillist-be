@@ -6,7 +6,12 @@ import {
   closeTestDatabase,
   setupTestDatabase,
 } from '../helpers/db.js'
-import { setupTestKeys, getTestJWKS, getTestIssuer } from '../helpers/auth.js'
+import {
+  setupTestKeys,
+  getTestJWKS,
+  getTestIssuer,
+  signTestJwt,
+} from '../helpers/auth.js'
 import { Database } from '../../src/db/index.js'
 import { participants, plans, users } from '../../src/db/schema.js'
 
@@ -162,7 +167,7 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
       expect(response.json()).toMatchObject({ message: 'User not found' })
     })
 
-    it('returns 404 for a participant with no userId (pending invite)', async () => {
+    it('returns 404 when phone is only in participants and has no users row', async () => {
       const [plan] = await db.select().from(plans).limit(1)
 
       await db.insert(participants).values({
@@ -239,6 +244,53 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
         headers: { 'x-service-key': VALID_SERVICE_KEY },
       })
       expect(response.statusCode).toBe(401)
+    })
+  })
+
+  describe('Cross-endpoint: phone set via PATCH profile → chatbot identify', () => {
+    const E2E_USER_ID = 'cccccccc-3333-4444-5555-666666666666'
+    const E2E_PHONE = '+14155550001'
+
+    it('resolves user after phone set via PATCH /auth/profile', async () => {
+      const [plan] = await db
+        .insert(plans)
+        .values({
+          title: 'E2E Test Plan',
+          status: 'active',
+          visibility: 'invite_only',
+        })
+        .returning()
+
+      await db.insert(participants).values({
+        planId: plan.planId,
+        name: 'Jane',
+        lastName: 'Doe',
+        contactPhone: E2E_PHONE,
+        userId: E2E_USER_ID,
+        inviteStatus: 'accepted',
+      })
+
+      const jwt = await signTestJwt({ sub: E2E_USER_ID })
+
+      const patchResp = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${jwt}` },
+        payload: { phone: E2E_PHONE },
+      })
+      expect(patchResp.statusCode).toBe(200)
+      expect(patchResp.json().preferences.phone).toBe(E2E_PHONE)
+
+      const identifyResp = await app.inject({
+        method: 'POST',
+        url: '/api/internal/auth/identify',
+        headers: { 'x-service-key': VALID_SERVICE_KEY },
+        payload: { phoneNumber: E2E_PHONE },
+      })
+
+      expect(identifyResp.statusCode).toBe(200)
+      expect(identifyResp.json().userId).toBe(E2E_USER_ID)
+      expect(identifyResp.json().displayName).toBe('Jane Doe')
     })
   })
 })

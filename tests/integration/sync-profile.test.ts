@@ -22,7 +22,7 @@ import {
 } from '../helpers/auth.js'
 import { Database } from '../../src/db/index.js'
 import { eq } from 'drizzle-orm'
-import { plans, participants } from '../../src/db/schema.js'
+import { plans, participants, users } from '../../src/db/schema.js'
 import { randomBytes } from 'node:crypto'
 
 vi.mock('../../src/utils/supabase-admin.js', () => ({
@@ -273,6 +273,35 @@ describe('POST /auth/sync-profile', () => {
       .where(eq(participants.participantId, participant.participantId))
 
     expect(row.contactPhone).toBe('+972501234567')
+  })
+
+  it('upserts users.phone when Supabase metadata contains phone', async () => {
+    vi.mocked(fetchSupabaseUserMetadata).mockResolvedValueOnce({
+      displayName: 'Alex G',
+      phone: '+972501234567',
+    })
+
+    const jwt = await signTestJwt({
+      sub: USER_A_ID,
+      email: 'alex@example.com',
+      user_metadata: { first_name: 'Alex', last_name: 'G' },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/sync-profile',
+      headers: { authorization: `Bearer ${jwt}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+
+    const [userRow] = await db
+      .select()
+      .from(users)
+      .where(eq(users.userId, USER_A_ID))
+
+    expect(userRow).toBeDefined()
+    expect(userRow.phone).toBe('+972501234567')
   })
 
   it('does not overwrite JWT phone with Supabase phone when JWT already has phone', async () => {
