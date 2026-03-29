@@ -183,6 +183,13 @@
       "when": 1774789733380,
       "tag": "0025_lame_vapor",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1774802793244,
+      "tag": "0026_users_table",
+      "breakpoints": true
     }
   ]
 }

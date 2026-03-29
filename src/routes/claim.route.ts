@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { eq, and } from 'drizzle-orm'
-import { participants, userDetails } from '../db/schema.js'
+import { participants, users } from '../db/schema.js'
 import { buildIdentityFields } from '../services/profile-sync.js'
 
 export async function claimRoutes(fastify: FastifyInstance) {
@@ -121,8 +121,8 @@ export async function claimRoutes(fastify: FastifyInstance) {
         if (!participant.foodPreferences || !participant.allergies) {
           const [defaults] = await fastify.db
             .select()
-            .from(userDetails)
-            .where(eq(userDetails.userId, userId))
+            .from(users)
+            .where(eq(users.userId, userId))
 
           if (defaults) {
             if (!participant.foodPreferences && defaults.foodPreferences) {

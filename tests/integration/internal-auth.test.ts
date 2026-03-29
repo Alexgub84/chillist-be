@@ -8,7 +8,7 @@ import {
 } from '../helpers/db.js'
 import { setupTestKeys, getTestJWKS, getTestIssuer } from '../helpers/auth.js'
 import { Database } from '../../src/db/index.js'
-import { participants, plans } from '../../src/db/schema.js'
+import { participants, plans, users } from '../../src/db/schema.js'
 
 const VALID_SERVICE_KEY = 'test-service-key-abc123'
 const REGISTERED_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
@@ -51,6 +51,11 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
         visibility: 'invite_only',
       })
       .returning()
+
+    await db.insert(users).values({
+      userId: REGISTERED_USER_ID,
+      phone: REGISTERED_PHONE,
+    })
 
     await db.insert(participants).values({
       planId: plan.planId,
@@ -113,7 +118,7 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
       expect(response.json().displayName).toBe('Alex Cohen')
     })
 
-    it('returns the most recent participant row when same phone is in multiple plans', async () => {
+    it('finds user even when the same phone is in multiple participant records', async () => {
       const [plan2] = await db
         .insert(plans)
         .values({
@@ -123,13 +128,12 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
         })
         .returning()
 
-      const OTHER_USER_ID = 'bbbbbbbb-2222-3333-4444-555555555555'
       await db.insert(participants).values({
         planId: plan2.planId,
         name: 'Alex',
-        lastName: 'Other',
+        lastName: 'Cohen',
         contactPhone: REGISTERED_PHONE,
-        userId: OTHER_USER_ID,
+        userId: REGISTERED_USER_ID,
         inviteStatus: 'accepted',
       })
 
@@ -141,7 +145,7 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
       })
 
       expect(response.statusCode).toBe(200)
-      expect(response.json().userId).toBe(OTHER_USER_ID)
+      expect(response.json().userId).toBe(REGISTERED_USER_ID)
     })
   })
 

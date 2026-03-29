@@ -16,7 +16,7 @@ import {
 } from '../helpers/auth.js'
 import { Database } from '../../src/db/index.js'
 import { eq } from 'drizzle-orm'
-import { plans, participants, userDetails } from '../../src/db/schema.js'
+import { plans, participants, users } from '../../src/db/schema.js'
 import { randomBytes } from 'node:crypto'
 
 const USER_A_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
@@ -213,7 +213,7 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
   it('pre-fills empty participant preferences from user_details defaults', async () => {
     const { plan, inviteToken } = await createPlanWithParticipant(db)
 
-    await db.insert(userDetails).values({
+    await db.insert(users).values({
       userId: USER_A_ID,
       foodPreferences: 'Vegetarian',
       allergies: 'Peanuts',
@@ -242,7 +242,7 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
       .set({ foodPreferences: 'Vegan', allergies: 'Gluten' })
       .where(eq(participants.participantId, participant.participantId))
 
-    await db.insert(userDetails).values({
+    await db.insert(users).values({
       userId: USER_A_ID,
       foodPreferences: 'Vegetarian',
       allergies: 'Peanuts',

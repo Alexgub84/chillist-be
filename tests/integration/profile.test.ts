@@ -42,7 +42,7 @@ describe('Profile Endpoints', () => {
   })
 
   describe('GET /auth/profile', () => {
-    it('returns user identity with null preferences when no userDetails exist', async () => {
+    it('returns user identity with null preferences when no user record exists', async () => {
       const token = await signTestJwt({
         sub: TEST_USER_ID,
         email: TEST_EMAIL,
@@ -65,7 +65,7 @@ describe('Profile Endpoints', () => {
       })
     })
 
-    it('returns user identity with preferences after PATCH', async () => {
+    it('returns user identity with preferences including phone and preferredLang after PATCH', async () => {
       const token = await signTestJwt({
         sub: TEST_USER_ID,
         email: TEST_EMAIL,
@@ -76,6 +76,8 @@ describe('Profile Endpoints', () => {
         url: '/auth/profile',
         headers: { authorization: `Bearer ${token}` },
         payload: {
+          phone: '+972501234567',
+          preferredLang: 'he',
           foodPreferences: 'vegetarian',
           allergies: 'nuts',
           defaultEquipment: ['tent', 'sleeping bag'],
@@ -96,6 +98,8 @@ describe('Profile Endpoints', () => {
           role: 'authenticated',
         },
         preferences: {
+          phone: '+972501234567',
+          preferredLang: 'he',
           foodPreferences: 'vegetarian',
           allergies: 'nuts',
           defaultEquipment: ['tent', 'sleeping bag'],
@@ -115,7 +119,18 @@ describe('Profile Endpoints', () => {
   })
 
   describe('PATCH /auth/profile', () => {
-    it('creates userDetails on first call', async () => {
+    it('returns 401 without JWT', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: {},
+        payload: { foodPreferences: 'vegan' },
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+
+    it('creates user record and normalizes phone to E.164', async () => {
       const token = await signTestJwt({
         sub: TEST_USER_ID,
         email: TEST_EMAIL,
@@ -126,6 +141,8 @@ describe('Profile Endpoints', () => {
         url: '/auth/profile',
         headers: { authorization: `Bearer ${token}` },
         payload: {
+          phone: '972501234567',
+          preferredLang: 'he',
           foodPreferences: 'vegan',
           allergies: 'gluten',
         },
@@ -134,11 +151,53 @@ describe('Profile Endpoints', () => {
       expect(response.statusCode).toBe(200)
       expect(response.json()).toEqual({
         preferences: {
+          phone: '+972501234567',
+          preferredLang: 'he',
           foodPreferences: 'vegan',
           allergies: 'gluten',
           defaultEquipment: null,
         },
       })
+    })
+
+    it('clears preferredLang when sent as null', async () => {
+      const token = await signTestJwt({
+        sub: TEST_USER_ID,
+        email: TEST_EMAIL,
+      })
+
+      await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { preferredLang: 'en' },
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { preferredLang: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().preferences.preferredLang).toBeNull()
+    })
+
+    it('rejects invalid preferredLang value', async () => {
+      const token = await signTestJwt({
+        sub: TEST_USER_ID,
+        email: TEST_EMAIL,
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { preferredLang: 'fr' },
+      })
+
+      expect(response.statusCode).toBe(400)
     })
 
     it('updates only provided fields on subsequent calls', async () => {
@@ -155,6 +214,7 @@ describe('Profile Endpoints', () => {
           foodPreferences: 'vegetarian',
           allergies: 'nuts',
           defaultEquipment: ['tent'],
+          preferredLang: 'en',
         },
       })
 
@@ -170,6 +230,8 @@ describe('Profile Endpoints', () => {
       expect(response.statusCode).toBe(200)
       expect(response.json()).toEqual({
         preferences: {
+          phone: null,
+          preferredLang: 'en',
           foodPreferences: 'vegetarian',
           allergies: 'dairy',
           defaultEquipment: ['tent'],
@@ -205,17 +267,6 @@ describe('Profile Endpoints', () => {
       expect(response.statusCode).toBe(200)
       expect(response.json().preferences.foodPreferences).toBeNull()
       expect(response.json().preferences.allergies).toBe('nuts')
-    })
-
-    it('returns 401 without JWT', async () => {
-      const response = await app.inject({
-        method: 'PATCH',
-        url: '/auth/profile',
-        headers: {},
-        payload: { foodPreferences: 'vegan' },
-      })
-
-      expect(response.statusCode).toBe(401)
     })
   })
 })

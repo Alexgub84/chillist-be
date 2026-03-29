@@ -1,8 +1,9 @@
 import { eq } from 'drizzle-orm'
 import { FastifyInstance } from 'fastify'
-import { userDetails } from '../db/schema.js'
+import { users, PREFERRED_LANG_VALUES } from '../db/schema.js'
 import { syncAllParticipantsForUser } from '../services/profile-sync.js'
 import { fetchSupabaseUserMetadata } from '../utils/supabase-admin.js'
+import { normalizePhone } from '../utils/phone.js'
 
 const AUTH_RATE_LIMIT = {
   max: 10,
@@ -86,13 +87,15 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const [row] = await fastify.db
         .select()
-        .from(userDetails)
-        .where(eq(userDetails.userId, request.user.id))
+        .from(users)
+        .where(eq(users.userId, request.user.id))
 
       return {
         user: request.user,
         preferences: row
           ? {
+              phone: row.phone,
+              preferredLang: row.preferredLang,
               foodPreferences: row.foodPreferences,
               allergies: row.allergies,
               defaultEquipment: row.defaultEquipment,
@@ -130,22 +133,47 @@ export async function authRoutes(fastify: FastifyInstance) {
       }
 
       const body = request.body as {
+        phone?: string | null
+        preferredLang?: string | null
         foodPreferences?: string | null
         allergies?: string | null
         defaultEquipment?: string[] | null
       }
 
+      if (
+        body.preferredLang !== undefined &&
+        body.preferredLang !== null &&
+        !PREFERRED_LANG_VALUES.includes(
+          body.preferredLang as (typeof PREFERRED_LANG_VALUES)[number]
+        )
+      ) {
+        return reply.status(400).send({
+          message: `Invalid preferredLang. Allowed values: ${PREFERRED_LANG_VALUES.join(', ')}`,
+        })
+      }
+
+      const normalizedPhone =
+        body.phone === undefined || body.phone === null
+          ? body.phone
+          : normalizePhone(body.phone)
+
       const [row] = await fastify.db
-        .insert(userDetails)
+        .insert(users)
         .values({
           userId: request.user.id,
+          phone: normalizedPhone ?? null,
+          preferredLang: body.preferredLang ?? null,
           foodPreferences: body.foodPreferences ?? null,
           allergies: body.allergies ?? null,
           defaultEquipment: body.defaultEquipment ?? null,
         })
         .onConflictDoUpdate({
-          target: userDetails.userId,
+          target: users.userId,
           set: {
+            ...(body.phone !== undefined && { phone: normalizedPhone }),
+            ...(body.preferredLang !== undefined && {
+              preferredLang: body.preferredLang,
+            }),
             ...(body.foodPreferences !== undefined && {
               foodPreferences: body.foodPreferences,
             }),
@@ -162,6 +190,8 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       return {
         preferences: {
+          phone: row.phone,
+          preferredLang: row.preferredLang,
           foodPreferences: row.foodPreferences,
           allergies: row.allergies,
           defaultEquipment: row.defaultEquipment,
@@ -209,6 +239,22 @@ export async function authRoutes(fastify: FastifyInstance) {
           request.user.id,
           request.log
         )
+
+        if (supabaseMeta?.phone) {
+          const normalizedPhone = normalizePhone(supabaseMeta.phone)
+          await fastify.db
+            .insert(users)
+            .values({ userId: request.user.id, phone: normalizedPhone })
+            .onConflictDoUpdate({
+              target: users.userId,
+              set: { phone: normalizedPhone, updatedAt: new Date() },
+            })
+          request.log.info(
+            { userId: request.user.id },
+            'users.phone upserted from Supabase metadata'
+          )
+        }
+
         const user =
           supabaseMeta?.phone && !request.user.phone
             ? { ...request.user, phone: supabaseMeta.phone }

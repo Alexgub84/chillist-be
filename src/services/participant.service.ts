@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import type { Database } from '../db/index.js'
 import {
   participants,
-  userDetails,
+  users,
   Participant,
   DietaryMembers,
 } from '../db/schema.js'
@@ -38,8 +38,8 @@ export async function addParticipantToPlan(
   if ((!foodPreferences || !allergies) && data.userId) {
     const [defaults] = await db
       .select()
-      .from(userDetails)
-      .where(eq(userDetails.userId, data.userId))
+      .from(users)
+      .where(eq(users.userId, data.userId))
 
     if (defaults) {
       if (!foodPreferences && defaults.foodPreferences) {
