@@ -1,11 +1,12 @@
 ---
-description: How to commit on a branch; push only when the user asks
+description: How to commit changes — NEVER push unless user explicitly asks
 alwaysApply: false
 ---
 
-# Commit and Push
+# Commit — Never Push Automatically
 
-When the user asks to commit changes, follow these steps in order:
+**NEVER run `git push` unless the user explicitly says "push" or "push the branch".**
+After committing, stop. The user will push and open a PR themselves.
 
 ## 1. Regenerate OpenAPI spec
 
@@ -15,12 +16,7 @@ npx tsx scripts/generate-openapi.ts
 
 If the spec changed, stage `docs/openapi.json` along with all other files.
 
-## 2. Stage and commit
-
-- `git add -A`
-- Commit with a conventional commit message summarizing the changes
-
-## 3. Create branch (if on main)
+## 2. Create branch (if on main)
 
 If currently on `main`, create a new descriptively-named branch **before** committing:
 
@@ -28,12 +24,15 @@ If currently on `main`, create a new descriptively-named branch **before** commi
 git checkout -b <descriptive-branch-name>
 ```
 
-## 4. Push (only when the user asks)
-
-Do **not** run `git push` unless the user explicitly requests it. After a local commit, they may push the branch and open a PR themselves.
-
-When the user does ask to push:
+## 3. Stage and commit
 
 ```bash
-git push -u origin <branch-name>
+git add -A
+git commit -m "..."
 ```
+
+Use a conventional commit message summarizing the changes.
+
+## 4. Stop here
+
+Do **not** run `git push`. Do not open a PR. Just tell the user the commit is done and which branch it's on.
