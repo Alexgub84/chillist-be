@@ -10,6 +10,7 @@ import {
   unique,
   boolean,
   numeric,
+  index,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -32,18 +33,27 @@ export const guestProfiles = pgTable('guest_profiles', {
     .notNull(),
 })
 
-export const userDetails = pgTable('user_details', {
-  userId: uuid('user_id').primaryKey(),
-  foodPreferences: text('food_preferences'),
-  allergies: text('allergies'),
-  defaultEquipment: jsonb('default_equipment'),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-})
+export const PREFERRED_LANG_VALUES = ['he', 'en'] as const
+export type PreferredLang = (typeof PREFERRED_LANG_VALUES)[number]
+
+export const users = pgTable(
+  'users',
+  {
+    userId: uuid('user_id').primaryKey(),
+    phone: varchar('phone', { length: 50 }),
+    preferredLang: varchar('preferred_lang', { length: 10 }),
+    foodPreferences: text('food_preferences'),
+    allergies: text('allergies'),
+    defaultEquipment: jsonb('default_equipment'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index('users_phone_idx').on(table.phone)]
+)
 
 export const planStatusEnum = pgEnum('plan_status', [
   'draft',
@@ -514,8 +524,8 @@ export const aiUsageLogsRelations = relations(aiUsageLogs, ({ one }) => ({
 
 export type GuestProfile = typeof guestProfiles.$inferSelect
 export type NewGuestProfile = typeof guestProfiles.$inferInsert
-export type UserDetail = typeof userDetails.$inferSelect
-export type NewUserDetail = typeof userDetails.$inferInsert
+export type UserRecord = typeof users.$inferSelect
+export type NewUserRecord = typeof users.$inferInsert
 export type Plan = typeof plans.$inferSelect
 export type NewPlan = typeof plans.$inferInsert
 export type Participant = typeof participants.$inferSelect

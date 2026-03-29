@@ -2,6 +2,19 @@ export const userPreferencesSchema = {
   $id: 'UserPreferences',
   type: 'object',
   properties: {
+    phone: {
+      type: 'string',
+      nullable: true,
+      description:
+        'Normalized phone number (E.164 format). Synced from Supabase via POST /auth/sync-profile.',
+    },
+    preferredLang: {
+      type: 'string',
+      nullable: true,
+      enum: ['he', 'en', null],
+      description:
+        'Preferred UI language. null means not explicitly set — client should fall back to geo-detection.',
+    },
     foodPreferences: {
       type: 'string',
       nullable: true,
@@ -49,6 +62,19 @@ export const updateProfileBodySchema = {
   $id: 'UpdateProfileBody',
   type: 'object',
   properties: {
+    phone: {
+      type: 'string',
+      nullable: true,
+      description:
+        'Phone number. Will be normalized to E.164 format before storage. Send null to clear.',
+    },
+    preferredLang: {
+      type: 'string',
+      nullable: true,
+      enum: ['he', 'en', null],
+      description:
+        'Preferred UI language. Send null to clear (revert to geo-detection). Allowed: he, en.',
+    },
     foodPreferences: {
       type: 'string',
       nullable: true,

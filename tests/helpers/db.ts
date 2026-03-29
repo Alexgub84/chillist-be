@@ -47,7 +47,7 @@ export async function cleanupTestDatabase() {
   await testDb.delete(schema.participants)
   await testDb.delete(schema.plans)
   await testDb.delete(schema.guestProfiles)
-  await testDb.delete(schema.userDetails)
+  await testDb.delete(schema.users)
 }
 
 export async function closeTestDatabase() {

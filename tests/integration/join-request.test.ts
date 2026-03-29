@@ -15,7 +15,7 @@ import {
   signTestJwt,
 } from '../helpers/auth.js'
 import { Database } from '../../src/db/index.js'
-import { plans, participants, userDetails } from '../../src/db/schema.js'
+import { plans, participants, users } from '../../src/db/schema.js'
 import { randomBytes } from 'node:crypto'
 
 const OWNER_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
@@ -189,7 +189,7 @@ describe('Join Request Management', () => {
     it('pre-fills foodPreferences/allergies from user_details when missing on request', async () => {
       const { plan } = await createPlanWithOwner(db, OWNER_USER_ID)
 
-      await db.insert(userDetails).values({
+      await db.insert(users).values({
         userId: REQUESTER_USER_ID,
         foodPreferences: 'kosher',
         allergies: 'shellfish',
@@ -218,7 +218,7 @@ describe('Join Request Management', () => {
     it('does not overwrite existing foodPreferences/allergies from join request', async () => {
       const { plan } = await createPlanWithOwner(db, OWNER_USER_ID)
 
-      await db.insert(userDetails).values({
+      await db.insert(users).values({
         userId: REQUESTER_USER_ID,
         foodPreferences: 'kosher',
         allergies: 'shellfish',
