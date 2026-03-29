@@ -2,7 +2,11 @@ export const aiUsageLogSchema = {
   $id: 'AiUsageLog',
   type: 'object',
   properties: {
-    id: { type: 'string', format: 'uuid' },
+    id: {
+      type: 'string',
+      format: 'uuid',
+      description: 'Primary key of this usage log row',
+    },
     featureType: {
       type: 'string',
       enum: ['item_suggestions'],
@@ -28,7 +32,7 @@ export const aiUsageLogSchema = {
     modelId: {
       type: 'string',
       description:
-        'Full model identifier (e.g. anthropic:claude-haiku-4-5-20251001)',
+        'Bare model id from the provider SDK (e.g. claude-haiku-4-5-20251001), matching Vercel AI `model.modelId`',
     },
     lang: {
       type: 'string',
@@ -87,7 +91,12 @@ export const aiUsageLogSchema = {
       additionalProperties: true,
       description: 'Feature-specific context (e.g. plan title, tags)',
     },
-    createdAt: { type: 'string', format: 'date-time' },
+    createdAt: {
+      type: 'string',
+      format: 'date-time',
+      description:
+        'When the AI call finished and this row was written (ISO 8601)',
+    },
   },
   required: [
     'id',
@@ -110,9 +119,20 @@ export const aiUsageFeatureSummarySchema = {
   $id: 'AiUsageFeatureSummary',
   type: 'object',
   properties: {
-    featureType: { type: 'string' },
-    count: { type: 'integer' },
-    totalCost: { type: 'number', nullable: true },
+    featureType: {
+      type: 'string',
+      description: 'AI feature type (same enum as on each log row)',
+    },
+    count: {
+      type: 'integer',
+      description: 'Number of log rows for this feature within the filter',
+    },
+    totalCost: {
+      type: 'number',
+      nullable: true,
+      description:
+        'Sum of estimated costs for this feature (USD), null if unknown',
+    },
   },
   required: ['featureType', 'count'],
 } as const
@@ -121,9 +141,20 @@ export const aiUsageModelSummarySchema = {
   $id: 'AiUsageModelSummary',
   type: 'object',
   properties: {
-    modelId: { type: 'string' },
-    count: { type: 'integer' },
-    totalCost: { type: 'number', nullable: true },
+    modelId: {
+      type: 'string',
+      description: 'Bare model id (same as on each log row)',
+    },
+    count: {
+      type: 'integer',
+      description: 'Number of log rows for this model within the filter',
+    },
+    totalCost: {
+      type: 'number',
+      nullable: true,
+      description:
+        'Sum of estimated costs for this model (USD), null if unknown',
+    },
   },
   required: ['modelId', 'count'],
 } as const
@@ -136,8 +167,14 @@ export const aiUsageSummarySchema = {
       type: 'integer',
       description: 'Total number of AI requests matching the filters',
     },
-    totalInputTokens: { type: 'integer' },
-    totalOutputTokens: { type: 'integer' },
+    totalInputTokens: {
+      type: 'integer',
+      description: 'Sum of input tokens across matching rows',
+    },
+    totalOutputTokens: {
+      type: 'integer',
+      description: 'Sum of output tokens across matching rows',
+    },
     totalEstimatedCost: {
       type: 'number',
       nullable: true,

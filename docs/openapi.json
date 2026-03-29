@@ -2914,7 +2914,8 @@
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Primary key of this usage log row"
           },
           "featureType": {
             "type": "string",
@@ -2941,7 +2942,7 @@
           },
           "modelId": {
             "type": "string",
-            "description": "Full model identifier (e.g. anthropic:claude-haiku-4-5-20251001)"
+            "description": "Bare model id from the provider SDK (e.g. claude-haiku-4-5-20251001), matching Vercel AI `model.modelId`"
           },
           "lang": {
             "type": "string",
@@ -3004,7 +3005,8 @@
           },
           "createdAt": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the AI call finished and this row was written (ISO 8601)"
           }
         },
         "required": [
@@ -3029,14 +3031,17 @@
         "type": "object",
         "properties": {
           "featureType": {
-            "type": "string"
+            "type": "string",
+            "description": "AI feature type (same enum as on each log row)"
           },
           "count": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Number of log rows for this feature within the filter"
           },
           "totalCost": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "description": "Sum of estimated costs for this feature (USD), null if unknown"
           }
         },
         "required": [
@@ -3049,14 +3054,17 @@
         "type": "object",
         "properties": {
           "modelId": {
-            "type": "string"
+            "type": "string",
+            "description": "Bare model id (same as on each log row)"
           },
           "count": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Number of log rows for this model within the filter"
           },
           "totalCost": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "description": "Sum of estimated costs for this model (USD), null if unknown"
           }
         },
         "required": [
@@ -3073,10 +3081,12 @@
             "description": "Total number of AI requests matching the filters"
           },
           "totalInputTokens": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Sum of input tokens across matching rows"
           },
           "totalOutputTokens": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Sum of output tokens across matching rows"
           },
           "totalEstimatedCost": {
             "type": "number",
@@ -6549,7 +6559,7 @@
         "tags": [
           "admin"
         ],
-        "description": "Returns paginated AI usage logs with optional filters and aggregated summary totals. Admin only. JWT required.",
+        "description": "Returns paginated AI usage logs (newest first), the total row count matching filters for pagination, and aggregated summary totals (tokens, estimated cost, breakdowns by feature and model). Requires a valid JWT; the user must be an admin. Use query parameters to filter by plan, user, feature, status, and time range.",
         "parameters": [
           {
             "schema": {
@@ -6643,11 +6653,11 @@
         ],
         "responses": {
           "200": {
-            "description": "AI usage logs with summary",
+            "description": "Paginated logs, total count for the current filters, and summary aggregates",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "AI usage logs with summary",
+                  "description": "Paginated logs, total count for the current filters, and summary aggregates",
                   "$ref": "#/components/schemas/def-83"
                 }
               }
@@ -6707,30 +6717,33 @@
         },
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Supabase user id and display name for the phone number",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Supabase user id and display name for the phone number",
                   "$ref": "#/components/schemas/def-70"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Missing or invalid x-service-key",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Missing or invalid x-service-key",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Default Response",
+            "description": "No registered user linked to this phone number",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "No registered user linked to this phone number",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -6748,30 +6761,33 @@
         "description": "Returns a chatbot-friendly summary of all plans the user is a member of (owner, participant, or viewer). Requires x-service-key and x-user-id headers. completedItemCount counts items where every assignment entry has status packed or purchased.",
         "responses": {
           "200": {
-            "description": "Response for GET /api/internal/plans.",
+            "description": "Plans the user belongs to with counts and roles",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Plans the user belongs to with counts and roles",
                   "$ref": "#/components/schemas/def-72"
                 }
               }
             }
           },
           "401": {
-            "description": "Default Response",
+            "description": "Missing x-user-id, invalid x-service-key, or user could not be resolved",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Missing x-user-id, invalid x-service-key, or user could not be resolved",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Default Response",
+            "description": "Unexpected error while loading plans",
             "content": {
               "application/json": {
                 "schema": {
+                  "description": "Unexpected error while loading plans",
                   "$ref": "#/components/schemas/def-0"
                 }
               }

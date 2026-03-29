@@ -36,11 +36,12 @@ export async function adminAiUsageRoutes(fastify: FastifyInstance) {
         tags: ['admin'],
         summary: 'Admin: list AI usage logs with summary',
         description:
-          'Returns paginated AI usage logs with optional filters and aggregated summary totals. Admin only. JWT required.',
+          'Returns paginated AI usage logs (newest first), the total row count matching filters for pagination, and aggregated summary totals (tokens, estimated cost, breakdowns by feature and model). Requires a valid JWT; the user must be an admin. Use query parameters to filter by plan, user, feature, status, and time range.',
         querystring: { $ref: 'AiUsageQuery#' },
         response: {
           200: {
-            description: 'AI usage logs with summary',
+            description:
+              'Paginated logs, total count for the current filters, and summary aggregates',
             $ref: 'AiUsageResponse#',
           },
           401: {
