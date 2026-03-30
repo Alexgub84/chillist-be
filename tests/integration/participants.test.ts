@@ -779,7 +779,7 @@ describe('Participants Route', () => {
 
   describe('DELETE /participants/:participantId', () => {
     it('deletes participant and returns 200', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
       const seeded = await seedTestParticipants(plan.planId, 2)
       const nonOwner = seeded.find((p) => p.role !== 'owner')!
 
@@ -801,7 +801,7 @@ describe('Participants Route', () => {
     })
 
     it('returns 400 when deleting participant with owner role', async () => {
-      const [plan] = await seedTestPlans(1)
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
       const seeded = await seedTestParticipants(plan.planId, 1)
       const owner = seeded[0]
 
@@ -885,6 +885,85 @@ describe('Participants Route', () => {
         updatedItem.assignmentStatusList.some(
           (a: { participantId: string }) =>
             a.participantId === nonOwner.participantId
+        )
+      ).toBe(false)
+    })
+
+    it('returns 403 when non-owner tries to delete another participant', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      const seeded = await seedTestParticipants(plan.planId, 2)
+      const nonOwner = seeded.find((p) => p.role !== 'owner')!
+
+      const otherToken = await signTestJwt({ sub: OTHER_USER_ID })
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/participants/${nonOwner.participantId}`,
+        headers: { authorization: `Bearer ${otherToken}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(response.json()).toEqual({
+        message: 'You can only remove yourself from a plan',
+      })
+    })
+
+    it('allows linked participant to delete their own record', async () => {
+      const [plan] = await seedTestPlans(1, { createdByUserId: TEST_USER_ID })
+      await seedTestParticipants(plan.planId, 1, { ownerUserId: TEST_USER_ID })
+      const db = await getTestDb()
+      const [selfParticipant] = await db
+        .insert(participants)
+        .values({
+          planId: plan.planId,
+          name: 'Other',
+          lastName: 'User',
+          contactPhone: '+15559990000',
+          role: 'participant',
+          userId: OTHER_USER_ID,
+          inviteToken: randomBytes(32).toString('hex'),
+        })
+        .returning()
+
+      const createItemResponse = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          name: 'Cooler',
+          category: 'group_equipment',
+          quantity: 1,
+          assignmentStatusList: [
+            { participantId: selfParticipant.participantId, status: 'pending' },
+          ],
+        },
+      })
+      const item = createItemResponse.json()
+
+      const otherToken = await signTestJwt({ sub: OTHER_USER_ID })
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/participants/${selfParticipant.participantId}`,
+        headers: { authorization: `Bearer ${otherToken}` },
+      })
+
+      expect(deleteResponse.statusCode).toBe(200)
+      expect(deleteResponse.json()).toEqual({ ok: true })
+
+      const getItemsResponse = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}/items`,
+        headers: { authorization: `Bearer ${token}` },
+      })
+      const items = getItemsResponse.json()
+      const updatedItem = items.find(
+        (i: { itemId: string }) => i.itemId === item.itemId
+      )
+      expect(
+        updatedItem.assignmentStatusList.some(
+          (a: { participantId: string }) =>
+            a.participantId === selfParticipant.participantId
         )
       ).toBe(false)
     })
