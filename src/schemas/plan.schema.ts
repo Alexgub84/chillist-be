@@ -51,6 +51,20 @@ export const planSchema = {
       description: 'Estimated number of child participants for this plan',
       nullable: true,
     },
+    myParticipantId: {
+      type: 'string',
+      format: 'uuid',
+      description:
+        "On GET /plans only: the authenticated user's participant row id for this plan (for leave-plan and client routing without loading full participants)",
+      nullable: true,
+    },
+    myRole: {
+      type: 'string',
+      enum: ['owner', 'participant', 'viewer'],
+      description:
+        "On GET /plans only: the authenticated user's role on this plan",
+      nullable: true,
+    },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
   },

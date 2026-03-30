@@ -219,7 +219,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
         tags: ['plans'],
         summary: 'List plans the user participates in',
         description:
-          'Retrieve plans where the authenticated user is a participant (owner or member), ordered by creation date',
+          "Retrieve plans where the authenticated user is a participant (owner or member), ordered by creation date. Each plan includes myParticipantId and myRole for the caller's membership row (use for leave-plan without a second request)",
         response: {
           200: {
             description: 'List of plans owned by the authenticated user',
@@ -246,7 +246,11 @@ export async function plansRoutes(fastify: FastifyInstance) {
         const userId = request.user!.id
 
         const filteredPlans = await fastify.db
-          .select(getTableColumns(plans))
+          .select({
+            ...getTableColumns(plans),
+            myParticipantId: participants.participantId,
+            myRole: participants.role,
+          })
           .from(plans)
           .innerJoin(participants, eq(participants.planId, plans.planId))
           .where(eq(participants.userId, userId))

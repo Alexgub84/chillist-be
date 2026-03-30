@@ -624,6 +624,7 @@ async function seed() {
         defaultLang: 'he',
         currency: 'ILS',
         aiGenerationCount: 0,
+        ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
       })
       .returning()
 
