@@ -4298,7 +4298,7 @@
         "tags": [
           "participants"
         ],
-        "description": "Delete a participant by its ID. Items assigned to this participant will have their assignment cleared.",
+        "description": "Remove a participant from the plan. Only the plan owner or the participant themselves (when linked to the same user account) may delete. Items assigned to this participant have their assignment cleared.",
         "parameters": [
           {
             "schema": {
@@ -4339,6 +4339,17 @@
               "application/json": {
                 "schema": {
                   "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller is not the plan owner and not deleting their own participant record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — caller is not the plan owner and not deleting their own participant record",
                   "$ref": "#/components/schemas/def-0"
                 }
               }

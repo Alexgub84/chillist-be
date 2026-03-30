@@ -523,7 +523,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         tags: ['participants'],
         summary: 'Delete a participant',
         description:
-          'Delete a participant by its ID. Items assigned to this participant will have their assignment cleared.',
+          'Remove a participant from the plan. Only the plan owner or the participant themselves (when linked to the same user account) may delete. Items assigned to this participant have their assignment cleared.',
         params: { $ref: 'ParticipantIdParam#' },
         response: {
           200: {
@@ -537,6 +537,11 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           401: {
             description:
               'Authentication required — JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description:
+              'Forbidden — caller is not the plan owner and not deleting their own participant record',
             $ref: 'ErrorResponse#',
           },
           404: {
@@ -562,6 +567,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           .select({
             participantId: participants.participantId,
             planId: participants.planId,
+            userId: participants.userId,
             role: participants.role,
           })
           .from(participants)
@@ -580,6 +586,27 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           )
           return reply.status(400).send({
             message: 'Cannot delete participant with owner role',
+          })
+        }
+
+        const [plan] = await fastify.db
+          .select({ createdByUserId: plans.createdByUserId })
+          .from(plans)
+          .where(eq(plans.planId, existingParticipant.planId))
+
+        const userId = request.user!.id
+        const isOwner = plan?.createdByUserId === userId
+        const isSelf =
+          existingParticipant.userId !== null &&
+          existingParticipant.userId === userId
+
+        if (!isOwner && !isSelf) {
+          request.log.warn(
+            { participantId, userId },
+            'Unauthorized delete attempt'
+          )
+          return reply.status(403).send({
+            message: 'You can only remove yourself from a plan',
           })
         }
 
