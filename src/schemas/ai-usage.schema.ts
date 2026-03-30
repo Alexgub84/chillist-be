@@ -75,6 +75,11 @@ export const aiUsageLogSchema = {
       nullable: true,
       description: 'Character count of the assembled prompt',
     },
+    promptText: {
+      type: 'string',
+      nullable: true,
+      description: 'Full prompt string sent to the model',
+    },
     resultCount: {
       type: 'integer',
       nullable: true,
@@ -84,6 +89,24 @@ export const aiUsageLogSchema = {
       type: 'string',
       nullable: true,
       description: 'Error message when status is error',
+    },
+    errorType: {
+      type: 'string',
+      nullable: true,
+      description:
+        'SDK error class name (e.g. AI_NoObjectGeneratedError, AI_APICallError); null on success or partial',
+    },
+    finishReason: {
+      type: 'string',
+      nullable: true,
+      description:
+        'Model finish reason from the provider SDK — stop, length, content-filter, error, or unknown',
+    },
+    rawResponseText: {
+      type: 'string',
+      nullable: true,
+      description:
+        'Raw model output: serialised JSON array on success, raw text on partial/error (error.text), null when unavailable',
     },
     metadata: {
       type: 'object',

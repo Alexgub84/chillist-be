@@ -124,50 +124,10 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
 
         const model = resolveLanguageModel(config.aiProvider, lang)
 
-        try {
-          const result = await generateItemSuggestions(model, planContext, lang)
-          const durationMs = Date.now() - startMs
+        const result = await generateItemSuggestions(model, planContext, lang)
+        const durationMs = Date.now() - startMs
 
-          await fastify.db
-            .update(plans)
-            .set({ aiGenerationCount: sql`${plans.aiGenerationCount} + 1` })
-            .where(eq(plans.planId, planId))
-
-          recordAiUsage(fastify.db, {
-            featureType: 'item_suggestions',
-            planId,
-            userId: request.user?.id,
-            provider: config.aiProvider,
-            modelId: model.modelId,
-            lang,
-            status: result.status,
-            inputTokens: result.usage.inputTokens,
-            outputTokens: result.usage.outputTokens,
-            totalTokens: result.usage.totalTokens,
-            durationMs,
-            promptLength: result.prompt.length,
-            resultCount: result.suggestions.length,
-            metadata: { planTitle: plan.title },
-          })
-
-          const durationSec = (durationMs / 1000).toFixed(1)
-          request.log.info(
-            {
-              planId,
-              lang,
-              modelId: model.modelId,
-              promptLength: result.prompt.length,
-              suggestionsCount: result.suggestions.length,
-              usage: result.usage,
-              durationSec,
-            },
-            `AI item suggestions generated in ${durationSec}s — ${result.suggestions.length} items, ${result.usage.totalTokens ?? '?'} tokens (${model.modelId})`
-          )
-
-          return { suggestions: result.suggestions }
-        } catch (error) {
-          const durationMs = Date.now() - startMs
-
+        if (result.status === 'error') {
           recordAiUsage(fastify.db, {
             featureType: 'item_suggestions',
             planId,
@@ -176,31 +136,75 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
             modelId: model.modelId,
             lang,
             status: 'error',
+            inputTokens: result.usage.inputTokens,
+            outputTokens: result.usage.outputTokens,
+            totalTokens: result.usage.totalTokens,
             durationMs,
-            promptLength: undefined,
-            errorMessage:
-              error instanceof Error ? error.message : String(error),
+            promptLength: result.prompt.length,
+            promptText: result.prompt,
+            rawResponseText: result.rawResponseText,
+            errorType: result.errorType,
+            errorMessage: result.errorMessage,
             metadata: { planTitle: plan.title },
           })
 
           request.log.error(
-            { err: error, planId },
+            {
+              planId,
+              errorType: result.errorType,
+              errorMessage: result.errorMessage,
+            },
             'Failed to generate AI suggestions'
           )
 
-          const isAiError =
-            error instanceof Error && error.name?.startsWith('AI_')
-
-          if (isAiError) {
-            return reply.status(503).send({
-              message: 'AI service temporarily unavailable',
-            })
-          }
-
-          return reply.status(500).send({
-            message: 'Failed to generate suggestions',
+          const isAiError = result.errorType?.startsWith('AI_')
+          return reply.status(isAiError ? 503 : 500).send({
+            message: isAiError
+              ? 'AI service temporarily unavailable'
+              : 'Failed to generate suggestions',
           })
         }
+
+        await fastify.db
+          .update(plans)
+          .set({ aiGenerationCount: sql`${plans.aiGenerationCount} + 1` })
+          .where(eq(plans.planId, planId))
+
+        recordAiUsage(fastify.db, {
+          featureType: 'item_suggestions',
+          planId,
+          userId: request.user?.id,
+          provider: config.aiProvider,
+          modelId: model.modelId,
+          lang,
+          status: result.status,
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          totalTokens: result.usage.totalTokens,
+          durationMs,
+          promptLength: result.prompt.length,
+          promptText: result.prompt,
+          rawResponseText: result.rawResponseText,
+          finishReason: result.finishReason,
+          resultCount: result.suggestions.length,
+          metadata: { planTitle: plan.title },
+        })
+
+        const durationSec = (durationMs / 1000).toFixed(1)
+        request.log.info(
+          {
+            planId,
+            lang,
+            modelId: model.modelId,
+            promptLength: result.prompt.length,
+            suggestionsCount: result.suggestions.length,
+            usage: result.usage,
+            durationSec,
+          },
+          `AI item suggestions generated in ${durationSec}s — ${result.suggestions.length} items, ${result.usage.totalTokens ?? '?'} tokens (${model.modelId})`
+        )
+
+        return { suggestions: result.suggestions }
       } catch (error) {
         request.log.error(
           { err: error, planId },

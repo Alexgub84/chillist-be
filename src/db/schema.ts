@@ -413,8 +413,12 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
   estimatedCost: numeric('estimated_cost', { precision: 10, scale: 6 }),
   durationMs: integer('duration_ms').notNull(),
   promptLength: integer('prompt_length'),
+  promptText: text('prompt_text'),
   resultCount: integer('result_count'),
   errorMessage: text('error_message'),
+  errorType: text('error_type'),
+  finishReason: varchar('finish_reason', { length: 50 }),
+  rawResponseText: text('raw_response_text'),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()

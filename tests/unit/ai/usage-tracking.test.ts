@@ -117,6 +117,60 @@ describe('recordAiUsage', () => {
     )
   })
 
+  it('persists promptText and rawResponseText when provided', async () => {
+    const valuesMock = vi.fn().mockResolvedValue(undefined)
+    const mockDb = {
+      insert: vi.fn().mockReturnValue({ values: valuesMock }),
+    }
+
+    await recordAiUsage(mockDb as never, {
+      featureType: 'item_suggestions',
+      provider: 'anthropic',
+      modelId: 'claude-haiku-4-5-20251001',
+      status: 'success',
+      durationMs: 3000,
+      promptText: 'Pack items for beach trip...',
+      rawResponseText: '[{"name":"Sunscreen"}]',
+      finishReason: 'stop',
+    })
+
+    expect(valuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promptText: 'Pack items for beach trip...',
+        rawResponseText: '[{"name":"Sunscreen"}]',
+        finishReason: 'stop',
+        errorType: null,
+      })
+    )
+  })
+
+  it('persists errorType and defaults new fields to null when absent', async () => {
+    const valuesMock = vi.fn().mockResolvedValue(undefined)
+    const mockDb = {
+      insert: vi.fn().mockReturnValue({ values: valuesMock }),
+    }
+
+    await recordAiUsage(mockDb as never, {
+      featureType: 'item_suggestions',
+      provider: 'anthropic',
+      modelId: 'claude-haiku-4-5-20251001',
+      status: 'error',
+      durationMs: 1000,
+      promptText: 'Pack items...',
+      errorType: 'AI_NoObjectGeneratedError',
+      errorMessage: 'No object generated',
+    })
+
+    expect(valuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promptText: 'Pack items...',
+        errorType: 'AI_NoObjectGeneratedError',
+        rawResponseText: null,
+        finishReason: null,
+      })
+    )
+  })
+
   it('does not throw when db.insert fails', async () => {
     const mockDb = {
       insert: vi.fn().mockReturnValue({

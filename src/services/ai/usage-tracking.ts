@@ -14,8 +14,12 @@ export interface AiUsageRecord {
   totalTokens?: number
   durationMs: number
   promptLength?: number
+  promptText?: string
   resultCount?: number
   errorMessage?: string
+  errorType?: string
+  finishReason?: string
+  rawResponseText?: string | null
   metadata?: Record<string, unknown>
 }
 
@@ -70,8 +74,12 @@ export async function recordAiUsage(
       estimatedCost: cost?.toFixed(6) ?? null,
       durationMs: record.durationMs,
       promptLength: record.promptLength ?? null,
+      promptText: record.promptText ?? null,
       resultCount: record.resultCount ?? null,
       errorMessage: record.errorMessage ?? null,
+      errorType: record.errorType ?? null,
+      finishReason: record.finishReason ?? null,
+      rawResponseText: record.rawResponseText ?? null,
       metadata: record.metadata ?? null,
     })
   } catch (err) {

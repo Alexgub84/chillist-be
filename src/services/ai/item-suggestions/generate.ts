@@ -5,16 +5,42 @@ import { buildItemSuggestionsPrompt } from './build-prompt.js'
 import type { PlanForAiContext } from '../plan-context-formatters.js'
 import type { SupportedAiLang } from './prompt-templates.js'
 
-export interface ItemSuggestionsResult {
-  suggestions: ItemSuggestion[]
-  prompt: string
-  status: 'success' | 'partial'
-  usage: {
-    inputTokens: number | undefined
-    outputTokens: number | undefined
-    totalTokens: number | undefined
-  }
+interface TokenUsage {
+  inputTokens: number | undefined
+  outputTokens: number | undefined
+  totalTokens: number | undefined
 }
+
+interface ItemSuggestionsBase {
+  prompt: string
+  usage: TokenUsage
+  finishReason?: string
+}
+
+export interface ItemSuggestionsSuccess extends ItemSuggestionsBase {
+  status: 'success'
+  suggestions: ItemSuggestion[]
+  rawResponseText: string
+}
+
+export interface ItemSuggestionsPartial extends ItemSuggestionsBase {
+  status: 'partial'
+  suggestions: ItemSuggestion[]
+  rawResponseText: string
+}
+
+export interface ItemSuggestionsError extends ItemSuggestionsBase {
+  status: 'error'
+  suggestions: []
+  rawResponseText: string | null
+  errorType: string
+  errorMessage: string
+}
+
+export type ItemSuggestionsResult =
+  | ItemSuggestionsSuccess
+  | ItemSuggestionsPartial
+  | ItemSuggestionsError
 
 function salvageFromRawText(text: string): ItemSuggestion[] {
   try {
@@ -39,7 +65,11 @@ export async function generateItemSuggestions(
   const prompt = buildItemSuggestionsPrompt(plan, lang)
 
   try {
-    const { object: suggestions, usage } = await generateObject({
+    const {
+      object: suggestions,
+      usage,
+      finishReason,
+    } = await generateObject({
       model,
       output: 'array',
       schema: itemSuggestionSchema,
@@ -47,9 +77,11 @@ export async function generateItemSuggestions(
     })
 
     return {
+      status: 'success',
       suggestions,
       prompt,
-      status: 'success' as const,
+      rawResponseText: JSON.stringify(suggestions),
+      finishReason,
       usage: {
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
@@ -61,9 +93,10 @@ export async function generateItemSuggestions(
       const salvaged = salvageFromRawText(error.text)
       if (salvaged.length > 0) {
         return {
+          status: 'partial',
           suggestions: salvaged,
           prompt,
-          status: 'partial' as const,
+          rawResponseText: error.text,
           usage: {
             inputTokens: error.usage?.inputTokens,
             outputTokens: error.usage?.outputTokens,
@@ -72,6 +105,28 @@ export async function generateItemSuggestions(
         }
       }
     }
-    throw error
+
+    const err = error instanceof Error ? error : new Error(String(error))
+    return {
+      status: 'error',
+      suggestions: [],
+      prompt,
+      rawResponseText: NoObjectGeneratedError.isInstance(error)
+        ? (error.text ?? null)
+        : null,
+      errorType: err.name,
+      errorMessage: err.message,
+      usage: NoObjectGeneratedError.isInstance(error)
+        ? {
+            inputTokens: error.usage?.inputTokens,
+            outputTokens: error.usage?.outputTokens,
+            totalTokens: error.usage?.totalTokens,
+          }
+        : {
+            inputTokens: undefined,
+            outputTokens: undefined,
+            totalTokens: undefined,
+          },
+    }
   }
 }
