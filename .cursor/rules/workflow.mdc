@@ -6,7 +6,7 @@ alwaysApply: true
 # Workspace Scope
 
 This is the BACKEND repo (chillist-be). Only modify files inside this repo.
-NEVER modify files in chillist-fe or any other sibling repo from this workspace.
+NEVER modify files in chillist-fe or any other sibling repo from this workspace (including “just this one hook” or debugging leave-plan / UI flows — ship BE + OpenAPI + docs; FE work belongs in chillist-fe).
 If a task requires frontend changes, stop and tell the user to switch to the frontend repo.
 
 The ONE exception: you MAY read and write files in ../chillist-docs/ (the shared docs repo) to read rules/docs and update dev-lessons, guides, specs, or rules when needed. **Docs repo always commits directly to `main`** — no feature branches or PRs (see `../chillist-docs/.cursor/rules/workflow.mdc`).
