@@ -110,14 +110,31 @@ describe('generateItemSuggestions', () => {
     })
   })
 
+  it('returns status success', async () => {
+    const model = createMockModel(fakeSuggestions)
+    const result = await generateItemSuggestions(model, basePlan)
+    expect(result.status).toBe('success')
+  })
+
+  it('returns finishReason from the model', async () => {
+    const model = createMockModel(fakeSuggestions)
+    const result = await generateItemSuggestions(model, basePlan)
+    expect(result.finishReason).toBe('stop')
+  })
+
+  it('returns rawResponseText as serialised JSON of suggestions on success', async () => {
+    const model = createMockModel(fakeSuggestions)
+    const result = await generateItemSuggestions(model, basePlan)
+    expect(result.rawResponseText).toBe(JSON.stringify(result.suggestions))
+  })
+
   it('returns empty array when model returns empty array', async () => {
     const model = createMockModel([])
     const result = await generateItemSuggestions(model, basePlan)
-
     expect(result.suggestions).toEqual([])
   })
 
-  it('throws when model returns invalid JSON', async () => {
+  it('returns status error (not throws) when model returns invalid JSON', async () => {
     const model = new MockLanguageModelV2({
       doGenerate: {
         content: [{ type: 'text' as const, text: 'not valid json at all' }],
@@ -127,7 +144,12 @@ describe('generateItemSuggestions', () => {
       },
     })
 
-    await expect(generateItemSuggestions(model, basePlan)).rejects.toThrow()
+    const result = await generateItemSuggestions(model, basePlan)
+    expect(result.status).toBe('error')
+    if (result.status === 'error') {
+      expect(result.prompt).toContain('Summer camping')
+      expect(result.suggestions).toEqual([])
+    }
   })
 
   it('accepts decimal quantities (e.g. 0.5 kg cheese)', async () => {
@@ -143,22 +165,26 @@ describe('generateItemSuggestions', () => {
     expect(result.suggestions[1].quantity).toBe(1.5)
   })
 
-  it('throws when model returns items with invalid category', async () => {
+  it('returns status error (not throws) when model returns items with invalid category', async () => {
     const badItems = [{ ...fakeSuggestions[0], category: 'invalid_category' }]
     const model = createMockModel(badItems)
-
-    await expect(generateItemSuggestions(model, basePlan)).rejects.toThrow()
+    const result = await generateItemSuggestions(model, basePlan)
+    expect(result.status).toBe('error')
   })
 
-  it('throws when model throws an error', async () => {
+  it('returns status error with promptText when model throws', async () => {
     const model = new MockLanguageModelV2({
       doGenerate: () => {
         throw new Error('API rate limit exceeded')
       },
     })
 
-    await expect(generateItemSuggestions(model, basePlan)).rejects.toThrow(
-      'API rate limit exceeded'
-    )
+    const result = await generateItemSuggestions(model, basePlan)
+    expect(result.status).toBe('error')
+    if (result.status === 'error') {
+      expect(result.errorMessage).toBe('API rate limit exceeded')
+      expect(result.prompt).toContain('Summer camping')
+      expect(result.suggestions).toEqual([])
+    }
   })
 })

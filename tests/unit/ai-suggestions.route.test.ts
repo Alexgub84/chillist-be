@@ -215,7 +215,7 @@ describe('AI Suggestions Route', () => {
     expect(mockDb.update).toHaveBeenCalled()
   })
 
-  it('records AI usage on successful generation', async () => {
+  it('records AI usage on successful generation including promptText and rawResponseText', async () => {
     mockPlanAccessAllowed(mockDb)
     mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
     mockParticipantDietaryQuery(mockDb, [])
@@ -238,6 +238,43 @@ describe('AI Suggestions Route', () => {
         lang: 'en',
         resultCount: 3,
         metadata: { planTitle: 'Beach trip' },
+        promptText: expect.any(String),
+        rawResponseText: expect.any(String),
+        finishReason: 'stop',
+      })
+    )
+  })
+
+  it('records AI usage on partial generation with rawResponseText and promptText', async () => {
+    mockPlanAccessAllowed(mockDb)
+    mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+    mockParticipantDietaryQuery(mockDb, [])
+
+    generateSpy.mockResolvedValueOnce({
+      status: 'partial' as const,
+      suggestions: [FAKE_SUGGESTIONS[0]],
+      prompt: 'partial prompt text',
+      rawResponseText: 'raw partial output from model',
+      finishReason: 'length',
+      usage: { inputTokens: 80, outputTokens: 40, totalTokens: 120 },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+      headers: AUTH_HEADERS,
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().suggestions).toHaveLength(1)
+    expect(recordUsageSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        status: 'partial',
+        promptText: 'partial prompt text',
+        rawResponseText: 'raw partial output from model',
+        finishReason: 'length',
+        resultCount: 1,
       })
     )
   })
@@ -302,37 +339,26 @@ describe('AI Suggestions Route', () => {
     }
   })
 
-  it('returns 503 when AI model throws AI-prefixed error and records error usage', async () => {
-    const failModel = new MockLanguageModelV2({
-      doGenerate: () => {
-        const err = new Error('Rate limit exceeded')
-        err.name = 'AI_APICallError'
-        throw err
+  it('returns 503 when AI returns error with AI-prefixed errorType and records error usage with promptText', async () => {
+    mockPlanAccessAllowed(mockDb)
+    mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+    mockParticipantDietaryQuery(mockDb, [])
+
+    generateSpy.mockResolvedValueOnce({
+      status: 'error' as const,
+      suggestions: [],
+      prompt: 'the prompt that was sent',
+      rawResponseText: null,
+      errorType: 'AI_APICallError',
+      errorMessage: 'Rate limit exceeded',
+      usage: {
+        inputTokens: undefined,
+        outputTokens: undefined,
+        totalTokens: undefined,
       },
     })
 
-    vi.mocked(modelProvider.resolveLanguageModel).mockReturnValueOnce(failModel)
-
-    const failDb = createMockDb()
-    mockAiGenerationIncrement(failDb)
-    const failApp = Fastify({ logger: false })
-    failApp.decorate('db', failDb)
-    failApp.decorate('aiModel', failModel)
-    failApp.decorateRequest('user', null)
-    failApp.decorateRequest('sessionId', null)
-    failApp.addHook('onRequest', async (request) => {
-      if (request.headers.authorization?.startsWith('Bearer ')) {
-        request.user = FAKE_USER
-      }
-    })
-    registerSchemas(failApp)
-    await failApp.register(aiSuggestionsRoutes)
-
-    mockPlanAccessAllowed(failDb)
-    mockPlanDataQuery(failDb, FAKE_PLAN_ROW)
-    mockParticipantDietaryQuery(failDb, [])
-
-    const response = await failApp.inject({
+    const response = await app.inject({
       method: 'POST',
       url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
       headers: AUTH_HEADERS,
@@ -340,16 +366,47 @@ describe('AI Suggestions Route', () => {
 
     expect(response.statusCode).toBe(503)
     expect(response.json().message).toContain('AI service')
-    expect(failDb.update).not.toHaveBeenCalled()
+    expect(mockDb.update).not.toHaveBeenCalled()
     expect(recordUsageSpy).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         featureType: 'item_suggestions',
         status: 'error',
+        errorType: 'AI_APICallError',
         errorMessage: 'Rate limit exceeded',
+        promptText: 'the prompt that was sent',
+        rawResponseText: null,
       })
     )
-    await failApp.close()
+  })
+
+  it('returns 500 when AI returns error with non-AI-prefixed errorType', async () => {
+    mockPlanAccessAllowed(mockDb)
+    mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+    mockParticipantDietaryQuery(mockDb, [])
+
+    generateSpy.mockResolvedValueOnce({
+      status: 'error' as const,
+      suggestions: [],
+      prompt: 'the prompt',
+      rawResponseText: null,
+      errorType: 'Error',
+      errorMessage: 'Something unexpected',
+      usage: {
+        inputTokens: undefined,
+        outputTokens: undefined,
+        totalTokens: undefined,
+      },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+      headers: AUTH_HEADERS,
+    })
+
+    expect(response.statusCode).toBe(500)
+    expect(mockDb.update).not.toHaveBeenCalled()
   })
 
   it('returns 500 when non-AI error occurs', async () => {
