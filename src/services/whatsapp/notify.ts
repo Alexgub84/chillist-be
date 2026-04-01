@@ -18,6 +18,7 @@ export interface FireAndForgetNotificationOpts {
   planId: string
   recipientParticipantId: string | null
   type: NotificationType
+  sessionId?: string | null
   onSuccess?: () => void
 }
 
@@ -33,6 +34,7 @@ export function fireAndForgetNotification(
     planId,
     recipientParticipantId,
     type,
+    sessionId,
     onSuccess,
   } = opts
 
@@ -48,6 +50,7 @@ export function fireAndForgetNotification(
           status: result.success ? 'sent' : 'failed',
           messageId: result.success ? result.messageId : null,
           error: result.success ? null : result.error,
+          sessionId: sessionId ?? null,
         })
         .catch((dbErr) =>
           log.warn({ err: dbErr }, 'Failed to persist WhatsApp notification')

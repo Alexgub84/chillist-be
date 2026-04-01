@@ -113,7 +113,29 @@ describe('recordAiUsage', () => {
         outputTokens: 800,
         durationMs: 5000,
         estimatedCost: expect.any(String),
+        sessionId: null,
       })
+    )
+  })
+
+  it('persists sessionId when provided', async () => {
+    const valuesMock = vi.fn().mockResolvedValue(undefined)
+    const mockDb = {
+      insert: vi.fn().mockReturnValue({ values: valuesMock }),
+    }
+    const sid = '550e8400-e29b-41d4-a716-446655440000'
+
+    await recordAiUsage(mockDb as never, {
+      featureType: 'item_suggestions',
+      provider: 'anthropic',
+      modelId: 'claude-haiku-4-5-20251001',
+      status: 'success',
+      durationMs: 100,
+      sessionId: sid,
+    })
+
+    expect(valuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: sid })
     )
   })
 

@@ -176,6 +176,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             allergies: body.allergies ?? null,
             dietaryMembers: body.dietaryMembers ?? null,
             notes: body.notes ?? null,
+            sessionId: request.sessionId ?? null,
           })
           .returning()
 
@@ -214,6 +215,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
                 planId,
                 recipientParticipantId: plan.ownerParticipantId,
                 type: 'join_request_pending',
+                sessionId: request.sessionId ?? null,
               })
             })
             .catch((err) => {
@@ -416,6 +418,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
               planId,
               recipientParticipantId: result.participantId,
               type: 'join_request_approved',
+              sessionId: request.sessionId ?? null,
             })
           }
 
@@ -447,6 +450,7 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             planId,
             recipientParticipantId: null,
             type: 'join_request_rejected',
+            sessionId: request.sessionId ?? null,
           })
         }
 

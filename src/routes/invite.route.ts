@@ -413,6 +413,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           inputs: [request.body as CreateItemInput],
           isOwner: false,
           changedBy: { participantId: participant.participantId },
+          sessionId: request.sessionId ?? null,
         })
 
         if (result.errors.length > 0) {
@@ -534,6 +535,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           guestParticipantId: participant.participantId,
           changedByUserId: null,
           changedByParticipantId: participant.participantId,
+          sessionId: request.sessionId ?? null,
         })
 
         if (!result.ok) {
@@ -673,6 +675,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
             inputs: itemsToCreate as CreateItemInput[],
             isOwner: false,
             changedBy: { participantId: participant.participantId },
+            sessionId: request.sessionId ?? null,
           }
         )
 
@@ -825,6 +828,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
               guestParticipantId: participant.participantId,
               changedByUserId: null,
               changedByParticipantId: participant.participantId,
+              sessionId: request.sessionId ?? null,
             })
 
             if (!result.ok) {

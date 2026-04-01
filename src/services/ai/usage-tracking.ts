@@ -5,6 +5,7 @@ export interface AiUsageRecord {
   featureType: AiFeatureType
   planId?: string | null
   userId?: string | null
+  sessionId?: string | null
   provider: string
   modelId: string
   lang?: string | null
@@ -64,6 +65,7 @@ export async function recordAiUsage(
       featureType: record.featureType,
       planId: record.planId ?? null,
       userId: record.userId ?? null,
+      sessionId: record.sessionId ?? null,
       provider: record.provider,
       modelId: record.modelId,
       lang: record.lang ?? null,

@@ -276,6 +276,7 @@ export const itemChanges = pgTable('item_changes', {
   changes: jsonb('changes').notNull(),
   changedByUserId: uuid('changed_by_user_id'),
   changedByParticipantId: uuid('changed_by_participant_id'),
+  sessionId: uuid('session_id'),
   changedAt: timestamp('changed_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -302,6 +303,7 @@ export const planInvites = pgTable('plan_invites', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   acceptedByUserId: uuid('accepted_by_user_id'),
+  sessionId: uuid('session_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -327,6 +329,7 @@ export const participantJoinRequests = pgTable(
     dietaryMembers: jsonb('dietary_members').$type<DietaryMembers>(),
     notes: text('notes'),
     status: joinRequestStatusEnum('status').default('pending').notNull(),
+    sessionId: uuid('session_id'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -371,6 +374,7 @@ export const whatsappNotifications = pgTable('whatsapp_notifications', {
   status: whatsappNotificationStatusEnum('status').notNull(),
   messageId: varchar('message_id', { length: 255 }),
   error: text('error'),
+  sessionId: uuid('session_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -403,6 +407,7 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
     onDelete: 'set null',
   }),
   userId: uuid('user_id'),
+  sessionId: uuid('session_id'),
   provider: varchar('provider', { length: 50 }).notNull(),
   modelId: varchar('model_id', { length: 100 }).notNull(),
   lang: varchar('lang', { length: 10 }),
@@ -424,6 +429,34 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
     .defaultNow()
     .notNull(),
 })
+
+export const deviceTypeEnum = pgEnum('device_type', [
+  'mobile',
+  'tablet',
+  'desktop',
+])
+export const DEVICE_TYPE_VALUES = deviceTypeEnum.enumValues
+export type DeviceType = (typeof DEVICE_TYPE_VALUES)[number]
+
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id'),
+    deviceType: deviceTypeEnum('device_type').notNull(),
+    userAgent: text('user_agent').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+  },
+  (table) => [index('sessions_user_id_idx').on(table.userId)]
+)
+
+export const sessionsRelations = relations(sessions, () => ({}))
 
 export const guestProfilesRelations = relations(guestProfiles, ({ many }) => ({
   participants: many(participants),
@@ -550,3 +583,5 @@ export type WhatsappNotification = typeof whatsappNotifications.$inferSelect
 export type NewWhatsappNotification = typeof whatsappNotifications.$inferInsert
 export type AiUsageLog = typeof aiUsageLogs.$inferSelect
 export type NewAiUsageLog = typeof aiUsageLogs.$inferInsert
+export type Session = typeof sessions.$inferSelect
+export type NewSession = typeof sessions.$inferInsert

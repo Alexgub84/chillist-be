@@ -248,6 +248,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
             planId,
             recipientParticipantId: createdParticipant.participantId,
             type: 'invitation_sent',
+            sessionId: request.sessionId ?? null,
             onSuccess: () => {
               fastify.db
                 .update(participants)

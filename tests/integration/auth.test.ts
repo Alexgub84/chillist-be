@@ -68,28 +68,28 @@ describe('JWT Auth (injected JWKS)', () => {
       })
     })
 
-    it('returns sessionId when JWT contains session_id claim', async () => {
+    it('returns sessionId from X-Session-ID header', async () => {
+      const browserSessionId = '550e8400-e29b-41d4-a716-446655440000'
       const token = await signTestJwt({
         sub: 'user-uuid-1234',
         email: 'alex@example.com',
         role: 'authenticated',
-        session_id: 'test-session-uuid-5678',
       })
 
       const response = await app.inject({
         method: 'GET',
         url: '/auth/me',
-        headers: { authorization: `Bearer ${token}` },
+        headers: {
+          authorization: `Bearer ${token}`,
+          'x-session-id': browserSessionId,
+        },
       })
 
       expect(response.statusCode).toBe(200)
-      expect(response.json()).toMatchObject({
-        user: { id: 'user-uuid-1234' },
-        sessionId: 'test-session-uuid-5678',
-      })
+      expect(response.json().sessionId).toBe(browserSessionId)
     })
 
-    it('returns sessionId null when JWT has no session_id claim', async () => {
+    it('returns sessionId null when X-Session-ID header is absent', async () => {
       const token = await signTestJwt({
         sub: 'user-uuid-1234',
         email: 'alex@example.com',
