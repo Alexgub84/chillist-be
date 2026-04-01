@@ -2982,6 +2982,12 @@
             "nullable": true,
             "description": "Supabase UUID of the user who triggered the AI call"
           },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Browser session id from X-Session-ID when present — correlates with sessions table for analytics"
+          },
           "provider": {
             "type": "string",
             "description": "AI provider used (e.g. anthropic, openai)"
@@ -5586,7 +5592,7 @@
                     "sessionId": {
                       "type": "string",
                       "nullable": true,
-                      "description": "Supabase session ID — stable across token refreshes, changes on new login. Use this as a correlation key for client-side logging and analytics."
+                      "description": "Browser session ID from X-Session-ID header. Use as the correlation key for client-side logging and error tracking."
                     }
                   },
                   "required": [
@@ -5727,6 +5733,47 @@
               "application/json": {
                 "schema": {
                   "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "End the current browser session",
+        "tags": [
+          "auth"
+        ],
+        "description": "Sets ended_at on the session row identified by the X-Session-ID header. No JWT required — the FE may have already cleared auth state before calling this.",
+        "responses": {
+          "200": {
+            "description": "Session ended successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Session ended successfully",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing X-Session-ID header",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Missing X-Session-ID header",
                   "$ref": "#/components/schemas/def-0"
                 }
               }

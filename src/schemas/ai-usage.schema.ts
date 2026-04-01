@@ -25,6 +25,13 @@ export const aiUsageLogSchema = {
       nullable: true,
       description: 'Supabase UUID of the user who triggered the AI call',
     },
+    sessionId: {
+      type: 'string',
+      format: 'uuid',
+      nullable: true,
+      description:
+        'Browser session id from X-Session-ID when present — correlates with sessions table for analytics',
+    },
     provider: {
       type: 'string',
       description: 'AI provider used (e.g. anthropic, openai)',

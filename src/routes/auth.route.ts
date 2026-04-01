@@ -4,6 +4,7 @@ import { users, PREFERRED_LANG_VALUES } from '../db/schema.js'
 import { syncAllParticipantsForUser } from '../services/profile-sync.js'
 import { fetchSupabaseUserMetadata } from '../utils/supabase-admin.js'
 import { normalizePhone } from '../utils/phone.js'
+import { endSession } from '../services/session.service.js'
 
 const AUTH_RATE_LIMIT = {
   max: 10,
@@ -38,7 +39,7 @@ export async function authRoutes(fastify: FastifyInstance) {
                 type: 'string',
                 nullable: true,
                 description:
-                  'Supabase session ID — stable across token refreshes, changes on new login. Use this as a correlation key for client-side logging and analytics.',
+                  'Browser session ID from X-Session-ID header. Use as the correlation key for client-side logging and error tracking.',
               },
             },
             required: ['user'],
@@ -274,6 +275,44 @@ export async function authRoutes(fastify: FastifyInstance) {
         )
         return reply.status(500).send({ message: 'Failed to sync profile' })
       }
+    }
+  )
+
+  fastify.post(
+    '/auth/logout',
+    {
+      config: { rateLimit: AUTH_RATE_LIMIT },
+      schema: {
+        tags: ['auth'],
+        summary: 'End the current browser session',
+        description:
+          'Sets ended_at on the session row identified by the X-Session-ID header. No JWT required — the FE may have already cleared auth state before calling this.',
+        response: {
+          200: {
+            description: 'Session ended successfully',
+            type: 'object',
+            properties: {
+              ok: { type: 'boolean' },
+            },
+            required: ['ok'],
+          },
+          400: {
+            description: 'Missing X-Session-ID header',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!request.sessionId) {
+        return reply
+          .status(400)
+          .send({ message: 'Missing X-Session-ID header' })
+      }
+
+      await endSession(fastify.db, request.sessionId)
+
+      return { ok: true }
     }
   )
 }

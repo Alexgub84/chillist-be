@@ -23,6 +23,7 @@ import websocketPlugin, { WebSocketPluginOptions } from './plugins/websocket.js'
 import whatsappPlugin, { WhatsAppPluginOptions } from './plugins/whatsapp.js'
 import aiModelPlugin, { AiModelPluginOptions } from './plugins/ai-model.js'
 import internalAuthPlugin from './plugins/internal-auth.js'
+import sessionPlugin from './plugins/session.js'
 import { aiSuggestionsRoutes } from './routes/ai-suggestions.route.js'
 import { adminAiUsageRoutes } from './routes/admin-ai-usage.route.js'
 import { internalRoutes } from './routes/internal.route.js'
@@ -139,6 +140,7 @@ export async function buildApp(
     await fastify.register(rateLimitPlugin, rateLimitConfig)
   }
 
+  await fastify.register(sessionPlugin)
   await fastify.register(authPlugin, auth ?? {})
   await fastify.register(guestAuthPlugin)
   await fastify.register(whatsappPlugin, whatsapp ?? {})

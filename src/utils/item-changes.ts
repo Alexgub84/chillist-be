@@ -49,6 +49,7 @@ export async function recordItemCreated(
     snapshot: Record<string, unknown>
     changedByUserId?: string | null
     changedByParticipantId?: string | null
+    sessionId?: string | null
   }
 ): Promise<void> {
   try {
@@ -59,6 +60,7 @@ export async function recordItemCreated(
       changes: { snapshot: toSerializable(params.snapshot) },
       changedByUserId: params.changedByUserId ?? null,
       changedByParticipantId: params.changedByParticipantId ?? null,
+      sessionId: params.sessionId ?? null,
     })
   } catch (err) {
     console.error('[item-changes] Failed to record item created:', err)
@@ -74,6 +76,7 @@ export async function recordItemUpdated(
     updates: Partial<Pick<Item, (typeof TRACKED_FIELDS)[number]>>
     changedByUserId?: string | null
     changedByParticipantId?: string | null
+    sessionId?: string | null
   }
 ): Promise<void> {
   const diff = computeItemDiff(params.existing, params.updates)
@@ -92,6 +95,7 @@ export async function recordItemUpdated(
       },
       changedByUserId: params.changedByUserId ?? null,
       changedByParticipantId: params.changedByParticipantId ?? null,
+      sessionId: params.sessionId ?? null,
     })
   } catch (err) {
     console.error('[item-changes] Failed to record item updated:', err)

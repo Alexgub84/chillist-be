@@ -223,9 +223,10 @@ export async function createPlanItems(
     inputs: CreateItemInput[]
     isOwner: boolean
     changedBy: { userId?: string | null; participantId?: string | null }
+    sessionId?: string | null
   }
 ): Promise<{ items: Item[]; errors: BulkItemError[] }> {
-  const { planId, inputs, isOwner, changedBy } = options
+  const { planId, inputs, isOwner, changedBy, sessionId } = options
   const participantIds = await getPlanParticipantIds(db, planId)
   const validValues: Array<{
     planId: string
@@ -260,6 +261,7 @@ export async function createPlanItems(
       snapshot: created as unknown as Record<string, unknown>,
       changedByUserId: changedBy.userId ?? null,
       changedByParticipantId: changedBy.participantId ?? null,
+      sessionId: sessionId ?? null,
     })
   }
   return { items: createdItems, errors }
@@ -291,6 +293,7 @@ export async function processItemUpdate(
     guestParticipantId: string | null
     changedByUserId: string | null
     changedByParticipantId: string | null
+    sessionId?: string | null
   }
 ): Promise<ProcessItemUpdateResult> {
   const {
@@ -301,6 +304,7 @@ export async function processItemUpdate(
     guestParticipantId,
     changedByUserId,
     changedByParticipantId,
+    sessionId,
   } = args
   const itemId = existingItem.itemId
 
@@ -393,6 +397,7 @@ export async function processItemUpdate(
     updates: fieldUpdates,
     changedByUserId,
     changedByParticipantId,
+    sessionId: sessionId ?? null,
   })
 
   return { ok: true, item: finalItem }
