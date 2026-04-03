@@ -93,3 +93,128 @@ export const internalPlansResponseSchema = {
   },
   additionalProperties: false,
 } as const
+
+export const internalPlanDetailParticipantSchema = {
+  $id: 'InternalPlanDetailParticipant',
+  type: 'object',
+  required: ['id', 'name', 'role'],
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    name: { type: 'string' },
+    role: {
+      type: 'string',
+      enum: ['owner', 'participant', 'viewer'],
+    },
+  },
+} as const
+
+export const internalPlanDetailItemSchema = {
+  $id: 'InternalPlanDetailItem',
+  type: 'object',
+  required: ['id', 'name', 'status', 'assignee', 'category'],
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    name: { type: 'string' },
+    status: {
+      type: 'string',
+      enum: ['done', 'pending'],
+      description:
+        'Calling user’s assignment: done if packed or purchased; otherwise pending.',
+    },
+    assignee: {
+      type: 'string',
+      nullable: true,
+      description:
+        'Human-readable assignee label(s); null if unassigned or assign-to-all.',
+    },
+    category: {
+      type: 'string',
+      enum: ['gear', 'food'],
+      description: 'group_equipment and personal_equipment map to gear.',
+    },
+  },
+} as const
+
+export const internalPlanDetailSchema = {
+  $id: 'InternalPlanDetail',
+  type: 'object',
+  required: ['id', 'name', 'date', 'role', 'participants', 'items'],
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    name: { type: 'string' },
+    date: {
+      type: 'string',
+      format: 'date-time',
+      nullable: true,
+      description: 'Plan start date (ISO 8601).',
+    },
+    role: {
+      type: 'string',
+      enum: ['owner', 'participant', 'viewer'],
+    },
+    participants: {
+      type: 'array',
+      items: { $ref: 'InternalPlanDetailParticipant#' },
+    },
+    items: {
+      type: 'array',
+      items: { $ref: 'InternalPlanDetailItem#' },
+    },
+  },
+} as const
+
+export const internalPlanDetailResponseSchema = {
+  $id: 'InternalPlanDetailResponse',
+  type: 'object',
+  description: 'Response for GET /api/internal/plans/:planId.',
+  required: ['plan'],
+  additionalProperties: false,
+  properties: {
+    plan: { $ref: 'InternalPlanDetail#' },
+  },
+} as const
+
+export const internalUpdateItemStatusBodySchema = {
+  $id: 'InternalUpdateItemStatusBody',
+  type: 'object',
+  required: ['status'],
+  additionalProperties: false,
+  properties: {
+    status: {
+      type: 'string',
+      enum: ['done', 'pending'],
+      description:
+        'done maps to purchased; pending maps to pending in assignmentStatusList.',
+    },
+  },
+} as const
+
+export const internalUpdateItemStatusItemSchema = {
+  $id: 'InternalUpdateItemStatusItem',
+  type: 'object',
+  required: ['id', 'name', 'status'],
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    name: { type: 'string' },
+    status: {
+      type: 'string',
+      enum: ['done', 'pending'],
+      description: 'Calling user’s assignment after update.',
+    },
+  },
+} as const
+
+export const internalUpdateItemStatusResponseSchema = {
+  $id: 'InternalUpdateItemStatusResponse',
+  type: 'object',
+  description: 'Response for PATCH /api/internal/items/:itemId/status.',
+  required: ['item'],
+  additionalProperties: false,
+  properties: {
+    item: { $ref: 'InternalUpdateItemStatusItem#' },
+  },
+} as const

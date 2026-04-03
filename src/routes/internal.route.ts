@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { eq, inArray, count } from 'drizzle-orm'
+import { and, eq, inArray, count } from 'drizzle-orm'
 import { resolveUserByPhone } from '../services/internal-auth.service.js'
 import { normalizePhone } from '../utils/phone.js'
 import { plans, participants, items } from '../db/schema.js'
@@ -16,6 +16,69 @@ function isItemCompleted(
     assignmentStatusList.length > 0 &&
     assignmentStatusList.every((a) => COMPLETED_STATUSES.includes(a.status))
   )
+}
+
+function participantLabel(p: {
+  displayName: string | null
+  name: string
+  lastName: string
+}): string {
+  const d = p.displayName?.trim()
+  if (d) return d
+  return `${p.name} ${p.lastName}`.trim()
+}
+
+function itemCategoryToInternal(
+  cat: 'group_equipment' | 'personal_equipment' | 'food'
+): 'gear' | 'food' {
+  return cat === 'food' ? 'food' : 'gear'
+}
+
+function userItemStatus(
+  assignmentStatusList: Array<{ participantId: string; status: ItemStatus }>,
+  userParticipantId: string
+): 'done' | 'pending' {
+  const mine = assignmentStatusList.find(
+    (a) => a.participantId === userParticipantId
+  )
+  if (!mine) return 'pending'
+  if (mine.status === 'packed' || mine.status === 'purchased') return 'done'
+  return 'pending'
+}
+
+function upsertAssignment(
+  list: Array<{ participantId: string; status: ItemStatus }>,
+  participantId: string,
+  status: ItemStatus
+): Array<{ participantId: string; status: ItemStatus }> {
+  const next = [...list]
+  const idx = next.findIndex((a) => a.participantId === participantId)
+  if (idx >= 0) next[idx] = { participantId, status }
+  else next.push({ participantId, status })
+  return next
+}
+
+function assigneeLabel(
+  isAllParticipants: boolean,
+  assignmentStatusList: Array<{ participantId: string; status: ItemStatus }>,
+  participantById: Map<
+    string,
+    { displayName: string | null; name: string; lastName: string }
+  >
+): string | null {
+  if (isAllParticipants) return null
+  if (assignmentStatusList.length === 0) return null
+  const labels: string[] = []
+  const seen = new Set<string>()
+  for (const a of assignmentStatusList) {
+    const row = participantById.get(a.participantId)
+    if (!row) continue
+    const label = participantLabel(row)
+    if (seen.has(label)) continue
+    seen.add(label)
+    labels.push(label)
+  }
+  return labels.length === 0 ? null : labels.join(', ')
 }
 
 export async function internalRoutes(fastify: FastifyInstance) {
@@ -164,6 +227,181 @@ export async function internalRoutes(fastify: FastifyInstance) {
         'Internal plans retrieved'
       )
       return { plans: result }
+    }
+  )
+
+  fastify.get(
+    '/plans/:planId',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Plan details for chatbot',
+        description:
+          'Returns plan metadata, participants, and items. Requires x-service-key and x-user-id. Items reflect the calling user’s assignment row.',
+        params: { $ref: 'PlanIdParam#' },
+        response: {
+          200: { $ref: 'InternalPlanDetailResponse#' },
+          401: { $ref: 'ErrorResponse#' },
+          403: { $ref: 'ErrorResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+      const { planId } = request.params as { planId: string }
+
+      const [planRow] = await fastify.db
+        .select()
+        .from(plans)
+        .where(eq(plans.planId, planId))
+
+      if (!planRow) {
+        return reply.code(404).send({ message: 'Plan not found' })
+      }
+
+      const [userParticipant] = await fastify.db
+        .select()
+        .from(participants)
+        .where(
+          and(eq(participants.planId, planId), eq(participants.userId, userId))
+        )
+        .limit(1)
+
+      if (!userParticipant) {
+        return reply.code(403).send({ message: 'Access denied' })
+      }
+
+      const planParticipants = await fastify.db
+        .select()
+        .from(participants)
+        .where(eq(participants.planId, planId))
+
+      const participantById = new Map(
+        planParticipants.map((p) => [p.participantId, p])
+      )
+
+      const planItems = await fastify.db
+        .select()
+        .from(items)
+        .where(eq(items.planId, planId))
+
+      const participantPayload = planParticipants.map((p) => ({
+        id: p.participantId,
+        name: participantLabel(p),
+        role: p.role,
+      }))
+
+      const itemsPayload = planItems.map((it) => ({
+        id: it.itemId,
+        name: it.name,
+        status: userItemStatus(
+          it.assignmentStatusList,
+          userParticipant.participantId
+        ),
+        assignee: assigneeLabel(
+          it.isAllParticipants,
+          it.assignmentStatusList,
+          participantById
+        ),
+        category: itemCategoryToInternal(it.category),
+      }))
+
+      request.log.info({ planId, userId }, 'Internal plan detail retrieved')
+
+      return {
+        plan: {
+          id: planRow.planId,
+          name: planRow.title,
+          date: planRow.startDate ? planRow.startDate.toISOString() : null,
+          role: userParticipant.role,
+          participants: participantPayload,
+          items: itemsPayload,
+        },
+      }
+    }
+  )
+
+  fastify.patch(
+    '/items/:itemId/status',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Update item assignment status for chatbot user',
+        description:
+          'Upserts the calling user’s assignmentStatusList entry. done maps to purchased.',
+        params: { $ref: 'ItemIdParam#' },
+        body: { $ref: 'InternalUpdateItemStatusBody#' },
+        response: {
+          200: { $ref: 'InternalUpdateItemStatusResponse#' },
+          401: { $ref: 'ErrorResponse#' },
+          403: { $ref: 'ErrorResponse#' },
+          404: { $ref: 'ErrorResponse#' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+      const { itemId } = request.params as { itemId: string }
+      const { status } = request.body as { status: 'done' | 'pending' }
+
+      const [itemRow] = await fastify.db
+        .select()
+        .from(items)
+        .where(eq(items.itemId, itemId))
+
+      if (!itemRow) {
+        return reply.code(404).send({ message: 'Item not found' })
+      }
+
+      const [userParticipant] = await fastify.db
+        .select()
+        .from(participants)
+        .where(
+          and(
+            eq(participants.planId, itemRow.planId),
+            eq(participants.userId, userId)
+          )
+        )
+        .limit(1)
+
+      if (!userParticipant) {
+        return reply.code(403).send({ message: 'Access denied' })
+      }
+
+      const nextStatus: ItemStatus = status === 'done' ? 'purchased' : 'pending'
+
+      const newList = upsertAssignment(
+        itemRow.assignmentStatusList,
+        userParticipant.participantId,
+        nextStatus
+      )
+
+      await fastify.db
+        .update(items)
+        .set({
+          assignmentStatusList: newList,
+          updatedAt: new Date(),
+        })
+        .where(eq(items.itemId, itemId))
+
+      const viewStatus = userItemStatus(newList, userParticipant.participantId)
+
+      request.log.info({ itemId, userId }, 'Internal item status updated')
+
+      return {
+        item: {
+          id: itemRow.itemId,
+          name: itemRow.name,
+          status: viewStatus,
+        },
+      }
     }
   )
 }
