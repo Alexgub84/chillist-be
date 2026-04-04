@@ -1,13 +1,52 @@
 import { FastifyInstance } from 'fastify'
-import { eq, inArray, count } from 'drizzle-orm'
+import { eq, inArray, count, and, asc } from 'drizzle-orm'
 import { resolveUserByPhone } from '../services/internal-auth.service.js'
+import { persistAssignments } from '../services/item.service.js'
 import { normalizePhone } from '../utils/phone.js'
 import { plans, participants, items } from '../db/schema.js'
-import type { ItemStatus } from '../db/schema.js'
+import type { ItemCategory, ItemStatus } from '../db/schema.js'
 
 const INTERNAL_RATE_LIMIT = { max: 30, timeWindow: '1 minute' }
 
 const COMPLETED_STATUSES: ItemStatus[] = ['packed', 'purchased']
+
+function participantDisplayName(p: {
+  displayName: string | null
+  name: string
+  lastName: string
+}): string {
+  const trimmed = p.displayName?.trim()
+  if (trimmed) return trimmed
+  return `${p.name} ${p.lastName}`.trim()
+}
+
+function mapInternalCategory(category: ItemCategory): 'gear' | 'food' {
+  return category === 'food' ? 'food' : 'gear'
+}
+
+function chatbotItemStatus(
+  assignmentStatusList: Array<{ participantId: string; status: ItemStatus }>,
+  myParticipantId: string
+): 'done' | 'pending' {
+  const entry = assignmentStatusList.find(
+    (a) => a.participantId === myParticipantId
+  )
+  if (!entry) return 'pending'
+  return COMPLETED_STATUSES.includes(entry.status) ? 'done' : 'pending'
+}
+
+function assigneeLabel(
+  assignmentStatusList: Array<{ participantId: string; status: ItemStatus }>,
+  isAllParticipants: boolean,
+  nameByParticipantId: Map<string, string>
+): string | null {
+  if (isAllParticipants || assignmentStatusList.length === 0) return null
+  const labels = assignmentStatusList
+    .map((a) => nameByParticipantId.get(a.participantId) ?? '')
+    .filter(Boolean)
+  if (labels.length === 0) return null
+  return labels.join(', ')
+}
 
 function isItemCompleted(
   assignmentStatusList: Array<{ participantId: string; status: ItemStatus }>
@@ -164,6 +203,281 @@ export async function internalRoutes(fastify: FastifyInstance) {
         'Internal plans retrieved'
       )
       return { plans: result }
+    }
+  )
+
+  fastify.get(
+    '/plans/:planId',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Get full plan detail for chatbot',
+        description:
+          'Returns plan metadata, all participants, and all items with chatbot-facing fields. Requires x-service-key and x-user-id. Caller must be a participants row for this plan. Item status reflects the calling user only.',
+        params: { $ref: 'PlanIdParam#' },
+        response: {
+          200: {
+            description: 'Plan with participants and items',
+            $ref: 'InternalPlanDetailResponse#',
+          },
+          401: {
+            description: 'Missing x-user-id or invalid x-service-key',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description: 'User is not a participant on this plan',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Plan not found',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Unexpected error while loading plan',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+
+      const { planId } = request.params as { planId: string }
+
+      const [planRow] = await fastify.db
+        .select({
+          planId: plans.planId,
+          title: plans.title,
+          startDate: plans.startDate,
+        })
+        .from(plans)
+        .where(eq(plans.planId, planId))
+        .limit(1)
+
+      if (!planRow) {
+        request.log.warn({ planId }, 'Internal plan detail — plan not found')
+        return reply.code(404).send({ message: 'Plan not found' })
+      }
+
+      const [callerParticipant] = await fastify.db
+        .select({
+          participantId: participants.participantId,
+          role: participants.role,
+        })
+        .from(participants)
+        .where(
+          and(eq(participants.planId, planId), eq(participants.userId, userId))
+        )
+        .limit(1)
+
+      if (!callerParticipant) {
+        request.log.warn(
+          { planId, userId },
+          'Internal plan detail — user not a participant'
+        )
+        return reply
+          .code(403)
+          .send({ message: 'User is not a participant on this plan' })
+      }
+
+      const planParticipantRows = await fastify.db
+        .select({
+          participantId: participants.participantId,
+          name: participants.name,
+          lastName: participants.lastName,
+          displayName: participants.displayName,
+          role: participants.role,
+        })
+        .from(participants)
+        .where(eq(participants.planId, planId))
+        .orderBy(asc(participants.createdAt))
+
+      const nameByParticipantId = new Map<string, string>()
+      for (const p of planParticipantRows) {
+        nameByParticipantId.set(p.participantId, participantDisplayName(p))
+      }
+
+      const itemRows = await fastify.db
+        .select({
+          itemId: items.itemId,
+          name: items.name,
+          category: items.category,
+          isAllParticipants: items.isAllParticipants,
+          assignmentStatusList: items.assignmentStatusList,
+        })
+        .from(items)
+        .where(eq(items.planId, planId))
+        .orderBy(asc(items.createdAt))
+
+      const participantPayload = planParticipantRows.map((p) => ({
+        id: p.participantId,
+        name: participantDisplayName(p),
+        role: p.role,
+      }))
+
+      const itemPayload = itemRows.map((row) => ({
+        id: row.itemId,
+        name: row.name,
+        status: chatbotItemStatus(
+          row.assignmentStatusList,
+          callerParticipant.participantId
+        ),
+        assignee: assigneeLabel(
+          row.assignmentStatusList,
+          row.isAllParticipants,
+          nameByParticipantId
+        ),
+        category: mapInternalCategory(row.category),
+      }))
+
+      request.log.info({ planId, userId }, 'Internal plan detail retrieved')
+
+      return {
+        plan: {
+          id: planRow.planId,
+          name: planRow.title,
+          date: planRow.startDate ? planRow.startDate.toISOString() : null,
+          role: callerParticipant.role,
+          participants: participantPayload,
+          items: itemPayload,
+        },
+      }
+    }
+  )
+
+  fastify.patch(
+    '/items/:itemId/status',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Upsert calling user item status',
+        description:
+          'Upserts the calling user entry in assignmentStatusList. done maps to purchased; pending maps to pending. Caller must be a participant on the item plan.',
+        params: { $ref: 'ItemIdParam#' },
+        body: { $ref: 'InternalUpdateItemStatusBody#' },
+        response: {
+          200: {
+            description: 'Updated item id, name, and chatbot status',
+            $ref: 'InternalUpdateItemStatusResponse#',
+          },
+          400: {
+            description: 'Validation error',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description: 'Missing x-user-id or invalid x-service-key',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description: 'User is not a participant on the item plan',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Item not found',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Unexpected error while updating item',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+
+      const { itemId } = request.params as { itemId: string }
+      const { status: chatbotStatus } = request.body as {
+        status: 'done' | 'pending'
+      }
+
+      const [itemRow] = await fastify.db
+        .select({
+          itemId: items.itemId,
+          planId: items.planId,
+          name: items.name,
+          assignmentStatusList: items.assignmentStatusList,
+          isAllParticipants: items.isAllParticipants,
+        })
+        .from(items)
+        .where(eq(items.itemId, itemId))
+        .limit(1)
+
+      if (!itemRow) {
+        request.log.warn({ itemId }, 'Internal item status — item not found')
+        return reply.code(404).send({ message: 'Item not found' })
+      }
+
+      const [callerParticipant] = await fastify.db
+        .select({ participantId: participants.participantId })
+        .from(participants)
+        .where(
+          and(
+            eq(participants.planId, itemRow.planId),
+            eq(participants.userId, userId)
+          )
+        )
+        .limit(1)
+
+      if (!callerParticipant) {
+        request.log.warn(
+          { itemId, planId: itemRow.planId, userId },
+          'Internal item status — user not a participant'
+        )
+        return reply
+          .code(403)
+          .send({ message: 'User is not a participant on this plan' })
+      }
+
+      const dbStatus: ItemStatus =
+        chatbotStatus === 'done' ? 'purchased' : 'pending'
+
+      const nextList = [...itemRow.assignmentStatusList]
+      const idx = nextList.findIndex(
+        (a) => a.participantId === callerParticipant.participantId
+      )
+      if (idx >= 0) {
+        nextList[idx] = {
+          participantId: callerParticipant.participantId,
+          status: dbStatus,
+        }
+      } else {
+        nextList.push({
+          participantId: callerParticipant.participantId,
+          status: dbStatus,
+        })
+      }
+
+      await persistAssignments(
+        fastify.db,
+        itemId,
+        nextList,
+        itemRow.isAllParticipants
+      )
+
+      const responseStatus = chatbotItemStatus(
+        nextList,
+        callerParticipant.participantId
+      )
+
+      request.log.info(
+        { itemId, userId, responseStatus },
+        'Internal item status updated'
+      )
+
+      return {
+        item: {
+          id: itemRow.itemId,
+          name: itemRow.name,
+          status: responseStatus,
+        },
+      }
     }
   )
 }

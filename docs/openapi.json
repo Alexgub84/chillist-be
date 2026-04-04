@@ -918,7 +918,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-74"
+                "$ref": "#/components/schemas/def-81"
               },
               {
                 "type": "null"
@@ -1015,7 +1015,7 @@
             "type": "string"
           },
           "dietaryMembers": {
-            "$ref": "#/components/schemas/def-74",
+            "$ref": "#/components/schemas/def-81",
             "description": "Per-person dietary preferences. Optional on create — send to populate structured dietary data for the participant group."
           },
           "notes": {
@@ -1092,7 +1092,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-74"
+                "$ref": "#/components/schemas/def-81"
               },
               {
                 "type": "null"
@@ -1359,7 +1359,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-74"
+                "$ref": "#/components/schemas/def-81"
               },
               {
                 "type": "null"
@@ -1517,7 +1517,7 @@
             "type": "string"
           },
           "dietaryMembers": {
-            "$ref": "#/components/schemas/def-74",
+            "$ref": "#/components/schemas/def-81",
             "description": "Per-person dietary preferences for this join request. Optional — carried through to the participant record on approval."
           },
           "notes": {
@@ -1617,7 +1617,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-74"
+                "$ref": "#/components/schemas/def-81"
               },
               {
                 "type": "null"
@@ -1784,7 +1784,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-74"
+                "$ref": "#/components/schemas/def-81"
               },
               {
                 "type": "null"
@@ -1852,7 +1852,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-74"
+                "$ref": "#/components/schemas/def-81"
               },
               {
                 "type": "null"
@@ -2815,6 +2815,213 @@
       },
       "def-73": {
         "type": "object",
+        "description": "Participant row in internal plan detail.",
+        "required": [
+          "id",
+          "name",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Participant UUID."
+          },
+          "name": {
+            "type": "string",
+            "description": "displayName if set, otherwise first name plus last name."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "participant",
+              "viewer"
+            ],
+            "description": "Participant role on the plan."
+          }
+        },
+        "additionalProperties": false,
+        "title": "InternalPlanDetailParticipant"
+      },
+      "def-74": {
+        "type": "object",
+        "description": "Item row for chatbot. status reflects the calling user only. category maps DB enums to gear or food.",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "assignee",
+          "category"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Item UUID."
+          },
+          "name": {
+            "type": "string",
+            "description": "Item name."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "done",
+              "pending"
+            ],
+            "description": "Calling user assignment: done if packed or purchased, else pending (including no entry)."
+          },
+          "assignee": {
+            "type": "string",
+            "nullable": true,
+            "description": "Display names of assignees from assignmentStatusList, or null if isAllParticipants or list empty."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "gear",
+              "food"
+            ],
+            "description": "group_equipment and personal_equipment map to gear."
+          }
+        },
+        "additionalProperties": false,
+        "title": "InternalPlanDetailItem"
+      },
+      "def-75": {
+        "type": "object",
+        "description": "Full plan for chatbot context.",
+        "required": [
+          "id",
+          "name",
+          "date",
+          "role",
+          "participants",
+          "items"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Plan UUID."
+          },
+          "name": {
+            "type": "string",
+            "description": "Plan title."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Plan start date ISO 8601, or null."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "participant",
+              "viewer"
+            ],
+            "description": "Calling user role on this plan."
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-73"
+            },
+            "description": "All participants on the plan."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-74"
+            },
+            "description": "All items on the plan."
+          }
+        },
+        "additionalProperties": false,
+        "title": "InternalPlanDetail"
+      },
+      "def-76": {
+        "type": "object",
+        "description": "Response for GET /api/internal/plans/:planId.",
+        "required": [
+          "plan"
+        ],
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/def-75"
+          }
+        },
+        "additionalProperties": false,
+        "title": "InternalPlanDetailResponse"
+      },
+      "def-77": {
+        "type": "object",
+        "description": "Chatbot status: done maps to purchased in assignmentStatusList; pending maps to pending.",
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "done",
+              "pending"
+            ],
+            "description": "Target status for the calling user on this item."
+          }
+        },
+        "title": "InternalUpdateItemStatusBody"
+      },
+      "def-78": {
+        "type": "object",
+        "description": "Item snippet after status update.",
+        "required": [
+          "id",
+          "name",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Item UUID."
+          },
+          "name": {
+            "type": "string",
+            "description": "Item name."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "done",
+              "pending"
+            ],
+            "description": "Chatbot vocabulary after update."
+          }
+        },
+        "additionalProperties": false,
+        "title": "InternalUpdateItemStatusItem"
+      },
+      "def-79": {
+        "type": "object",
+        "description": "Response for PATCH /api/internal/items/:itemId/status.",
+        "required": [
+          "item"
+        ],
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/def-78"
+          }
+        },
+        "additionalProperties": false,
+        "title": "InternalUpdateItemStatusResponse"
+      },
+      "def-80": {
+        "type": "object",
         "properties": {
           "type": {
             "type": "string",
@@ -2873,13 +3080,13 @@
         ],
         "title": "DietaryMember"
       },
-      "def-74": {
+      "def-81": {
         "type": "object",
         "properties": {
           "members": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-73"
+              "$ref": "#/components/schemas/def-80"
             },
             "description": "Per-person dietary data for each adult/kid in this participant group. Each entry has a type (adult|kid), a 0-based index within that type, a single diet preference, and an allergies list."
           }
@@ -2889,7 +3096,7 @@
         ],
         "title": "DietaryMembersBody"
       },
-      "def-75": {
+      "def-82": {
         "type": "object",
         "required": [
           "name",
@@ -2940,7 +3147,7 @@
         },
         "title": "AiSuggestionItem"
       },
-      "def-76": {
+      "def-83": {
         "type": "object",
         "required": [
           "suggestions"
@@ -2949,13 +3156,13 @@
           "suggestions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-75"
+              "$ref": "#/components/schemas/def-82"
             }
           }
         },
         "title": "AiSuggestionsResponse"
       },
-      "def-77": {
+      "def-84": {
         "type": "object",
         "properties": {
           "id": {
@@ -3092,14 +3299,14 @@
         ],
         "title": "AiUsageLog"
       },
-      "def-78": {
+      "def-85": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-77"
+          "$ref": "#/components/schemas/def-84"
         },
         "title": "AiUsageLogList"
       },
-      "def-79": {
+      "def-86": {
         "type": "object",
         "properties": {
           "featureType": {
@@ -3122,7 +3329,7 @@
         ],
         "title": "AiUsageFeatureSummary"
       },
-      "def-80": {
+      "def-87": {
         "type": "object",
         "properties": {
           "modelId": {
@@ -3145,7 +3352,7 @@
         ],
         "title": "AiUsageModelSummary"
       },
-      "def-81": {
+      "def-88": {
         "type": "object",
         "properties": {
           "totalRequests": {
@@ -3168,13 +3375,13 @@
           "byFeature": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-79"
+              "$ref": "#/components/schemas/def-86"
             }
           },
           "byModel": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-80"
+              "$ref": "#/components/schemas/def-87"
             }
           }
         },
@@ -3187,7 +3394,7 @@
         ],
         "title": "AiUsageSummary"
       },
-      "def-82": {
+      "def-89": {
         "type": "object",
         "properties": {
           "planId": {
@@ -3242,19 +3449,19 @@
         },
         "title": "AiUsageQuery"
       },
-      "def-83": {
+      "def-90": {
         "type": "object",
         "description": "Paginated AI usage logs with aggregated summary. Admin only.",
         "properties": {
           "logs": {
-            "$ref": "#/components/schemas/def-78"
+            "$ref": "#/components/schemas/def-85"
           },
           "total": {
             "type": "integer",
             "description": "Total count of records matching filters (for pagination)"
           },
           "summary": {
-            "$ref": "#/components/schemas/def-81"
+            "$ref": "#/components/schemas/def-88"
           }
         },
         "required": [
@@ -6625,7 +6832,7 @@
               "application/json": {
                 "schema": {
                   "description": "AI-generated item suggestions",
-                  "$ref": "#/components/schemas/def-76"
+                  "$ref": "#/components/schemas/def-83"
                 }
               }
             }
@@ -6782,7 +6989,7 @@
               "application/json": {
                 "schema": {
                   "description": "Paginated logs, total count for the current filters, and summary aggregates",
-                  "$ref": "#/components/schemas/def-83"
+                  "$ref": "#/components/schemas/def-90"
                 }
               }
             }
@@ -6912,6 +7119,180 @@
               "application/json": {
                 "schema": {
                   "description": "Unexpected error while loading plans",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/plans/{planId}": {
+      "get": {
+        "summary": "Get full plan detail for chatbot",
+        "tags": [
+          "internal"
+        ],
+        "description": "Returns plan metadata, all participants, and all items with chatbot-facing fields. Requires x-service-key and x-user-id. Caller must be a participants row for this plan. Item status reflects the calling user only.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan with participants and items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan with participants and items",
+                  "$ref": "#/components/schemas/def-76"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing x-user-id or invalid x-service-key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Missing x-user-id or invalid x-service-key",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User is not a participant on this plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "User is not a participant on this plan",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Plan not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error while loading plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Unexpected error while loading plan",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/items/{itemId}/status": {
+      "patch": {
+        "summary": "Upsert calling user item status",
+        "tags": [
+          "internal"
+        ],
+        "description": "Upserts the calling user entry in assignmentStatusList. done maps to purchased; pending maps to pending. Caller must be a participant on the item plan.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-77"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "itemId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated item id, name, and chatbot status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Updated item id, name, and chatbot status",
+                  "$ref": "#/components/schemas/def-79"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing x-user-id or invalid x-service-key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Missing x-user-id or invalid x-service-key",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User is not a participant on the item plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "User is not a participant on the item plan",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Item not found",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error while updating item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Unexpected error while updating item",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
