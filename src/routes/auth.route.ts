@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { FastifyInstance } from 'fastify'
 import { users, PREFERRED_LANG_VALUES } from '../db/schema.js'
 import { syncAllParticipantsForUser } from '../services/profile-sync.js'
+import { syncContactPhoneForAllUserParticipants } from '../services/phone-sync.js'
 import { fetchSupabaseUserMetadata } from '../utils/supabase-admin.js'
 import { normalizePhone } from '../utils/phone.js'
 import { endSession } from '../services/session.service.js'
@@ -114,7 +115,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         tags: ['auth'],
         summary: 'Update user preferences',
         description:
-          "Creates or updates the authenticated user's app preferences. Returns 401 if no valid JWT is provided.",
+          "Creates or updates the authenticated user's app preferences. When `phone` is set, the value is normalized to E.164 and written to `users.phone`, and all `participants.contact_phone` rows for this user are updated to match. Returns 401 if no valid JWT is provided.",
         body: { $ref: 'UpdateProfileBody#' },
         response: {
           200: {
@@ -188,6 +189,14 @@ export async function authRoutes(fastify: FastifyInstance) {
           },
         })
         .returning()
+
+      if (body.phone !== undefined && normalizedPhone != null) {
+        await syncContactPhoneForAllUserParticipants(
+          fastify.db,
+          request.user.id,
+          normalizedPhone
+        )
+      }
 
       return {
         preferences: {

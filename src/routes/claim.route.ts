@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify'
 import { eq, and } from 'drizzle-orm'
 import { participants, users } from '../db/schema.js'
 import { buildIdentityFields } from '../services/profile-sync.js'
+import { bootstrapUsersPhoneIfNull } from '../services/phone-sync.js'
+import { normalizePhone } from '../utils/phone.js'
 
 export async function claimRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { planId: string; inviteToken: string } }>(
@@ -132,6 +134,20 @@ export async function claimRoutes(fastify: FastifyInstance) {
               updateFields.allergies = defaults.allergies
             }
           }
+        }
+
+        const [userRow] = await fastify.db
+          .select()
+          .from(users)
+          .where(eq(users.userId, userId))
+          .limit(1)
+
+        if (userRow?.phone) {
+          updateFields.contactPhone = normalizePhone(userRow.phone)
+        } else if (participant.contactPhone) {
+          const normalized = normalizePhone(participant.contactPhone)
+          await bootstrapUsersPhoneIfNull(fastify.db, userId, normalized)
+          updateFields.contactPhone = normalized
         }
 
         const [updated] = await fastify.db

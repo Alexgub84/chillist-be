@@ -12,6 +12,7 @@ import {
   getTestIssuer,
   signTestJwt,
 } from '../helpers/auth.js'
+import { eq } from 'drizzle-orm'
 import { Database } from '../../src/db/index.js'
 import { participants, plans, users } from '../../src/db/schema.js'
 
@@ -188,6 +189,23 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
       expect(response.statusCode).toBe(404)
       expect(response.json()).toMatchObject({ message: 'User not found' })
     })
+
+    it('returns 404 when users.phone is null even if participant has matching contact_phone', async () => {
+      await db
+        .update(users)
+        .set({ phone: null })
+        .where(eq(users.userId, REGISTERED_USER_ID))
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/internal/auth/identify',
+        headers: { 'x-service-key': VALID_SERVICE_KEY },
+        payload: { phoneNumber: REGISTERED_PHONE },
+      })
+
+      expect(response.statusCode).toBe(404)
+      expect(response.json()).toMatchObject({ message: 'User not found' })
+    })
   })
 
   describe('Phone normalization', () => {
@@ -265,7 +283,7 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
         planId: plan.planId,
         name: 'Jane',
         lastName: 'Doe',
-        contactPhone: E2E_PHONE,
+        contactPhone: '+10000000001',
         userId: E2E_USER_ID,
         inviteStatus: 'accepted',
       })
@@ -280,6 +298,13 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
       })
       expect(patchResp.statusCode).toBe(200)
       expect(patchResp.json().preferences.phone).toBe(E2E_PHONE)
+
+      const [pRow] = await db
+        .select({ contactPhone: participants.contactPhone })
+        .from(participants)
+        .where(eq(participants.userId, E2E_USER_ID))
+        .limit(1)
+      expect(pRow?.contactPhone).toBe(E2E_PHONE)
 
       const identifyResp = await app.inject({
         method: 'POST',

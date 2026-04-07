@@ -11,6 +11,8 @@ import * as schema from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
 import { syncParticipantFromJwt } from '../services/profile-sync.js'
+import { bootstrapUsersPhoneIfNull } from '../services/phone-sync.js'
+import { normalizePhone } from '../utils/phone.js'
 
 function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
@@ -181,6 +183,12 @@ export async function plansRoutes(fastify: FastifyInstance) {
             .set({ ownerParticipantId: ownerParticipant.participantId })
             .where(eq(plans.planId, createdPlan.planId))
             .returning()
+
+          await bootstrapUsersPhoneIfNull(
+            tx,
+            authenticatedUserId,
+            normalizePhone(owner.contactPhone)
+          )
 
           return {
             ...updatedPlan,
