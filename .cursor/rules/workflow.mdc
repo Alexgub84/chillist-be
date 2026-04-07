@@ -32,6 +32,10 @@ Before writing any code, FIRST use the Read tool on ALL of these files:
 Read the docs FIRST, then explore the specific files in this repo that are relevant to the task.
 Do NOT scan the entire codebase upfront - only look at files directly related to the work.
 
+# Planning
+
+**When entering Plan mode or asked to plan anything**, follow `.cursor/rules/plan-mode.mdc` — it enforces the mandatory pre-plan gate and references the full planning guide at `../chillist-docs/guides/planning.md`.
+
 # Before Committing
 
 Always do the following before committing:
