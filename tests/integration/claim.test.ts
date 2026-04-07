@@ -115,8 +115,40 @@ describe('POST /plans/:planId/claim/:inviteToken', () => {
     expect(body.name).toBe('Bob')
     expect(body.lastName).toBe('Smith')
     expect(body.contactEmail).toBe('bob@example.com')
-    expect(body.contactPhone).toBe('+15559990000')
+    expect(body.contactPhone).toBe('+15550000001')
     expect(body.avatarUrl).toBe('https://example.com/avatar.jpg')
+
+    const [u] = await db
+      .select({ phone: users.phone })
+      .from(users)
+      .where(eq(users.userId, USER_A_ID))
+    expect(u?.phone).toBe('+15550000001')
+  })
+
+  it('overwrites participant contact_phone with users.phone when the profile row exists', async () => {
+    const { plan, inviteToken } = await createPlanWithParticipant(db)
+    await db.insert(users).values({
+      userId: USER_A_ID,
+      phone: '+15559990000',
+    })
+
+    const jwt = await signTestJwt({
+      sub: USER_A_ID,
+      user_metadata: {
+        first_name: 'Bob',
+        last_name: 'Smith',
+        phone: '+15551111111',
+      },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/plans/${plan.planId}/claim/${inviteToken}`,
+      headers: { authorization: `Bearer ${jwt}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().contactPhone).toBe('+15559990000')
   })
 
   it('parses full_name from Google OAuth into firstName and lastName', async () => {

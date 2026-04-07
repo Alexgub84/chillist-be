@@ -16,6 +16,8 @@ import {
   joinRequestRejectedMessage,
 } from '../services/whatsapp/messages.js'
 import { fireAndForgetNotification } from '../services/whatsapp/notify.js'
+import { bootstrapUsersPhoneIfNull } from '../services/phone-sync.js'
+import { normalizePhone } from '../utils/phone.js'
 
 interface CreateJoinRequestBody {
   name: string
@@ -179,6 +181,12 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
             sessionId: request.sessionId ?? null,
           })
           .returning()
+
+        await bootstrapUsersPhoneIfNull(
+          fastify.db,
+          userId,
+          normalizePhone(body.contactPhone)
+        )
 
         request.log.info(
           { planId, userId, requestId: created.requestId },

@@ -5860,7 +5860,7 @@
         "tags": [
           "auth"
         ],
-        "description": "Creates or updates the authenticated user's app preferences. Returns 401 if no valid JWT is provided.",
+        "description": "Creates or updates the authenticated user's app preferences. When `phone` is set, the value is normalized to E.164 and written to `users.phone`, and all `participants.contact_phone` rows for this user are updated to match. Returns 401 if no valid JWT is provided.",
         "requestBody": {
           "content": {
             "application/json": {
