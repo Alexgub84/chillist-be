@@ -250,6 +250,9 @@ export async function adminChatbotAiUsageRoutes(fastify: FastifyInstance) {
 
         return reply.status(500).send({
           message: 'Failed to retrieve chatbot AI usage',
+          ...(process.env.NODE_ENV !== 'production' && {
+            detail: String(error),
+          }),
         })
       }
     }
