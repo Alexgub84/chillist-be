@@ -3470,6 +3470,327 @@
           "summary"
         ],
         "title": "AiUsageResponse"
+      },
+      "def-91": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Primary key of this chatbot AI usage row"
+          },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Chatbot session identifier"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Supabase user id when known"
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Plan id when the call is plan-related"
+          },
+          "provider": {
+            "type": "string",
+            "description": "AI provider (e.g. anthropic)"
+          },
+          "modelId": {
+            "type": "string",
+            "description": "Model id from the provider"
+          },
+          "lang": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO 639-1 language code when set"
+          },
+          "chatType": {
+            "type": "string",
+            "enum": [
+              "dm",
+              "group"
+            ],
+            "description": "Whether the chatbot turn was DM or group"
+          },
+          "messageIndex": {
+            "type": "integer",
+            "description": "Zero-based message index within the session"
+          },
+          "stepCount": {
+            "type": "integer",
+            "description": "Number of agentic steps"
+          },
+          "toolCalls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "Tool names invoked in this turn"
+          },
+          "toolCallCount": {
+            "type": "integer",
+            "description": "Total tool calls in this turn"
+          },
+          "inputTokens": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Input tokens"
+          },
+          "outputTokens": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Output tokens"
+          },
+          "totalTokens": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Total tokens when reported by the provider"
+          },
+          "estimatedCost": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated cost in USD as a decimal string; null if pricing unknown"
+          },
+          "durationMs": {
+            "type": "integer",
+            "description": "Wall-clock duration of the AI call in milliseconds"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error"
+            ],
+            "description": "Whether the call completed successfully"
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Error message when status is error"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When this row was written"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "modelId",
+          "chatType",
+          "messageIndex",
+          "stepCount",
+          "toolCallCount",
+          "durationMs",
+          "status",
+          "createdAt"
+        ],
+        "title": "ChatbotAiUsageLog"
+      },
+      "def-92": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/def-91"
+        },
+        "title": "ChatbotAiUsageLogList"
+      },
+      "def-93": {
+        "type": "object",
+        "properties": {
+          "modelId": {
+            "type": "string",
+            "description": "Model id"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of rows for this model within the filter"
+          },
+          "totalCost": {
+            "type": "number",
+            "nullable": true,
+            "description": "Sum of estimated costs for this model (USD)"
+          }
+        },
+        "required": [
+          "modelId",
+          "count"
+        ],
+        "title": "ChatbotAiUsageModelSummary"
+      },
+      "def-94": {
+        "type": "object",
+        "properties": {
+          "chatType": {
+            "type": "string",
+            "description": "dm or group"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of rows for this chat type within the filter"
+          },
+          "totalCost": {
+            "type": "number",
+            "nullable": true,
+            "description": "Sum of estimated costs (USD)"
+          }
+        },
+        "required": [
+          "chatType",
+          "count"
+        ],
+        "title": "ChatbotAiUsageChatTypeSummary"
+      },
+      "def-95": {
+        "type": "object",
+        "properties": {
+          "toolName": {
+            "type": "string",
+            "description": "Tool name from flattened tool_calls arrays"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Occurrences of this tool name within the filter"
+          }
+        },
+        "required": [
+          "toolName",
+          "count"
+        ],
+        "title": "ChatbotAiUsageToolCallSummary"
+      },
+      "def-96": {
+        "type": "object",
+        "properties": {
+          "totalRequests": {
+            "type": "integer",
+            "description": "Number of chatbot AI rows matching the filters"
+          },
+          "totalInputTokens": {
+            "type": "integer",
+            "description": "Sum of input tokens"
+          },
+          "totalOutputTokens": {
+            "type": "integer",
+            "description": "Sum of output tokens"
+          },
+          "totalEstimatedCost": {
+            "type": "number",
+            "nullable": true,
+            "description": "Sum of estimated costs in USD"
+          },
+          "byModel": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-93"
+            }
+          },
+          "byChatType": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-94"
+            }
+          },
+          "byToolCalls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-95"
+            }
+          }
+        },
+        "required": [
+          "totalRequests",
+          "totalInputTokens",
+          "totalOutputTokens",
+          "byModel",
+          "byChatType",
+          "byToolCalls"
+        ],
+        "title": "ChatbotAiUsageSummary"
+      },
+      "def-97": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Filter by user id"
+          },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Filter by chatbot session id"
+          },
+          "chatType": {
+            "type": "string",
+            "enum": [
+              "dm",
+              "group"
+            ],
+            "description": "Filter by chat type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error"
+            ],
+            "description": "Filter by call status"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Include rows with created_at on or after this instant"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Include rows with created_at on or before this instant"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50,
+            "description": "Page size (max 200)"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Rows to skip"
+          }
+        },
+        "title": "ChatbotAiUsageQuery"
+      },
+      "def-98": {
+        "type": "object",
+        "description": "Paginated chatbot AI usage with aggregates. Admin only. Table is written by the chatbot service.",
+        "properties": {
+          "logs": {
+            "$ref": "#/components/schemas/def-92"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total rows matching filters (for pagination)"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/def-96"
+          }
+        },
+        "required": [
+          "logs",
+          "total",
+          "summary"
+        ],
+        "title": "ChatbotAiUsageResponse"
       }
     }
   },
@@ -6990,6 +7311,152 @@
                 "schema": {
                   "description": "Paginated logs, total count for the current filters, and summary aggregates",
                   "$ref": "#/components/schemas/def-90"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — JWT token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Authentication required — JWT token missing or invalid",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — admin access required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Forbidden — admin access required",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/chatbot-ai-usage": {
+      "get": {
+        "summary": "Admin: list chatbot AI usage with summary",
+        "tags": [
+          "admin"
+        ],
+        "description": "Returns paginated rows from chatbot_ai_usage (newest first), total count for pagination, and aggregates including per-model, per-chat-type, and per-tool-name counts. The underlying table is written by the chatbot service; this route is read-only. Requires admin JWT.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "query",
+            "name": "userId",
+            "required": false,
+            "description": "Filter by user id"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "query",
+            "name": "sessionId",
+            "required": false,
+            "description": "Filter by chatbot session id"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "dm",
+                "group"
+              ]
+            },
+            "in": "query",
+            "name": "chatType",
+            "required": false,
+            "description": "Filter by chat type"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "success",
+                "error"
+              ]
+            },
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "description": "Filter by call status"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "description": "Include rows with created_at on or after this instant"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "description": "Include rows with created_at on or before this instant"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Page size (max 200)"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "description": "Rows to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated logs, total count for filters, and summary aggregates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Paginated logs, total count for filters, and summary aggregates",
+                  "$ref": "#/components/schemas/def-98"
                 }
               }
             }

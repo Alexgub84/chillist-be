@@ -116,6 +116,16 @@ import {
   aiUsageQuerySchema,
   aiUsageResponseSchema,
 } from './ai-usage.schema.js'
+import {
+  chatbotAiUsageLogSchema,
+  chatbotAiUsageLogListSchema,
+  chatbotAiUsageModelSummarySchema,
+  chatbotAiUsageChatTypeSummarySchema,
+  chatbotAiUsageToolCallSummarySchema,
+  chatbotAiUsageSummarySchema,
+  chatbotAiUsageQuerySchema,
+  chatbotAiUsageResponseSchema,
+} from './chatbot-ai-usage.schema.js'
 
 const schemas = [
   errorResponseSchema,
@@ -209,6 +219,14 @@ const schemas = [
   aiUsageSummarySchema,
   aiUsageQuerySchema,
   aiUsageResponseSchema,
+  chatbotAiUsageLogSchema,
+  chatbotAiUsageLogListSchema,
+  chatbotAiUsageModelSummarySchema,
+  chatbotAiUsageChatTypeSummarySchema,
+  chatbotAiUsageToolCallSummarySchema,
+  chatbotAiUsageSummarySchema,
+  chatbotAiUsageQuerySchema,
+  chatbotAiUsageResponseSchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
@@ -231,3 +249,4 @@ export * from './internal.schema.js'
 export * from './dietary.schema.js'
 export * from './ai-suggestions.schema.js'
 export * from './ai-usage.schema.js'
+export * from './chatbot-ai-usage.schema.js'

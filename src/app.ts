@@ -26,6 +26,7 @@ import internalAuthPlugin from './plugins/internal-auth.js'
 import sessionPlugin from './plugins/session.js'
 import { aiSuggestionsRoutes } from './routes/ai-suggestions.route.js'
 import { adminAiUsageRoutes } from './routes/admin-ai-usage.route.js'
+import { adminChatbotAiUsageRoutes } from './routes/admin-chatbot-ai-usage.route.js'
 import { internalRoutes } from './routes/internal.route.js'
 
 export interface AppDependencies {
@@ -223,6 +224,7 @@ export async function buildApp(
   await fastify.register(sendListRoutes)
   await fastify.register(aiSuggestionsRoutes)
   await fastify.register(adminAiUsageRoutes)
+  await fastify.register(adminChatbotAiUsageRoutes)
   await fastify.register(internalRoutes, { prefix: '/api/internal' })
 
   return fastify

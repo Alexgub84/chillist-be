@@ -218,6 +218,13 @@
       "when": 1775000000000,
       "tag": "0030_users_phone_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1775100000000,
+      "tag": "0031_chatbot_ai_usage",
+      "breakpoints": true
     }
   ]
 }
