@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS "chatbot_ai_usage" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"session_id" uuid,
+	"user_id" uuid,
+	"plan_id" uuid,
+	"provider" text NOT NULL,
+	"model_id" text NOT NULL,
+	"lang" text,
+	"chat_type" text NOT NULL,
+	"message_index" integer NOT NULL,
+	"step_count" integer NOT NULL,
+	"tool_calls" jsonb,
+	"tool_call_count" integer NOT NULL,
+	"input_tokens" integer,
+	"output_tokens" integer,
+	"total_tokens" integer,
+	"estimated_cost" numeric(12, 6),
+	"duration_ms" integer NOT NULL,
+	"status" text NOT NULL,
+	"error_message" text,
+	"created_at" timestamptz NOT NULL
+);

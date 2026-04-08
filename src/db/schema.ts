@@ -430,6 +430,31 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
     .notNull(),
 })
 
+// Read-only mirror: rows are owned by the chatbot service; no FK constraints or relations.
+
+export const chatbotAiUsage = pgTable('chatbot_ai_usage', {
+  id: uuid('id').primaryKey(),
+  sessionId: uuid('session_id'),
+  userId: uuid('user_id'),
+  planId: uuid('plan_id'),
+  provider: text('provider').notNull(),
+  modelId: text('model_id').notNull(),
+  lang: text('lang'),
+  chatType: text('chat_type').notNull(),
+  messageIndex: integer('message_index').notNull(),
+  stepCount: integer('step_count').notNull(),
+  toolCalls: jsonb('tool_calls').$type<string[] | null>(),
+  toolCallCount: integer('tool_call_count').notNull(),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  totalTokens: integer('total_tokens'),
+  estimatedCost: numeric('estimated_cost', { precision: 12, scale: 6 }),
+  durationMs: integer('duration_ms').notNull(),
+  status: text('status').notNull(),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+})
+
 export const deviceTypeEnum = pgEnum('device_type', [
   'mobile',
   'tablet',
@@ -583,5 +608,7 @@ export type WhatsappNotification = typeof whatsappNotifications.$inferSelect
 export type NewWhatsappNotification = typeof whatsappNotifications.$inferInsert
 export type AiUsageLog = typeof aiUsageLogs.$inferSelect
 export type NewAiUsageLog = typeof aiUsageLogs.$inferInsert
+export type ChatbotAiUsageLog = typeof chatbotAiUsage.$inferSelect
+export type NewChatbotAiUsageLog = typeof chatbotAiUsage.$inferInsert
 export type Session = typeof sessions.$inferSelect
 export type NewSession = typeof sessions.$inferInsert
