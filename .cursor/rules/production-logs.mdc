@@ -1,0 +1,30 @@
+---
+description: Fetch and analyze Railway production logs when debugging production issues
+globs:
+alwaysApply: true
+---
+
+# Production Log Debugging
+
+When asked to debug a production issue, investigate a production error, or fetch production logs:
+
+1. **Fetch logs first** using the Railway log script:
+   ```bash
+   npm run railway:logs              # last 24 hours (default)
+   npm run railway:logs -- 1         # last 1 hour
+   npm run railway:logs -- 48        # last 48 hours
+   npm run railway:logs -- 1 "@level:error"   # errors only, last 1h
+   npm run railway:logs -- 24 "@level:warn"   # warnings only, last 24h
+   ```
+
+2. The script writes to `logs/railway-<timestamp>.log` (git-ignored). Read the output file to analyze.
+
+3. **Prerequisites:** Railway CLI must be installed (`brew install railway`) and linked to the project (`railway link`). The CLI is already authenticated and linked in this workspace.
+
+4. **Filter syntax** (Railway query language):
+   - `@level:error` — errors only
+   - `@level:warn` — warnings only
+   - `"POST /api"` — substring match
+   - `@level:error AND "failed"` — combine filters
+
+5. After reading the logs, identify the relevant error/warning entries and correlate them with the codebase to diagnose the issue.
