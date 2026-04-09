@@ -49,7 +49,7 @@ Always do the following before committing:
    - `specs/user-management.md` — update phase/step status and endpoint tables
    - `guides/backend.md` — update "What's next" section when phases/steps are completed
    - `dev-lessons/backend.md` — add entry if a bug was fixed or a non-obvious lesson learned
-5. Then stage and commit. Do **not** `git push` unless the user explicitly asks (see `.cursor/rules/commit.mdc`).
+5. Then stage and commit following the finalization protocol in `../chillist-docs/guides/planning.md` Phase 5. Do **not** `git push` unless the user explicitly asks.
 
 This prevents branch conflicts and keeps documentation in sync with code.
 

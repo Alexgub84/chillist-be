@@ -31,10 +31,10 @@ function buildFilterSqlParts(query: ChatbotAiUsageQuery): SQL[] {
     parts.push(sql`status = ${status}`)
   }
   if (from) {
-    parts.push(sql`created_at >= ${new Date(from)}`)
+    parts.push(sql`created_at >= ${new Date(from).toISOString()}`)
   }
   if (to) {
-    parts.push(sql`created_at <= ${new Date(to)}`)
+    parts.push(sql`created_at <= ${new Date(to).toISOString()}`)
   }
   return parts
 }
