@@ -11,6 +11,7 @@ import {
   participantExpenses,
   participantJoinRequests,
   aiUsageLogs,
+  chatbotAiUsage,
   type Location,
   type Assignment,
 } from './schema.js'
@@ -51,7 +52,7 @@ async function seed() {
 
   try {
     await db.execute(
-      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, users, whatsapp_notifications, ai_usage_logs CASCADE`
+      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, users, whatsapp_notifications, ai_usage_logs, chatbot_ai_usage CASCADE`
     )
     console.log('Cleared all tables')
 
@@ -924,6 +925,154 @@ async function seed() {
 
     console.log('Created 4 AI usage logs (2 success, 1 partial, 1 error)')
 
+    const chatbotSessionId1 = crypto.randomUUID()
+    const chatbotSessionId2 = crypto.randomUUID()
+    const chatbotSessionId3 = crypto.randomUUID()
+    const now = new Date()
+    const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000)
+
+    await db.insert(chatbotAiUsage).values([
+      {
+        sessionId: chatbotSessionId1,
+        userId: seedOwnerUserId ?? undefined,
+        planId: negevPlan.planId,
+        provider: 'anthropic',
+        modelId: 'claude-haiku-4-5-20251001',
+        lang: 'he',
+        chatType: 'dm',
+        messageIndex: 0,
+        stepCount: 3,
+        toolCalls: ['getMyPlans', 'getPlanDetails', 'getItemsForPlan'],
+        toolCallCount: 3,
+        inputTokens: 2400,
+        outputTokens: 1800,
+        totalTokens: 4200,
+        estimatedCost: '0.008340',
+        durationMs: 5200,
+        status: 'success',
+        createdAt: hoursAgo(2),
+      },
+      {
+        sessionId: chatbotSessionId1,
+        userId: seedOwnerUserId ?? undefined,
+        planId: negevPlan.planId,
+        provider: 'anthropic',
+        modelId: 'claude-haiku-4-5-20251001',
+        lang: 'he',
+        chatType: 'dm',
+        messageIndex: 1,
+        stepCount: 2,
+        toolCalls: ['updateItemStatus'],
+        toolCallCount: 1,
+        inputTokens: 3100,
+        outputTokens: 800,
+        totalTokens: 3900,
+        estimatedCost: '0.005100',
+        durationMs: 3100,
+        status: 'success',
+        createdAt: hoursAgo(1.9),
+      },
+      {
+        sessionId: chatbotSessionId1,
+        userId: seedOwnerUserId ?? undefined,
+        planId: negevPlan.planId,
+        provider: 'anthropic',
+        modelId: 'claude-haiku-4-5-20251001',
+        lang: 'he',
+        chatType: 'dm',
+        messageIndex: 2,
+        stepCount: 1,
+        toolCalls: [],
+        toolCallCount: 0,
+        inputTokens: 3800,
+        outputTokens: 600,
+        totalTokens: 4400,
+        estimatedCost: '0.005400',
+        durationMs: 2100,
+        status: 'success',
+        createdAt: hoursAgo(1.8),
+      },
+      {
+        sessionId: chatbotSessionId2,
+        userId: seedOwnerUserId ?? undefined,
+        planId: bbqPlan.planId,
+        provider: 'anthropic',
+        modelId: 'claude-haiku-4-5-20251001',
+        lang: 'en',
+        chatType: 'dm',
+        messageIndex: 0,
+        stepCount: 2,
+        toolCalls: ['getMyPlans', 'getPlanDetails'],
+        toolCallCount: 2,
+        inputTokens: 2000,
+        outputTokens: 1500,
+        totalTokens: 3500,
+        estimatedCost: '0.006500',
+        durationMs: 4800,
+        status: 'success',
+        createdAt: hoursAgo(12),
+      },
+      {
+        sessionId: chatbotSessionId2,
+        userId: seedOwnerUserId ?? undefined,
+        planId: bbqPlan.planId,
+        provider: 'anthropic',
+        modelId: 'claude-haiku-4-5-20251001',
+        lang: 'en',
+        chatType: 'dm',
+        messageIndex: 1,
+        stepCount: 1,
+        toolCalls: [],
+        toolCallCount: 0,
+        inputTokens: 3200,
+        outputTokens: 400,
+        totalTokens: 3600,
+        estimatedCost: '0.004200',
+        durationMs: 1800,
+        status: 'error',
+        errorMessage: 'AI_APICallError: 529 Overloaded',
+        createdAt: hoursAgo(11.5),
+      },
+      {
+        sessionId: chatbotSessionId3,
+        provider: 'anthropic',
+        modelId: 'claude-haiku-4-5-20251001',
+        lang: 'he',
+        chatType: 'group',
+        messageIndex: 0,
+        stepCount: 2,
+        toolCalls: ['getMyPlans'],
+        toolCallCount: 1,
+        inputTokens: 1800,
+        outputTokens: 1200,
+        totalTokens: 3000,
+        estimatedCost: '0.005400',
+        durationMs: 3900,
+        status: 'success',
+        createdAt: hoursAgo(24),
+      },
+      {
+        sessionId: chatbotSessionId3,
+        provider: 'anthropic',
+        modelId: 'claude-haiku-4-5-20251001',
+        lang: 'he',
+        chatType: 'group',
+        messageIndex: 1,
+        stepCount: 3,
+        toolCalls: ['getPlanDetails', 'getItemsForPlan', 'updateItemStatus'],
+        toolCallCount: 3,
+        inputTokens: 3600,
+        outputTokens: 2200,
+        totalTokens: 5800,
+        estimatedCost: '0.010600',
+        durationMs: 7400,
+        status: 'success',
+        createdAt: hoursAgo(23.5),
+      },
+    ])
+
+    console.log('Created 7 chatbot AI usage logs (3 sessions: 2 DM, 1 group)')
+
     console.log('\n--- Seed Summary ---')
     console.log('')
     console.log('Plan 1 (you = OWNER):')
@@ -949,6 +1098,10 @@ async function seed() {
     if (seedOwnerUserId) {
       console.log('  → Your Supabase ID linked as participant Alex G.')
     }
+    console.log('')
+    console.log('Chatbot AI Usage:')
+    console.log('  7 logs across 3 sessions (2 DM, 1 group)')
+    console.log('  5 success, 1 error, mixed tool calls')
     console.log('')
     console.log('--------------------\n')
 

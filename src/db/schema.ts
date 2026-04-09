@@ -432,9 +432,10 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
 
 // Read-only mirror: rows are owned by the chatbot service; no FK constraints or relations.
 
+// Mirror of chillist-whatsapp-bot/migrations/004_chatbot_ai_usage.sql — read-only from BE
 export const chatbotAiUsage = pgTable('chatbot_ai_usage', {
-  id: uuid('id').primaryKey(),
-  sessionId: uuid('session_id'),
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').notNull(),
   userId: uuid('user_id'),
   planId: uuid('plan_id'),
   provider: text('provider').notNull(),
@@ -442,13 +443,13 @@ export const chatbotAiUsage = pgTable('chatbot_ai_usage', {
   lang: text('lang'),
   chatType: text('chat_type').notNull(),
   messageIndex: integer('message_index').notNull(),
-  stepCount: integer('step_count').notNull(),
-  toolCalls: jsonb('tool_calls').$type<string[] | null>(),
-  toolCallCount: integer('tool_call_count').notNull(),
+  stepCount: integer('step_count').notNull().default(1),
+  toolCalls: jsonb('tool_calls').$type<string[]>().notNull().default([]),
+  toolCallCount: integer('tool_call_count').notNull().default(0),
   inputTokens: integer('input_tokens'),
   outputTokens: integer('output_tokens'),
   totalTokens: integer('total_tokens'),
-  estimatedCost: numeric('estimated_cost', { precision: 12, scale: 6 }),
+  estimatedCost: numeric('estimated_cost', { precision: 10, scale: 6 }),
   durationMs: integer('duration_ms').notNull(),
   status: text('status').notNull(),
   errorMessage: text('error_message'),

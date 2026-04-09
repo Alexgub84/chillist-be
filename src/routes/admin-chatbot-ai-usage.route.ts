@@ -126,13 +126,11 @@ export async function adminChatbotAiUsageRoutes(fastify: FastifyInstance) {
           conditions.length > 0 ? and(...conditions) : undefined
 
         const filterSqlParts = buildFilterSqlParts(request.query)
-        const toolWhereParts: SQL[] = [
-          sql`tool_calls IS NOT NULL`,
-          sql`jsonb_typeof(tool_calls) = 'array'`,
-          sql`jsonb_array_length(tool_calls) > 0`,
+        const innerWhereParts: SQL[] = [
+          sql`tool_calls != '[]'::jsonb`,
           ...filterSqlParts,
         ]
-        const toolWhereSql = sql`WHERE ${sql.join(toolWhereParts, sql` AND `)}`
+        const innerWhereSql = sql`WHERE ${sql.join(innerWhereParts, sql` AND `)}`
 
         const [
           logRows,
@@ -187,9 +185,10 @@ export async function adminChatbotAiUsageRoutes(fastify: FastifyInstance) {
 
           fastify.db.execute(sql`
             SELECT elems.value AS tool_name, COUNT(*)::int AS count
-            FROM chatbot_ai_usage
-            CROSS JOIN LATERAL jsonb_array_elements_text(tool_calls) AS elems(value)
-            ${toolWhereSql}
+            FROM (
+              SELECT tool_calls FROM chatbot_ai_usage ${innerWhereSql}
+            ) filtered
+            CROSS JOIN LATERAL jsonb_array_elements_text(filtered.tool_calls) AS elems(value)
             GROUP BY elems.value
             ORDER BY count DESC
           `),
