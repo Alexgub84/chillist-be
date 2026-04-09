@@ -127,8 +127,7 @@ export async function adminChatbotAiUsageRoutes(fastify: FastifyInstance) {
 
         const filterSqlParts = buildFilterSqlParts(request.query)
         const innerWhereParts: SQL[] = [
-          sql`tool_calls IS NOT NULL`,
-          sql`jsonb_typeof(tool_calls) = 'array'`,
+          sql`tool_calls != '[]'::jsonb`,
           ...filterSqlParts,
         ]
         const innerWhereSql = sql`WHERE ${sql.join(innerWhereParts, sql` AND `)}`
