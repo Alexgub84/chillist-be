@@ -26,13 +26,14 @@ function makeLog(
 ): NewChatbotAiUsageLog {
   return {
     id: randomUUID(),
+    sessionId: SESSION_ID,
     provider: 'anthropic',
     modelId: 'claude-sonnet-4-20250514',
     chatType: 'dm',
     messageIndex: 0,
     stepCount: 1,
     toolCallCount: 0,
-    toolCalls: null,
+    toolCalls: [],
     durationMs: 500,
     status: 'success',
     createdAt: new Date('2026-03-28T10:00:00Z'),
