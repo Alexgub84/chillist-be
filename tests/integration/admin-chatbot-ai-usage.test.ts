@@ -15,6 +15,7 @@ import {
   signTestJwt,
 } from '../helpers/auth.js'
 import { chatbotAiUsage } from '../../src/db/schema.js'
+import { sql } from 'drizzle-orm'
 import type { NewChatbotAiUsageLog } from '../../src/db/schema.js'
 
 const ADMIN_USER_ID = 'dddddddd-1111-2222-3333-444444444444'
@@ -204,6 +205,47 @@ describe('GET /admin/chatbot-ai-usage integration', () => {
     )
     expect(lookup?.count).toBe(2)
     expect(addItem?.count).toBe(1)
+  })
+
+  it('handles non-array tool_calls written by chatbot (double-serialized strings)', async () => {
+    const db = await getTestDb()
+    const goodId = randomUUID()
+    const badId = randomUUID()
+    const badEmptyId = randomUUID()
+
+    await db.insert(chatbotAiUsage).values([
+      makeLog({
+        id: goodId,
+        toolCalls: ['getMyPlans', 'getPlanDetails'],
+        toolCallCount: 2,
+      }),
+      makeLog({ id: badId, toolCalls: ['getMyPlans'], toolCallCount: 1 }),
+      makeLog({ id: badEmptyId, toolCalls: [], toolCallCount: 0 }),
+    ])
+
+    await db.execute(
+      sql`UPDATE chatbot_ai_usage SET tool_calls = to_jsonb(tool_calls::text) WHERE id IN (${badId}, ${badEmptyId})`
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/admin/chatbot-ai-usage',
+      headers: { authorization: `Bearer ${adminToken}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    expect(body.total).toBe(3)
+    expect(body.logs).toHaveLength(3)
+
+    const lookup = body.summary.byToolCalls.find(
+      (r: { toolName: string }) => r.toolName === 'getMyPlans'
+    )
+    const details = body.summary.byToolCalls.find(
+      (r: { toolName: string }) => r.toolName === 'getPlanDetails'
+    )
+    expect(lookup?.count).toBe(1)
+    expect(details?.count).toBe(1)
   })
 
   it('respects limit and offset pagination', async () => {

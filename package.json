@@ -31,7 +31,8 @@
     "dev:local": "set -a && . ./.env.local && set +a && docker compose up -d && npm run db:migrate && npm run db:seed && npm run dev",
     "openapi:generate": "tsx scripts/generate-openapi.ts",
     "openapi:validate": "tsx scripts/generate-openapi.ts --validate",
-    "db:check-migration-order": "tsx scripts/check-migration-order.ts"
+    "db:check-migration-order": "tsx scripts/check-migration-order.ts",
+    "railway:logs": "bash scripts/fetch-railway-logs.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.71",
