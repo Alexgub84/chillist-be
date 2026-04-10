@@ -2807,7 +2807,7 @@
             "items": {
               "$ref": "#/components/schemas/def-71"
             },
-            "description": "Plans the user is a member of, ordered by creation date (oldest first)."
+            "description": "Plans the user is a member of that are undated or have startDate at or after now (UTC); past-dated plans are omitted. Ordered by creation date (oldest first)."
           }
         },
         "additionalProperties": false,
@@ -7552,11 +7552,11 @@
     },
     "/api/internal/plans": {
       "get": {
-        "summary": "List plans for the resolved chatbot user",
+        "summary": "List future or undated plans for the chatbot user",
         "tags": [
           "internal"
         ],
-        "description": "Returns a chatbot-friendly summary of all plans the user is a member of (owner, participant, or viewer). Requires x-service-key and x-user-id headers. completedItemCount counts items where every assignment entry has status packed or purchased.",
+        "description": "Returns a chatbot-friendly summary of plans the user is a member of (owner, participant, or viewer) where startDate is null or startDate is at or after the current time (UTC). Plans with a start date in the past are omitted. Requires x-service-key and x-user-id headers. completedItemCount counts items where every assignment entry has status packed or purchased.",
         "responses": {
           "200": {
             "description": "Plans the user belongs to with counts and roles",

@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { eq, inArray, count, and, asc } from 'drizzle-orm'
+import { eq, inArray, count, and, asc, or, isNull, gte, sql } from 'drizzle-orm'
 import { resolveUserByPhone } from '../services/internal-auth.service.js'
 import { persistAssignments } from '../services/item.service.js'
 import { normalizePhone } from '../utils/phone.js'
@@ -112,9 +112,9 @@ export async function internalRoutes(fastify: FastifyInstance) {
     {
       schema: {
         tags: ['internal'],
-        summary: 'List plans for the resolved chatbot user',
+        summary: 'List future or undated plans for the chatbot user',
         description:
-          'Returns a chatbot-friendly summary of all plans the user is a member of (owner, participant, or viewer). Requires x-service-key and x-user-id headers. completedItemCount counts items where every assignment entry has status packed or purchased.',
+          'Returns a chatbot-friendly summary of plans the user is a member of (owner, participant, or viewer) where startDate is null or startDate is at or after the current time (UTC). Plans with a start date in the past are omitted. Requires x-service-key and x-user-id headers. completedItemCount counts items where every assignment entry has status packed or purchased.',
         response: {
           200: {
             description: 'Plans the user belongs to with counts and roles',
@@ -147,7 +147,12 @@ export async function internalRoutes(fastify: FastifyInstance) {
         })
         .from(plans)
         .innerJoin(participants, eq(participants.planId, plans.planId))
-        .where(eq(participants.userId, userId))
+        .where(
+          and(
+            eq(participants.userId, userId),
+            or(isNull(plans.startDate), gte(plans.startDate, sql`now()`))
+          )
+        )
         .orderBy(plans.createdAt)
 
       if (userPlans.length === 0) {
