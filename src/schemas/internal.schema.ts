@@ -88,7 +88,7 @@ export const internalPlansResponseSchema = {
       type: 'array',
       items: { $ref: 'InternalPlanSummary#' },
       description:
-        'Plans the user is a member of, ordered by creation date (oldest first).',
+        'Plans the user is a member of that are undated or have startDate at or after now (UTC); past-dated plans are omitted. Ordered by creation date (oldest first).',
     },
   },
   additionalProperties: false,

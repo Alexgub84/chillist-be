@@ -84,6 +84,86 @@ describe('Internal Plans — GET /api/internal/plans', () => {
       expect(response.statusCode).toBe(200)
       expect(response.json()).toEqual({ plans: [] })
     })
+
+    it('returns empty when the user only has past-dated plans', async () => {
+      const [pastPlan] = await db
+        .insert(plans)
+        .values({
+          title: 'Finished Trip',
+          status: 'active',
+          visibility: 'invite_only',
+          startDate: new Date('2000-01-01T00:00:00.000Z'),
+        })
+        .returning()
+
+      await db.insert(participants).values({
+        planId: pastPlan.planId,
+        name: 'Alex',
+        lastName: 'Cohen',
+        contactPhone: '+972501234567',
+        userId: USER_ID,
+        role: 'owner',
+        inviteStatus: 'accepted',
+      })
+
+      const response = await makeRequest({ 'x-user-id': USER_ID })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toEqual({ plans: [] })
+    })
+  })
+
+  describe('Date filter', () => {
+    it('excludes past-dated plans but includes future-dated plans for the same user', async () => {
+      const [pastPlan] = await db
+        .insert(plans)
+        .values({
+          title: 'Old Trip',
+          status: 'active',
+          visibility: 'invite_only',
+          startDate: new Date('2000-06-01T00:00:00.000Z'),
+        })
+        .returning()
+
+      const [futurePlan] = await db
+        .insert(plans)
+        .values({
+          title: 'Upcoming Trip',
+          status: 'active',
+          visibility: 'invite_only',
+          startDate: new Date('2099-07-01T00:00:00.000Z'),
+        })
+        .returning()
+
+      await db.insert(participants).values([
+        {
+          planId: pastPlan.planId,
+          name: 'Alex',
+          lastName: 'Cohen',
+          contactPhone: '+972501234567',
+          userId: USER_ID,
+          role: 'owner',
+          inviteStatus: 'accepted',
+        },
+        {
+          planId: futurePlan.planId,
+          name: 'Alex',
+          lastName: 'Cohen',
+          contactPhone: '+972501234567',
+          userId: USER_ID,
+          role: 'owner',
+          inviteStatus: 'accepted',
+        },
+      ])
+
+      const response = await makeRequest({ 'x-user-id': USER_ID })
+
+      expect(response.statusCode).toBe(200)
+      const { plans: planList } = response.json()
+      expect(planList).toHaveLength(1)
+      expect(planList[0].name).toBe('Upcoming Trip')
+      expect(planList[0].id).toBe(futurePlan.planId)
+    })
   })
 
   describe('Plan summary fields', () => {
@@ -94,7 +174,7 @@ describe('Internal Plans — GET /api/internal/plans', () => {
           title: 'Camping Trip',
           status: 'active',
           visibility: 'invite_only',
-          startDate: new Date('2026-04-15T00:00:00.000Z'),
+          startDate: new Date('2099-04-15T00:00:00.000Z'),
         })
         .returning()
 
@@ -116,7 +196,7 @@ describe('Internal Plans — GET /api/internal/plans', () => {
       expect(body.plans[0]).toMatchObject({
         id: plan.planId,
         name: 'Camping Trip',
-        date: '2026-04-15T00:00:00.000Z',
+        date: '2099-04-15T00:00:00.000Z',
         role: 'owner',
         participantCount: 1,
         itemCount: 0,
