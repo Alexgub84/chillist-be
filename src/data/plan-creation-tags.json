@@ -1,0 +1,274 @@
+{
+  "version": "1.1",
+  "description": "Chillist plan creation wizard tag schema. Tier 1 = plan archetype (single-select). Universal flags asked once regardless of Tier 1. Tier 2 = named axes conditional on Tier 1, each axis internally single-select to prevent contradictions. Tier 3 = specifics conditional on Tier 2 values.",
+  "structural_contract": {
+    "purpose": "Structural guarantees that both consumers (frontend wizard + chatbot service) rely on. Changes to data INSIDE these structures are safe and flow through automatically. Changes to the structure ITSELF require coordinated updates to consumer code and bot instructions.",
+    "guarantees": [
+      "Top-level keys are stable: 'version', 'tier1', 'universal_flags', 'tier2_axes', 'tier3', 'item_generation_bundles'.",
+      "tier1 is always an object with 'select' (always 'single') and 'options' (array of {id, label, emoji}).",
+      "universal_flags is an object mapping flag names to flag definitions. Each flag has: 'key', 'select' ('single' | 'multi'), 'required' (boolean), 'options' (array). Multi-select flags may include 'max_select'.",
+      "tier2_axes is an object mapping axis names to axis definitions. Each axis has: 'key', 'select' ('single' | 'multi'), 'shown_for_tier1' (array of tier1 ids), 'options' (array of {id, label}). Single-select axes may include 'defaults_by_tier1' and 'hidden_options_by_tier1'.",
+      "tier3.options_by_parent maps any tier2 option id to an array of {id, label} drill-down options. Absence means no drill-down for that option.",
+      "item_generation_bundles maps a bundle name to an array of item strings. Universal flag options reference bundles via 'injects_bundle'.",
+      "All ids are stable strings safe to use as database values. Renaming an id is a breaking change; renaming a label is not."
+    ],
+    "safe_changes_no_bot_update_needed": [
+      "Adding, removing, or renaming labels/emojis on existing options",
+      "Adding new options to tier1, universal_flags, tier2_axes, or tier3",
+      "Changing 'defaults_by_tier1' or 'hidden_options_by_tier1' values",
+      "Changing which tier1 ids appear in 'shown_for_tier1' for an axis",
+      "Adding new entries to tier3.options_by_parent",
+      "Adding new bundles to item_generation_bundles"
+    ],
+    "breaking_changes_bot_update_required": [
+      "Adding a new top-level key (e.g. introducing tier4)",
+      "Adding a new tier2 axis (bot must decide ordering and default-fill behavior)",
+      "Adding a new universal_flag (bot must decide where in the conversation it's asked)",
+      "Changing the 'select' rule of an existing axis (single ↔ multi)",
+      "Renaming any id (breaks stored data and bot extraction prompts)",
+      "Changing the meaning/purpose of an existing field"
+    ]
+  },
+  "design_principles": [
+    "Wizard only captures what the owner knows at creation time, isn't derivable later (from dates/location/participants), and materially changes the item list.",
+    "Each Tier 2 axis is internally single-select (mutex) to structurally prevent contradictions like 'cooking' + 'eating out'. 'Mix' is its own value, not two checkboxes.",
+    "Activities axis is the only multi-select axis in Tier 2.",
+    "No 'Other' Tier 1 — bounce rate signals which archetype is missing for v1.2.",
+    "Group composition (kids, pets, dietary) and weather/season are intentionally excluded — derived later from participants and dates."
+  ],
+
+  "tier1": {
+    "label": "What kind of plan is this?",
+    "key": "plan_type",
+    "select": "single",
+    "options": [
+      { "id": "camping", "label": "Camping", "emoji": "⛺" },
+      { "id": "hotel_stay", "label": "Hotel / Resort Stay", "emoji": "🏨" },
+      { "id": "airbnb_stay", "label": "Airbnb / Rental House", "emoji": "🏡" },
+      { "id": "hiking", "label": "Hiking / Trekking", "emoji": "🥾" },
+      { "id": "road_trip", "label": "Road Trip", "emoji": "🚗" },
+      { "id": "day_trip", "label": "Day Trip / Outing", "emoji": "🌅" },
+      { "id": "beach_day", "label": "Beach Day", "emoji": "🏖️" },
+      { "id": "city_day", "label": "City Day / Sightseeing", "emoji": "🏙️" },
+      { "id": "dinner", "label": "Dinner / Meal Gathering", "emoji": "🍽️" },
+      { "id": "games_gathering", "label": "Games / Hangout Gathering", "emoji": "🎮" },
+      { "id": "festival", "label": "Festival / Concert / Event", "emoji": "🎪" },
+      { "id": "party", "label": "Party / Celebration", "emoji": "🎉" }
+    ]
+  },
+
+  "universal_flags": {
+    "destination_scope": {
+      "label": "Where is it?",
+      "key": "destination_scope",
+      "select": "single",
+      "required": true,
+      "asked_for_all_tier1": true,
+      "options": [
+        { "id": "domestic", "label": "In my country" },
+        { "id": "abroad", "label": "Abroad / international", "injects_bundle": "travel_abroad" }
+      ],
+      "notes": "When 'abroad' is chosen, item generator injects the travel_abroad bundle: passport, visa check, travel insurance, power adapter, local SIM/eSIM, currency, vaccination docs."
+    },
+    "group_character": {
+      "label": "How would you describe the group? (optional, pick up to 3)",
+      "key": "group_character",
+      "select": "multi",
+      "max_select": 3,
+      "required": false,
+      "asked_for_all_tier1": true,
+      "purpose": "Feeds the LLM item-generation prompt. Each trait demonstrably shifts the item list.",
+      "options": [
+        { "id": "hygiene_conscious", "label": "Hygiene-conscious", "emoji": "🧼" },
+        { "id": "party_oriented", "label": "Party-oriented / heavy drinkers", "emoji": "🍻" },
+        { "id": "chill", "label": "Chill / low-key", "emoji": "🧘" },
+        { "id": "adventurous", "label": "Adventurous / outdoorsy", "emoji": "🏕️" },
+        { "id": "comfort_first", "label": "Comfort-first / glampers", "emoji": "✨" }
+      ]
+    }
+  },
+
+  "tier2_axes": {
+    "description": "Each axis is a named question with its own select rule. Axes are conditionally shown based on Tier 1. Each non-multi axis is internally mutex.",
+
+    "sleep": {
+      "label": "Where will you sleep?",
+      "key": "sleep",
+      "select": "single",
+      "shown_for_tier1": ["camping", "hotel_stay", "airbnb_stay", "hiking", "road_trip", "festival"],
+      "options": [
+        { "id": "tent", "label": "Tent" },
+        { "id": "cabin_glamping", "label": "Cabin / glamping" },
+        { "id": "caravan", "label": "Caravan / campervan" },
+        { "id": "hotel_room", "label": "Hotel / resort room" },
+        { "id": "rental_house", "label": "Airbnb / rental house" },
+        { "id": "mountain_hut", "label": "Mountain hut" },
+        { "id": "mixed_accommodation", "label": "Mix of accommodation (road trip style)" }
+      ],
+      "defaults_by_tier1": {
+        "camping": "tent",
+        "hotel_stay": "hotel_room",
+        "airbnb_stay": "rental_house",
+        "hiking": "tent",
+        "road_trip": "mixed_accommodation",
+        "festival": "tent"
+      }
+    },
+
+    "food_strategy": {
+      "label": "How will food work?",
+      "key": "food_strategy",
+      "select": "single",
+      "shown_for_tier1": ["camping", "hotel_stay", "airbnb_stay", "hiking", "road_trip", "day_trip", "beach_day", "city_day", "festival", "dinner", "party"],
+      "options": [
+        { "id": "cooking_ourselves", "label": "We're cooking our own food" },
+        { "id": "eating_out", "label": "Eating out / restaurants" },
+        { "id": "mixed_food", "label": "Mix of cooking and eating out" },
+        { "id": "all_inclusive", "label": "All-inclusive / fully catered" },
+        { "id": "potluck", "label": "Potluck / each brings something" },
+        { "id": "packed_food", "label": "Bringing packed food from home" },
+        { "id": "drinks_only", "label": "Drinks only / no real meal" }
+      ],
+      "defaults_by_tier1": {
+        "camping": "cooking_ourselves",
+        "hotel_stay": "eating_out",
+        "airbnb_stay": "mixed_food",
+        "hiking": "packed_food",
+        "road_trip": "mixed_food",
+        "day_trip": "packed_food",
+        "beach_day": "packed_food",
+        "city_day": "eating_out",
+        "festival": "eating_out",
+        "dinner": "potluck",
+        "party": "potluck"
+      },
+      "hidden_options_by_tier1": {
+        "dinner": ["packed_food", "drinks_only"],
+        "games_gathering": ["all_inclusive", "packed_food"],
+        "hiking": ["all_inclusive", "potluck"]
+      }
+    },
+
+    "activities": {
+      "label": "What will you do? (pick any that apply)",
+      "key": "activities",
+      "select": "multi",
+      "shown_for_tier1": ["camping", "hotel_stay", "airbnb_stay", "road_trip", "day_trip", "beach_day", "city_day"],
+      "options": [
+        { "id": "swimming", "label": "Swimming" },
+        { "id": "hiking_activity", "label": "Hiking / walks" },
+        { "id": "cycling", "label": "Cycling" },
+        { "id": "kayaking", "label": "Kayaking / water sports" },
+        { "id": "sightseeing", "label": "Sightseeing" },
+        { "id": "nightlife", "label": "Nightlife / bars" },
+        { "id": "shopping", "label": "Shopping" },
+        { "id": "booked_activity", "label": "Specific booked activity" }
+      ]
+    },
+
+    "venue": {
+      "label": "Where is it happening?",
+      "key": "venue",
+      "select": "single",
+      "shown_for_tier1": ["dinner", "games_gathering", "party"],
+      "options": [
+        { "id": "someones_home", "label": "Someone's home" },
+        { "id": "restaurant_venue", "label": "Restaurant / venue" },
+        { "id": "outdoor_bbq", "label": "Outdoor / BBQ" },
+        { "id": "rented_space", "label": "Rented space / hall" }
+      ]
+    }
+  },
+
+  "tier3": {
+    "description": "Specifics conditional on Tier 2 axis values. Keyed by Tier 2 option id.",
+    "options_by_parent": {
+      "tent": [
+        { "id": "tent_shared", "label": "Sharing tents" },
+        { "id": "tent_own", "label": "Everyone brings their own tent" },
+        { "id": "tent_renting", "label": "Renting tents on-site" }
+      ],
+      "cabin_glamping": [
+        { "id": "cabin_basic", "label": "Basic cabin (bring bedding)" },
+        { "id": "cabin_full", "label": "Fully equipped" }
+      ],
+      "mixed_accommodation": [
+        { "id": "mixed_prebooked", "label": "Pre-booked stops" },
+        { "id": "mixed_flexible", "label": "Finding places as we go" }
+      ],
+      "cooking_ourselves": [
+        { "id": "cook_shared_meals", "label": "Shared group meals" },
+        { "id": "cook_each_own", "label": "Everyone cooks their own" },
+        { "id": "cook_assigned", "label": "Assigned cooking duties per day" }
+      ],
+      "mixed_food": [
+        { "id": "mix_breakfast_in", "label": "Mostly cooking breakfast, eating out otherwise" },
+        { "id": "mix_dinner_in", "label": "Mostly cooking dinner, eating out otherwise" },
+        { "id": "mix_balanced", "label": "Roughly balanced" }
+      ],
+      "all_inclusive": [
+        { "id": "ai_full_board", "label": "Full board (all meals)" },
+        { "id": "ai_half_board", "label": "Half board (2 meals)" },
+        { "id": "ai_drinks_included", "label": "Drinks included" }
+      ],
+      "potluck": [
+        { "id": "potluck_assigned", "label": "Assigned dishes per person" },
+        { "id": "potluck_free", "label": "Everyone brings what they want" }
+      ],
+      "packed_food": [
+        { "id": "packed_shared", "label": "Shared group supplies" },
+        { "id": "packed_each_own", "label": "Each person packs their own" }
+      ],
+      "booked_activity": [
+        { "id": "activity_equipment_needed", "label": "Requires special equipment" },
+        { "id": "activity_equipment_rental", "label": "Equipment can be rented there" },
+        { "id": "activity_booking_needed", "label": "Needs advance booking" }
+      ],
+      "kayaking": [
+        { "id": "water_gear_owned", "label": "Bringing own gear" },
+        { "id": "water_gear_rental", "label": "Renting on-site" }
+      ],
+      "someones_home": [
+        { "id": "home_host_provides", "label": "Host provides everything" },
+        { "id": "home_guests_help", "label": "Guests bring / help" },
+        { "id": "home_hired_help", "label": "Hired chef / catering" }
+      ],
+      "outdoor_bbq": [
+        { "id": "bbq_shared_food", "label": "Shared group food" },
+        { "id": "bbq_bring_own", "label": "Everyone brings their own meat/food" },
+        { "id": "bbq_assigned", "label": "Assigned items per person" }
+      ],
+      "restaurant_venue": [
+        { "id": "venue_prebooked", "label": "Pre-booked / reserved" },
+        { "id": "venue_walk_in", "label": "Walk-in / flexible" }
+      ]
+    }
+  },
+
+  "item_generation_bundles": {
+    "description": "Pre-defined item bundles injected by specific flag values. Keeps the LLM prompt smaller and ensures critical items are never missed.",
+    "travel_abroad": [
+      "Passport (check expiry)",
+      "Visa check",
+      "Travel insurance",
+      "Power adapter",
+      "Local SIM / eSIM",
+      "Currency / payment method",
+      "Vaccination / health docs"
+    ]
+  },
+
+  "changelog": {
+    "1.1": [
+      "Restructured Tier 2 from flat per-Tier-1 lists into named axes (sleep, food_strategy, activities, venue) — each internally single-select to prevent contradictions.",
+      "Split Tier 1 'hotel_trip' into 'hotel_stay' and 'airbnb_stay' (different food/cooking item profiles).",
+      "Promoted 'games_gathering' and 'party' to Tier 1 (previously buried as dinner sub-flavors).",
+      "Removed Tier 1 'Other' — absence is a deliberate v1.2 research signal.",
+      "Added universal flag 'destination_scope' (domestic / abroad) — abroad injects travel bundle.",
+      "Added universal flag 'group_character' — optional multi-select, max 3, feeds LLM prompt.",
+      "Added per-Tier-1 defaults for sleep and food_strategy axes for sensible pre-selection.",
+      "Added hidden_options_by_tier1 for food_strategy to suppress nonsensical combinations (e.g. 'all-inclusive' under 'dinner').",
+      "Excluded weather/season (derived from date+location), group composition and dietary (from participants), duration (from dates)."
+    ]
+  }
+}

@@ -1,6 +1,24 @@
+import { readFileSync, existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
+
+function loadEnvLocal() {
+  const path = resolve(process.cwd(), '.env.local')
+  if (!existsSync(path)) return
+  const content = readFileSync(path, 'utf-8')
+  for (const line of content.split('\n')) {
+    const match = line.match(/^([^#=]+)=(.*)$/)
+    if (match) {
+      const key = match[1].trim()
+      const value = match[2].trim().replace(/^["']|["']$/g, '')
+      if (!process.env[key]) process.env[key] = value
+    }
+  }
+}
+
+loadEnvLocal()
 
 const connectionString =
   process.env.DATABASE_URL_PUBLIC || process.env.DATABASE_URL
