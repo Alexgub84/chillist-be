@@ -3794,216 +3794,20 @@
       },
       "def-99": {
         "type": "object",
-        "description": "Full 3-tier plan tag taxonomy",
+        "description": "Full plan tag taxonomy (version, tier1, universal_flags, tier2_axes, tier3, item_generation_bundles). Served from a static versioned JSON file bundled with the server.",
+        "additionalProperties": true,
         "properties": {
           "version": {
             "type": "string",
-            "description": "Taxonomy version string, e.g. \"1.2\""
+            "description": "Taxonomy version string, e.g. \"1.1\""
           },
           "description": {
             "type": "string",
-            "nullable": true,
             "description": "Human-readable description of this taxonomy version"
-          },
-          "tiers": {
-            "type": "object",
-            "properties": {
-              "tier1": {
-                "type": "object",
-                "properties": {
-                  "label": {
-                    "type": "string",
-                    "description": "UI label for the tier-1 question"
-                  },
-                  "key": {
-                    "type": "string",
-                    "description": "Tier key identifier, e.g. \"plan_type\""
-                  },
-                  "options": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "description": "Unique tier-1 option id, e.g. \"camping\""
-                        },
-                        "label": {
-                          "type": "string"
-                        },
-                        "emoji": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "label",
-                        "emoji"
-                      ]
-                    }
-                  }
-                },
-                "required": [
-                  "label",
-                  "key",
-                  "options"
-                ]
-              },
-              "tier2": {
-                "type": "object",
-                "properties": {
-                  "label": {
-                    "type": "string",
-                    "description": "UI label for the tier-2 question"
-                  },
-                  "key": {
-                    "type": "string",
-                    "description": "Tier key identifier, e.g. \"logistics\""
-                  },
-                  "conditional_on": {
-                    "type": "string",
-                    "description": "The tier key this tier depends on, e.g. \"tier1\""
-                  },
-                  "options_by_parent": {
-                    "type": "object",
-                    "description": "Map from tier-1 option id to tier-2 option block (options, mutex_groups, cross_group_rules)",
-                    "additionalProperties": {
-                      "type": "object",
-                      "properties": {
-                        "options": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "label": {
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "label"
-                            ]
-                          }
-                        },
-                        "mutex_groups": {
-                          "type": "array",
-                          "description": "Groups of mutually exclusive option ids — selecting one deselects the others in the same group",
-                          "items": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        "cross_group_rules": {
-                          "type": "array",
-                          "description": "Rules that disable or deselect options across mutex groups when a trigger option is selected",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "trigger": {
-                                "type": "string",
-                                "description": "Option id that activates this rule"
-                              },
-                              "disable": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                },
-                                "description": "Option ids to disable when trigger is selected"
-                              },
-                              "deselect": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                },
-                                "description": "Option ids to deselect when trigger is selected"
-                              },
-                              "disable_tooltip": {
-                                "type": "string",
-                                "description": "Tooltip shown on disabled options"
-                              }
-                            },
-                            "required": [
-                              "trigger"
-                            ]
-                          }
-                        }
-                      },
-                      "required": [
-                        "options",
-                        "mutex_groups",
-                        "cross_group_rules"
-                      ]
-                    }
-                  }
-                },
-                "required": [
-                  "label",
-                  "key",
-                  "conditional_on",
-                  "options_by_parent"
-                ]
-              },
-              "tier3": {
-                "type": "object",
-                "properties": {
-                  "label": {
-                    "type": "string",
-                    "description": "UI label for the tier-3 question"
-                  },
-                  "key": {
-                    "type": "string",
-                    "description": "Tier key identifier, e.g. \"specifics\""
-                  },
-                  "conditional_on": {
-                    "type": "string",
-                    "description": "The tier key this tier depends on, e.g. \"tier2\""
-                  },
-                  "options_by_parent": {
-                    "type": "object",
-                    "description": "Map from tier-2 option id to array of tier-3 options",
-                    "additionalProperties": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "label": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "label"
-                        ]
-                      }
-                    }
-                  }
-                },
-                "required": [
-                  "label",
-                  "key",
-                  "conditional_on",
-                  "options_by_parent"
-                ]
-              }
-            },
-            "required": [
-              "tier1",
-              "tier2",
-              "tier3"
-            ]
           }
         },
         "required": [
-          "version",
-          "tiers"
+          "version"
         ],
         "title": "PlanTagsResponse"
       }
@@ -7718,14 +7522,14 @@
         "tags": [
           "plan-tags"
         ],
-        "description": "Returns the full 3-tier plan tag taxonomy (plan types, logistics, specifics) used by the plan creation wizard. Response matches the structure expected by PlanTagWizard and tag-utils on the frontend.",
+        "description": "Returns the full plan tag taxonomy (tier1 archetypes, universal flags, tier2 axes, tier3 specifics) used by the plan creation wizard. Served from a static versioned JSON file bundled with the server.",
         "responses": {
           "200": {
-            "description": "Full tag taxonomy with version, tier labels, and all options",
+            "description": "Full plan tag taxonomy",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Full tag taxonomy with version, tier labels, and all options",
+                  "description": "Full plan tag taxonomy",
                   "$ref": "#/components/schemas/def-99"
                 }
               }
@@ -7737,17 +7541,6 @@
               "application/json": {
                 "schema": {
                   "description": "Authentication required — JWT token missing or invalid",
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No tag taxonomy found in the database",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "No tag taxonomy found in the database",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -8044,14 +7837,14 @@
         "tags": [
           "internal"
         ],
-        "description": "Returns the full 3-tier plan tag taxonomy. Requires x-service-key header. Does not require x-user-id as the taxonomy is global reference data, not user-specific.",
+        "description": "Returns the full plan tag taxonomy (tier1 archetypes, universal flags, tier2 axes, tier3 specifics). Requires x-service-key header only — no x-user-id needed as this is global reference data. Served from a static versioned JSON file.",
         "responses": {
           "200": {
-            "description": "Full tag taxonomy with version, tier labels, and all options",
+            "description": "Full plan tag taxonomy",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Full tag taxonomy with version, tier labels, and all options",
+                  "description": "Full plan tag taxonomy",
                   "$ref": "#/components/schemas/def-99"
                 }
               }
@@ -8063,17 +7856,6 @@
               "application/json": {
                 "schema": {
                   "description": "Missing or invalid x-service-key",
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No tag taxonomy found in the database",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "No tag taxonomy found in the database",
                   "$ref": "#/components/schemas/def-0"
                 }
               }

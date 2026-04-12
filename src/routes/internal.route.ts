@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { eq, inArray, count, and, asc, or, isNull, gte, sql } from 'drizzle-orm'
 import { resolveUserByPhone } from '../services/internal-auth.service.js'
 import { persistAssignments } from '../services/item.service.js'
-import { getLatestTagTaxonomy } from '../services/plan-tags.service.js'
+import { getPlanTags } from '../services/plan-tags.service.js'
 import { normalizePhone } from '../utils/phone.js'
 import { plans, participants, items } from '../db/schema.js'
 import type { ItemCategory, ItemStatus } from '../db/schema.js'
@@ -495,19 +495,14 @@ export async function internalRoutes(fastify: FastifyInstance) {
         tags: ['internal'],
         summary: 'Get plan tag taxonomy for chatbot',
         description:
-          'Returns the full 3-tier plan tag taxonomy. Requires x-service-key header. Does not require x-user-id as the taxonomy is global reference data, not user-specific.',
+          'Returns the full plan tag taxonomy (tier1 archetypes, universal flags, tier2 axes, tier3 specifics). Requires x-service-key header only — no x-user-id needed as this is global reference data. Served from a static versioned JSON file.',
         response: {
           200: {
-            description:
-              'Full tag taxonomy with version, tier labels, and all options',
+            description: 'Full plan tag taxonomy',
             $ref: 'PlanTagsResponse#',
           },
           401: {
             description: 'Missing or invalid x-service-key',
-            $ref: 'ErrorResponse#',
-          },
-          404: {
-            description: 'No tag taxonomy found in the database',
             $ref: 'ErrorResponse#',
           },
           500: {
@@ -519,18 +514,12 @@ export async function internalRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       try {
-        const taxonomy = await getLatestTagTaxonomy(fastify.db)
-        if (!taxonomy) {
-          request.log.warn(
-            'Internal plan tags requested but no taxonomy found in database'
-          )
-          return reply.code(404).send({ message: 'No tag taxonomy found' })
-        }
+        const tags = getPlanTags()
         request.log.info(
-          { version: taxonomy.version },
+          { version: tags['version'] },
           'Internal plan tags retrieved'
         )
-        return taxonomy
+        return tags
       } catch (err) {
         request.log.error({ err }, 'Internal plan tags failed')
         return reply.code(500).send({ message: 'Failed to retrieve plan tags' })

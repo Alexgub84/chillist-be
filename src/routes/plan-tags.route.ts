@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { getLatestTagTaxonomy } from '../services/plan-tags.service.js'
+import { getPlanTags } from '../services/plan-tags.service.js'
 
 export async function planTagsRoutes(fastify: FastifyInstance) {
   fastify.addHook('onRequest', async (request, reply) => {
@@ -22,20 +22,15 @@ export async function planTagsRoutes(fastify: FastifyInstance) {
         tags: ['plan-tags'],
         summary: 'Get plan tag taxonomy',
         description:
-          'Returns the full 3-tier plan tag taxonomy (plan types, logistics, specifics) used by the plan creation wizard. Response matches the structure expected by PlanTagWizard and tag-utils on the frontend.',
+          'Returns the full plan tag taxonomy (tier1 archetypes, universal flags, tier2 axes, tier3 specifics) used by the plan creation wizard. Served from a static versioned JSON file bundled with the server.',
         response: {
           200: {
-            description:
-              'Full tag taxonomy with version, tier labels, and all options',
+            description: 'Full plan tag taxonomy',
             $ref: 'PlanTagsResponse#',
           },
           401: {
             description:
               'Authentication required — JWT token missing or invalid',
-            $ref: 'ErrorResponse#',
-          },
-          404: {
-            description: 'No tag taxonomy found in the database',
             $ref: 'ErrorResponse#',
           },
           500: {
@@ -47,15 +42,9 @@ export async function planTagsRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       try {
-        const taxonomy = await getLatestTagTaxonomy(fastify.db)
-        if (!taxonomy) {
-          request.log.warn(
-            'Plan tags requested but no taxonomy found in database'
-          )
-          return reply.status(404).send({ message: 'No tag taxonomy found' })
-        }
-        request.log.info({ version: taxonomy.version }, 'Plan tags retrieved')
-        return taxonomy
+        const tags = getPlanTags()
+        request.log.info({ version: tags['version'] }, 'Plan tags retrieved')
+        return tags
       } catch (err) {
         request.log.error({ err }, 'Failed to retrieve plan tags')
         return reply
