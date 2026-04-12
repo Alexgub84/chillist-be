@@ -126,6 +126,7 @@ import {
   chatbotAiUsageQuerySchema,
   chatbotAiUsageResponseSchema,
 } from './chatbot-ai-usage.schema.js'
+import { planTagsResponseSchema } from './plan-tags.schema.js'
 
 const schemas = [
   errorResponseSchema,
@@ -227,6 +228,7 @@ const schemas = [
   chatbotAiUsageSummarySchema,
   chatbotAiUsageQuerySchema,
   chatbotAiUsageResponseSchema,
+  planTagsResponseSchema,
 ]
 
 export function registerSchemas(fastify: FastifyInstance) {
@@ -250,3 +252,4 @@ export * from './dietary.schema.js'
 export * from './ai-suggestions.schema.js'
 export * from './ai-usage.schema.js'
 export * from './chatbot-ai-usage.schema.js'
+export * from './plan-tags.schema.js'

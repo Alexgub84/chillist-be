@@ -40,6 +40,7 @@ Do NOT scan the entire codebase upfront - only look at files directly related to
 
 Always do the following before committing:
 
+0. **Branch check (MANDATORY FIRST STEP):** Run `git branch --show-current`. If you are on `main`, STOP. Stash any changes (`git stash`), create a feature branch (`git checkout -b feat/<slug>`), then pop the stash (`git stash pop`) before doing anything else. **NEVER commit directly to `main`** — all work ships via feature branch + PR per `../chillist-docs/rules/common.md`.
 1. Run through the review checklist (`.cursor/rules/review.mdc`) — verify route→service delegation, test layering, and rule compliance
 2. Pull main and merge: `git fetch origin main && git merge origin/main` (resolve conflicts if any)
 3. Run `npm run openapi:generate` to regenerate the OpenAPI spec

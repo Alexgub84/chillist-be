@@ -11,8 +11,10 @@ import {
   boolean,
   numeric,
   index,
+  smallint,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
 export const guestProfiles = pgTable('guest_profiles', {
   guestId: uuid('guest_id').primaryKey().defaultRandom(),
@@ -585,6 +587,52 @@ export const aiUsageLogsRelations = relations(aiUsageLogs, ({ one }) => ({
   }),
 }))
 
+export type TierLabels = {
+  tier1: { label: string; key: string }
+  tier2: { label: string; key: string; conditional_on: string }
+  tier3: { label: string; key: string; conditional_on: string }
+}
+
+export type CrossGroupRule = {
+  disable?: string[]
+  deselect?: string[]
+  disable_tooltip?: string
+}
+
+export const planTagVersions = pgTable('plan_tag_versions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  version: varchar('version', { length: 20 }).notNull().unique(),
+  description: text('description'),
+  tierLabels: jsonb('tier_labels').$type<TierLabels>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+})
+
+export const planTagOptions = pgTable(
+  'plan_tag_options',
+  {
+    id: text('id').primaryKey(),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => planTagVersions.id, { onDelete: 'cascade' }),
+    tier: smallint('tier').notNull(),
+    parentId: text('parent_id').references(
+      (): AnyPgColumn => planTagOptions.id,
+      { onDelete: 'cascade' }
+    ),
+    label: text('label').notNull(),
+    emoji: text('emoji'),
+    sortOrder: smallint('sort_order').notNull().default(0),
+    mutexGroup: text('mutex_group'),
+    crossGroupRules: jsonb('cross_group_rules').$type<CrossGroupRule[]>(),
+  },
+  (table) => [
+    index('plan_tag_options_version_tier_idx').on(table.versionId, table.tier),
+    index('plan_tag_options_parent_idx').on(table.parentId),
+  ]
+)
+
 export type GuestProfile = typeof guestProfiles.$inferSelect
 export type NewGuestProfile = typeof guestProfiles.$inferInsert
 export type UserRecord = typeof users.$inferSelect
@@ -613,3 +661,7 @@ export type ChatbotAiUsageLog = typeof chatbotAiUsage.$inferSelect
 export type NewChatbotAiUsageLog = typeof chatbotAiUsage.$inferInsert
 export type Session = typeof sessions.$inferSelect
 export type NewSession = typeof sessions.$inferInsert
+export type PlanTagVersion = typeof planTagVersions.$inferSelect
+export type NewPlanTagVersion = typeof planTagVersions.$inferInsert
+export type PlanTagOption = typeof planTagOptions.$inferSelect
+export type NewPlanTagOption = typeof planTagOptions.$inferInsert

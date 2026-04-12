@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { eq, inArray, count, and, asc, or, isNull, gte, sql } from 'drizzle-orm'
 import { resolveUserByPhone } from '../services/internal-auth.service.js'
 import { persistAssignments } from '../services/item.service.js'
+import { getLatestTagTaxonomy } from '../services/plan-tags.service.js'
 import { normalizePhone } from '../utils/phone.js'
 import { plans, participants, items } from '../db/schema.js'
 import type { ItemCategory, ItemStatus } from '../db/schema.js'
@@ -482,6 +483,57 @@ export async function internalRoutes(fastify: FastifyInstance) {
           name: itemRow.name,
           status: responseStatus,
         },
+      }
+    }
+  )
+
+  fastify.get(
+    '/plan-tags',
+    {
+      config: { rateLimit: INTERNAL_RATE_LIMIT },
+      schema: {
+        tags: ['internal'],
+        summary: 'Get plan tag taxonomy for chatbot',
+        description:
+          'Returns the full 3-tier plan tag taxonomy. Requires x-service-key header. Does not require x-user-id as the taxonomy is global reference data, not user-specific.',
+        response: {
+          200: {
+            description:
+              'Full tag taxonomy with version, tier labels, and all options',
+            $ref: 'PlanTagsResponse#',
+          },
+          401: {
+            description: 'Missing or invalid x-service-key',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'No tag taxonomy found in the database',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Unexpected error while loading plan tags',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const taxonomy = await getLatestTagTaxonomy(fastify.db)
+        if (!taxonomy) {
+          request.log.warn(
+            'Internal plan tags requested but no taxonomy found in database'
+          )
+          return reply.code(404).send({ message: 'No tag taxonomy found' })
+        }
+        request.log.info(
+          { version: taxonomy.version },
+          'Internal plan tags retrieved'
+        )
+        return taxonomy
+      } catch (err) {
+        request.log.error({ err }, 'Internal plan tags failed')
+        return reply.code(500).send({ message: 'Failed to retrieve plan tags' })
       }
     }
   )
