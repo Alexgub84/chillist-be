@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "build": "tsc",
+    "build": "tsc && cp -r src/data dist/data",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests scripts",
     "lint:fix": "eslint src tests scripts --fix",
