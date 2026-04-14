@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { and, eq, inArray, sql } from 'drizzle-orm'
-import { participants, plans } from '../db/schema.js'
+import { participants, plans, aiSuggestions } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { config } from '../config.js'
 import {
@@ -171,7 +171,7 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
           .set({ aiGenerationCount: sql`${plans.aiGenerationCount} + 1` })
           .where(eq(plans.planId, planId))
 
-        recordAiUsage(fastify.db, {
+        const aiUsageLogId = await recordAiUsage(fastify.db, {
           featureType: 'item_suggestions',
           planId,
           userId: request.user?.id,
@@ -192,6 +192,37 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
           metadata: { planTitle: plan.title },
         })
 
+        let storedSuggestions: Array<{ id: string }> = []
+        if (result.suggestions.length > 0) {
+          try {
+            storedSuggestions = await fastify.db
+              .insert(aiSuggestions)
+              .values(
+                result.suggestions.map((s) => ({
+                  aiUsageLogId: aiUsageLogId ?? null,
+                  planId,
+                  name: s.name,
+                  category: s.category,
+                  subcategory: s.subcategory,
+                  quantity: String(s.quantity),
+                  unit: s.unit,
+                  reason: s.reason,
+                }))
+              )
+              .returning({ id: aiSuggestions.id })
+          } catch (err) {
+            request.log.error(
+              { err, planId },
+              'Failed to persist AI suggestion rows — returning suggestions without IDs'
+            )
+          }
+        }
+
+        const suggestionsWithIds = result.suggestions.map((s, i) => ({
+          id: storedSuggestions[i]?.id ?? '',
+          ...s,
+        }))
+
         const durationSec = (durationMs / 1000).toFixed(1)
         request.log.info(
           {
@@ -206,7 +237,10 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
           `AI item suggestions generated in ${durationSec}s — ${result.suggestions.length} items, ${result.usage.totalTokens ?? '?'} tokens (${model.modelId})`
         )
 
-        return { suggestions: result.suggestions }
+        return {
+          aiUsageLogId: aiUsageLogId ?? '',
+          suggestions: suggestionsWithIds,
+        }
       } catch (error) {
         request.log.error(
           { err: error, planId },

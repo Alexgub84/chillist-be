@@ -107,8 +107,8 @@ All \`id\` values are stable slugs safe to persist as tag values.
   properties: {
     version: {
       type: 'string',
-      description: 'Taxonomy version string, e.g. "1.4".',
-      example: '1.4',
+      description: 'Taxonomy version string, e.g. "1.5".',
+      example: '1.5',
     },
 
     description: {

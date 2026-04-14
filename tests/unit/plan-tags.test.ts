@@ -14,9 +14,9 @@ describe('getPlanTags', () => {
     expect(tags).toHaveProperty('item_generation_bundles')
   })
 
-  it('version is 1.4', () => {
+  it('version is 1.5', () => {
     const tags = getPlanTags()
-    expect(tags['version']).toBe('1.4')
+    expect(tags['version']).toBe('1.5')
   })
 
   it('selection_by_tier matches nested select fields for flags and axes', () => {

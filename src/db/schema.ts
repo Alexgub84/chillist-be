@@ -115,6 +115,17 @@ export const aiUsageStatusEnum = pgEnum('ai_usage_status', [
   'partial',
   'error',
 ])
+
+export const itemSourceEnum = pgEnum('item_source', ['manual', 'ai_suggestion'])
+export const ITEM_SOURCE_VALUES = itemSourceEnum.enumValues
+export type ItemSource = (typeof ITEM_SOURCE_VALUES)[number]
+
+export const aiSuggestionStatusEnum = pgEnum('ai_suggestion_status', [
+  'suggested',
+  'accepted',
+])
+export const AI_SUGGESTION_STATUS_VALUES = aiSuggestionStatusEnum.enumValues
+export type AiSuggestionStatus = (typeof AI_SUGGESTION_STATUS_VALUES)[number]
 export const unitEnum = pgEnum('unit', [
   'pcs',
   'kg',
@@ -257,6 +268,8 @@ export const items = pgTable('items', {
     .notNull()
     .$type<Array<{ participantId: string; status: ItemStatus }>>()
     .default([]),
+  source: itemSourceEnum('source').default('manual').notNull(),
+  aiSuggestionId: uuid('ai_suggestion_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -429,6 +442,34 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
     .notNull(),
 })
 
+export const aiSuggestions = pgTable(
+  'ai_suggestions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    aiUsageLogId: uuid('ai_usage_log_id').references(() => aiUsageLogs.id, {
+      onDelete: 'set null',
+    }),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => plans.planId, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 255 }).notNull(),
+    category: itemCategoryEnum('category').notNull(),
+    subcategory: varchar('subcategory', { length: 255 }),
+    quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull(),
+    unit: unitEnum('unit').notNull(),
+    reason: text('reason'),
+    status: aiSuggestionStatusEnum('status').default('suggested').notNull(),
+    itemId: uuid('item_id'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('ai_suggestions_plan_id_idx').on(table.planId),
+    index('ai_suggestions_ai_usage_log_id_idx').on(table.aiUsageLogId),
+  ]
+)
+
 // Read-only mirror: rows are owned by the chatbot service; no FK constraints or relations.
 
 // Mirror of chillist-whatsapp-bot/migrations/004_chatbot_ai_usage.sql — read-only from BE
@@ -495,6 +536,7 @@ export const plansRelations = relations(plans, ({ many }) => ({
   expenses: many(participantExpenses),
   whatsappNotifications: many(whatsappNotifications),
   aiUsageLogs: many(aiUsageLogs),
+  aiSuggestions: many(aiSuggestions),
 }))
 
 export const itemsRelations = relations(items, ({ one, many }) => ({
@@ -577,10 +619,22 @@ export const whatsappNotificationsRelations = relations(
   })
 )
 
-export const aiUsageLogsRelations = relations(aiUsageLogs, ({ one }) => ({
+export const aiUsageLogsRelations = relations(aiUsageLogs, ({ one, many }) => ({
   plan: one(plans, {
     fields: [aiUsageLogs.planId],
     references: [plans.planId],
+  }),
+  suggestions: many(aiSuggestions),
+}))
+
+export const aiSuggestionsRelations = relations(aiSuggestions, ({ one }) => ({
+  plan: one(plans, {
+    fields: [aiSuggestions.planId],
+    references: [plans.planId],
+  }),
+  aiUsageLog: one(aiUsageLogs, {
+    fields: [aiSuggestions.aiUsageLogId],
+    references: [aiUsageLogs.id],
   }),
 }))
 
@@ -608,6 +662,8 @@ export type WhatsappNotification = typeof whatsappNotifications.$inferSelect
 export type NewWhatsappNotification = typeof whatsappNotifications.$inferInsert
 export type AiUsageLog = typeof aiUsageLogs.$inferSelect
 export type NewAiUsageLog = typeof aiUsageLogs.$inferInsert
+export type AiSuggestion = typeof aiSuggestions.$inferSelect
+export type NewAiSuggestion = typeof aiSuggestions.$inferInsert
 export type ChatbotAiUsageLog = typeof chatbotAiUsage.$inferSelect
 export type NewChatbotAiUsageLog = typeof chatbotAiUsage.$inferInsert
 export type Session = typeof sessions.$inferSelect

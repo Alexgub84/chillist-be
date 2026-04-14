@@ -1,8 +1,22 @@
 export const aiSuggestionItemSchema = {
   $id: 'AiSuggestionItem',
   type: 'object',
-  required: ['name', 'category', 'subcategory', 'quantity', 'unit', 'reason'],
+  required: [
+    'id',
+    'name',
+    'category',
+    'subcategory',
+    'quantity',
+    'unit',
+    'reason',
+  ],
   properties: {
+    id: {
+      type: 'string',
+      format: 'uuid',
+      description:
+        'Unique ID of this AI suggestion row — pass as aiSuggestionId when calling bulk create to link accepted items',
+    },
     name: { type: 'string' },
     category: {
       type: 'string',
@@ -21,8 +35,13 @@ export const aiSuggestionItemSchema = {
 export const aiSuggestionsResponseSchema = {
   $id: 'AiSuggestionsResponse',
   type: 'object',
-  required: ['suggestions'],
+  required: ['suggestions', 'aiUsageLogId'],
   properties: {
+    aiUsageLogId: {
+      type: 'string',
+      format: 'uuid',
+      description: 'ID of the ai_usage_logs row for this generation session',
+    },
     suggestions: {
       type: 'array',
       items: { $ref: 'AiSuggestionItem#' },

@@ -42,13 +42,44 @@ export async function cleanupTestDatabase() {
   await testDb.delete(schema.sessions)
   await testDb.delete(schema.participantExpenses)
   await testDb.delete(schema.itemChanges)
+  await testDb.delete(schema.aiSuggestions)
   await testDb.delete(schema.items)
+  await testDb.delete(schema.aiUsageLogs)
   await testDb.delete(schema.planInvites)
   await testDb.delete(schema.participantJoinRequests)
   await testDb.delete(schema.participants)
   await testDb.delete(schema.plans)
   await testDb.delete(schema.guestProfiles)
   await testDb.delete(schema.users)
+}
+
+export async function seedTestAiSuggestions(
+  planId: string,
+  count: number = 3,
+  options?: {
+    aiUsageLogId?: string | null
+    status?: 'suggested' | 'accepted'
+  }
+): Promise<schema.AiSuggestion[]> {
+  const testDb = await getTestDb()
+
+  const suggestions = Array.from({ length: count }, (_, i) => ({
+    planId,
+    aiUsageLogId: options?.aiUsageLogId ?? null,
+    name: `AI Suggestion ${i + 1}`,
+    category: 'group_equipment' as const,
+    subcategory: 'Camping Gear',
+    quantity: '1',
+    unit: 'pcs' as const,
+    reason: `Reason for suggestion ${i + 1}`,
+    status: (options?.status ?? 'suggested') as 'suggested' | 'accepted',
+  }))
+
+  const inserted = await testDb
+    .insert(schema.aiSuggestions)
+    .values(suggestions)
+    .returning()
+  return inserted
 }
 
 export async function closeTestDatabase() {

@@ -15,6 +15,7 @@ export interface CreateItemInput {
   notes?: string | null
   assignmentStatusList?: Assignment[]
   isAllParticipants?: boolean
+  aiSuggestionId?: string | null
 }
 
 export type PreparedItemValues = {
@@ -26,6 +27,7 @@ export type PreparedItemValues = {
   notes?: string | null
   assignmentStatusList: Assignment[]
   isAllParticipants: boolean
+  aiSuggestionId?: string | null
 }
 
 export function prepareItemForCreate(
@@ -64,6 +66,7 @@ export function prepareItemForCreate(
       notes: input.notes ?? null,
       assignmentStatusList: resolved,
       isAllParticipants: isAll,
+      aiSuggestionId: input.aiSuggestionId ?? null,
     },
   }
 }
