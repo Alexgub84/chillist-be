@@ -6,6 +6,7 @@ describe('getPlanTags', () => {
     const tags = getPlanTags()
     expect(typeof tags).toBe('object')
     expect(tags).toHaveProperty('version')
+    expect(tags).toHaveProperty('selection_by_tier')
     expect(tags).toHaveProperty('tier1')
     expect(tags).toHaveProperty('universal_flags')
     expect(tags).toHaveProperty('tier2_axes')
@@ -13,9 +14,47 @@ describe('getPlanTags', () => {
     expect(tags).toHaveProperty('item_generation_bundles')
   })
 
-  it('version is 1.3', () => {
+  it('version is 1.4', () => {
     const tags = getPlanTags()
-    expect(tags['version']).toBe('1.3')
+    expect(tags['version']).toBe('1.4')
+  })
+
+  it('selection_by_tier matches nested select fields for flags and axes', () => {
+    const tags = getPlanTags()
+    const sel = tags['selection_by_tier'] as {
+      universal_flags: { flags: Record<string, { select: string }> }
+      tier2_axes: { axes: Record<string, { select: string }> }
+    }
+    const uf = tags['universal_flags'] as Record<string, { select: string }>
+    const axes = tags['tier2_axes'] as Record<string, { select: string }>
+
+    expect(Object.keys(sel.universal_flags.flags).sort()).toEqual(
+      Object.keys(uf).sort()
+    )
+    for (const k of Object.keys(uf)) {
+      expect(sel.universal_flags.flags[k].select).toBe(uf[k].select)
+    }
+
+    expect(Object.keys(sel.tier2_axes.axes).sort()).toEqual(
+      Object.keys(axes).sort()
+    )
+    for (const k of Object.keys(axes)) {
+      expect(sel.tier2_axes.axes[k].select).toBe(axes[k].select)
+    }
+
+    expect(sel.tier1.select).toBe('single')
+    expect((tags['tier1'] as { select: string }).select).toBe('single')
+
+    const t3 = tags['tier3'] as {
+      default_select: string
+      multi_select_parents: string[]
+    }
+    const selT3 = sel.tier3 as {
+      default_select: string
+      multi_select_parents: string[]
+    }
+    expect(selT3.default_select).toBe(t3.default_select)
+    expect(selT3.multi_select_parents).toEqual(t3.multi_select_parents)
   })
 
   it('tier1 has options array with id, bilingual label, emoji on each entry', () => {
