@@ -2,16 +2,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { buildApp } from '../../src/app.js'
 import { FastifyInstance } from 'fastify'
 import { closeTestDatabase, setupTestDatabase } from '../helpers/db.js'
-import {
-  setupTestKeys,
-  getTestJWKS,
-  getTestIssuer,
-  signTestJwt,
-} from '../helpers/auth.js'
+import { setupTestKeys, getTestJWKS, getTestIssuer } from '../helpers/auth.js'
 
 const SERVICE_KEY = 'test-service-key-12345'
 
-describe('GET /plan-tags (FE endpoint — JWT required)', () => {
+describe('GET /plan-tags (public — no auth)', () => {
   let app: FastifyInstance
 
   beforeAll(async () => {
@@ -34,30 +29,22 @@ describe('GET /plan-tags (FE endpoint — JWT required)', () => {
     delete process.env.CHATBOT_SERVICE_KEY
   })
 
-  it('returns 401 without JWT', async () => {
+  it('returns 200 without JWT', async () => {
     const res = await app.inject({ method: 'GET', url: '/plan-tags' })
-    expect(res.statusCode).toBe(401)
+    expect(res.statusCode).toBe(200)
   })
 
-  it('returns 401 with invalid JWT', async () => {
+  it('returns 200 with invalid JWT (ignored)', async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/plan-tags',
       headers: { authorization: 'Bearer invalid.token.here' },
     })
-    expect(res.statusCode).toBe(401)
+    expect(res.statusCode).toBe(200)
   })
 
-  it('returns 200 with full taxonomy when authenticated', async () => {
-    const token = await signTestJwt({
-      sub: 'user-123',
-      email: 'test@example.com',
-    })
-    const res = await app.inject({
-      method: 'GET',
-      url: '/plan-tags',
-      headers: { authorization: `Bearer ${token}` },
-    })
+  it('returns full taxonomy including metadata keys', async () => {
+    const res = await app.inject({ method: 'GET', url: '/plan-tags' })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(typeof body.version).toBe('string')
@@ -66,17 +53,15 @@ describe('GET /plan-tags (FE endpoint — JWT required)', () => {
     expect(body).toHaveProperty('tier2_axes')
     expect(body).toHaveProperty('tier3')
     expect(body).toHaveProperty('item_generation_bundles')
+    expect(body).toHaveProperty('structural_contract')
+    expect(body).toHaveProperty('design_principles')
+    expect(body).toHaveProperty('changelog')
   })
 
   it('tier1 options have id, bilingual label, emoji', async () => {
-    const token = await signTestJwt({
-      sub: 'user-123',
-      email: 'test@example.com',
-    })
     const res = await app.inject({
       method: 'GET',
       url: '/plan-tags',
-      headers: { authorization: `Bearer ${token}` },
     })
     const body = res.json()
     const options = body.tier1.options as Array<{
@@ -151,16 +136,11 @@ describe('GET /api/internal/plan-tags (chatbot endpoint — x-service-key)', () 
     expect(body).toHaveProperty('item_generation_bundles')
   })
 
-  it('FE and internal endpoints return the same taxonomy', async () => {
-    const token = await signTestJwt({
-      sub: 'user-123',
-      email: 'test@example.com',
-    })
+  it('public GET /plan-tags and internal GET return identical JSON', async () => {
     const [feRes, internalRes] = await Promise.all([
       app.inject({
         method: 'GET',
         url: '/plan-tags',
-        headers: { authorization: `Bearer ${token}` },
       }),
       app.inject({
         method: 'GET',

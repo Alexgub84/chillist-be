@@ -8184,7 +8184,7 @@
         "tags": [
           "plan-tags"
         ],
-        "description": "Returns the full plan tag taxonomy (tier1 archetypes, universal flags, tier2 axes, tier3 specifics) used by the plan creation wizard. Served from a static versioned JSON file bundled with the server.",
+        "description": "Full plan tag taxonomy from the bundled JSON (wizard fields plus structural_contract, design_principles, changelog). Same document as GET /api/internal/plan-tags. No authentication. Served from a static versioned JSON file.",
         "responses": {
           "200": {
             "description": "Full plan tag taxonomy",
@@ -8193,17 +8193,6 @@
                 "schema": {
                   "description": "Full plan tag taxonomy",
                   "$ref": "#/components/schemas/def-99"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required — JWT token missing or invalid",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "Authentication required — JWT token missing or invalid",
-                  "$ref": "#/components/schemas/def-0"
                 }
               }
             }
@@ -8499,7 +8488,7 @@
         "tags": [
           "internal"
         ],
-        "description": "Returns the full plan tag taxonomy (tier1 archetypes, universal flags, tier2 axes, tier3 specifics). Requires x-service-key header only — no x-user-id needed as this is global reference data. Served from a static versioned JSON file.",
+        "description": "Returns the full bundled plan tag JSON (same payload as public GET /plan-tags). Requires x-service-key only — no x-user-id. Served from a static versioned JSON file.",
         "responses": {
           "200": {
             "description": "Full plan tag taxonomy",

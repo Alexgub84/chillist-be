@@ -1,5 +1,5 @@
 /**
- * Schema for GET /plan-tags and GET /api/internal/plan-tags.
+ * Schema for GET /plan-tags and GET /api/internal/plan-tags (same bundled document).
  *
  * The taxonomy is a static JSON file bundled with the server (src/data/plan-creation-tags.json).
  * Every user-facing "label" is bilingual: { en: string, he: string }. Consumers pick the
