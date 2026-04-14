@@ -12,6 +12,12 @@ export interface PlanAiContext {
   totalParticipants: number
 }
 
+export type CategoryFilter = {
+  group_equipment?: string[]
+  personal_equipment?: string[]
+  food?: string[]
+}
+
 export interface PlanForAiContext {
   title: string
   startDate: Date | null
@@ -21,6 +27,7 @@ export interface PlanForAiContext {
   estimatedAdults: number | null
   estimatedKids: number | null
   dietarySummary?: string
+  categories?: CategoryFilter
 }
 
 export function formatLocationForAi(location: Location): string {

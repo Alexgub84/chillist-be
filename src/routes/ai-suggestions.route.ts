@@ -10,7 +10,10 @@ import {
 import { resolveLanguageModel } from '../services/ai/model-provider.js'
 import { aggregateDietarySummary } from '../services/ai/dietary-summary.js'
 import { recordAiUsage } from '../services/ai/usage-tracking.js'
-import type { PlanForAiContext } from '../services/ai/plan-context-formatters.js'
+import type {
+  PlanForAiContext,
+  CategoryFilter,
+} from '../services/ai/plan-context-formatters.js'
 
 export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
   fastify.addHook('onRequest', async (request, reply) => {
@@ -26,7 +29,10 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Params: { planId: string } }>(
+  fastify.post<{
+    Params: { planId: string }
+    Body: { categories?: CategoryFilter }
+  }>(
     '/plans/:planId/ai-suggestions',
     {
       schema: {
@@ -35,6 +41,7 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
         description:
           'Uses AI to generate a list of suggested packing/food items based on plan context (dates, location, tags, participants). Output language is determined by the plan defaultLang field (en, he, es). JWT required. Must be a participant.',
         params: { $ref: 'PlanIdParam#' },
+        body: { $ref: 'AiSuggestionsRequest#' },
         response: {
           200: {
             description: 'AI-generated item suggestions',
@@ -62,6 +69,7 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { planId } = request.params
+      const { categories } = request.body ?? {}
 
       try {
         const { allowed } = await checkPlanAccess(
@@ -118,6 +126,7 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
           estimatedAdults: plan.estimatedAdults,
           estimatedKids: plan.estimatedKids,
           ...(dietarySummary ? { dietarySummary } : {}),
+          ...(categories ? { categories } : {}),
         }
 
         const startMs = Date.now()
@@ -171,6 +180,10 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
           .set({ aiGenerationCount: sql`${plans.aiGenerationCount} + 1` })
           .where(eq(plans.planId, planId))
 
+        const filteredSuggestions = categories
+          ? result.suggestions.filter((s) => s.category in categories)
+          : result.suggestions
+
         const aiUsageLogId = await recordAiUsage(fastify.db, {
           featureType: 'item_suggestions',
           planId,
@@ -188,17 +201,17 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
           promptText: result.prompt,
           rawResponseText: result.rawResponseText,
           finishReason: result.finishReason,
-          resultCount: result.suggestions.length,
+          resultCount: filteredSuggestions.length,
           metadata: { planTitle: plan.title },
         })
 
         let storedSuggestions: Array<{ id: string }> = []
-        if (result.suggestions.length > 0) {
+        if (filteredSuggestions.length > 0) {
           try {
             storedSuggestions = await fastify.db
               .insert(aiSuggestions)
               .values(
-                result.suggestions.map((s) => ({
+                filteredSuggestions.map((s) => ({
                   aiUsageLogId: aiUsageLogId ?? null,
                   planId,
                   name: s.name,
@@ -218,7 +231,7 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
           }
         }
 
-        const suggestionsWithIds = result.suggestions.map((s, i) => ({
+        const suggestionsWithIds = filteredSuggestions.map((s, i) => ({
           id: storedSuggestions[i]?.id ?? '',
           ...s,
         }))
@@ -230,11 +243,12 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
             lang,
             modelId: model.modelId,
             promptLength: result.prompt.length,
-            suggestionsCount: result.suggestions.length,
+            rawCount: result.suggestions.length,
+            filteredCount: filteredSuggestions.length,
             usage: result.usage,
             durationSec,
           },
-          `AI item suggestions generated in ${durationSec}s — ${result.suggestions.length} items, ${result.usage.totalTokens ?? '?'} tokens (${model.modelId})`
+          `AI item suggestions generated in ${durationSec}s — ${filteredSuggestions.length} items (${result.suggestions.length} raw), ${result.usage.totalTokens ?? '?'} tokens (${model.modelId})`
         )
 
         return {

@@ -236,4 +236,63 @@ describe('buildItemSuggestionsPrompt', () => {
     expect(a).not.toContain('Dietary needs:')
     expect(b).not.toContain('Dietary needs:')
   })
+
+  describe('categories filter', () => {
+    it('includes category filter section when categories are provided', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: {
+          group_equipment: ['Sleeping Gear', 'First Aid and Safety'],
+          food: ['Fresh Vegetables', 'Dairy'],
+        },
+      })
+      expect(prompt).toContain('Requested categories and subcategories')
+      expect(prompt).toContain(
+        'Generate items ONLY for the following categories'
+      )
+    })
+
+    it('lists each requested category and its subcategories', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: {
+          group_equipment: ['Sleeping Gear', 'First Aid and Safety'],
+          food: ['Fresh Vegetables', 'Dairy'],
+        },
+      })
+      expect(prompt).toContain(
+        'group_equipment: Sleeping Gear, First Aid and Safety'
+      )
+      expect(prompt).toContain('food: Fresh Vegetables, Dairy')
+      expect(prompt).not.toContain('- personal_equipment:')
+    })
+
+    it('uses "any subcategory" label when category has an empty subcategory array', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: { food: [] },
+      })
+      expect(prompt).toContain('food: any subcategory')
+    })
+
+    it('omits category filter section when categories are absent', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).not.toContain('Requested categories and subcategories')
+      expect(prompt).not.toContain('Generate items ONLY')
+    })
+
+    it('includes all three categories when all are provided', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: {
+          group_equipment: ['Tent', 'Cooler'],
+          personal_equipment: ['Sleeping Bag'],
+          food: ['Snacks'],
+        },
+      })
+      expect(prompt).toContain('group_equipment: Tent, Cooler')
+      expect(prompt).toContain('personal_equipment: Sleeping Bag')
+      expect(prompt).toContain('food: Snacks')
+    })
+  })
 })

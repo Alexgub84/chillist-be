@@ -430,6 +430,158 @@ describe('AI Suggestions Route', () => {
     expect(mockDb.update).not.toHaveBeenCalled()
   })
 
+  describe('request body — categories', () => {
+    it('passes categories from body into planContext when provided', async () => {
+      mockPlanAccessAllowed(mockDb)
+      mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+      mockParticipantDietaryQuery(mockDb, [])
+
+      const categories = {
+        group_equipment: ['Sleeping Gear', 'First Aid and Safety'],
+        food: ['Fresh Vegetables', 'Dairy'],
+      }
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: { categories },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(generateSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ categories }),
+        'en'
+      )
+    })
+
+    it('omits categories from planContext when body is empty', async () => {
+      mockPlanAccessAllowed(mockDb)
+      mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+      mockParticipantDietaryQuery(mockDb, [])
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+        headers: AUTH_HEADERS,
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(generateSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.not.objectContaining({ categories: expect.anything() }),
+        'en'
+      )
+    })
+
+    it('filters out suggestions whose category is not in the requested categories', async () => {
+      mockPlanAccessAllowed(mockDb)
+      mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+      mockParticipantDietaryQuery(mockDb, [])
+
+      generateSpy.mockResolvedValueOnce({
+        status: 'success' as const,
+        suggestions: [
+          {
+            name: 'Tent',
+            category: 'group_equipment',
+            subcategory: 'Shelter',
+            quantity: 1,
+            unit: 'pcs',
+            reason: 'Shelter for camping',
+          },
+          {
+            name: 'Pasta',
+            category: 'food',
+            subcategory: 'Grains',
+            quantity: 1,
+            unit: 'kg',
+            reason: 'Easy camp meal',
+          },
+          {
+            name: 'Sleeping bag',
+            category: 'personal_equipment',
+            subcategory: 'Sleep',
+            quantity: 1,
+            unit: 'pcs',
+            reason: 'Warmth',
+          },
+        ],
+        prompt: 'test prompt',
+        rawResponseText: 'raw',
+        finishReason: 'stop',
+        usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+      })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: { categories: { food: [] } },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.suggestions).toHaveLength(1)
+      expect(body.suggestions[0].name).toBe('Pasta')
+      expect(body.suggestions[0].category).toBe('food')
+    })
+
+    it('strips unknown category keys and still succeeds', async () => {
+      mockPlanAccessAllowed(mockDb)
+      mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+      mockParticipantDietaryQuery(mockDb, [])
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: { categories: { invalid_key: ['Some Subcategory'] } },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(generateSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ categories: {} }),
+        'en'
+      )
+    })
+
+    it('coerces a string category value to an array and still succeeds', async () => {
+      mockPlanAccessAllowed(mockDb)
+      mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+      mockParticipantDietaryQuery(mockDb, [])
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: { categories: { food: 'Dairy' } },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(generateSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ categories: { food: ['Dairy'] } }),
+        'en'
+      )
+    })
+
+    it('returns 400 when categories is an array instead of an object', async () => {
+      mockPlanAccessAllowed(mockDb)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: { categories: ['food', 'group_equipment'] },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+  })
+
   it('returns 500 when non-AI error occurs', async () => {
     mockPlanAccessAllowed(mockDb)
     mockDb.select.mockReturnValueOnce({

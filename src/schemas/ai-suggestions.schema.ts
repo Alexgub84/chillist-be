@@ -1,3 +1,34 @@
+export const aiSuggestionsRequestSchema = {
+  $id: 'AiSuggestionsRequest',
+  type: ['object', 'null'],
+  additionalProperties: false,
+  properties: {
+    categories: {
+      type: 'object',
+      description:
+        'Map of item category → subcategories to focus on. Omit to include all categories.',
+      additionalProperties: false,
+      properties: {
+        group_equipment: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Subcategories to focus on for group equipment',
+        },
+        personal_equipment: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Subcategories to focus on for personal equipment',
+        },
+        food: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Subcategories to focus on for food',
+        },
+      },
+    },
+  },
+} as const
+
 export const aiSuggestionItemSchema = {
   $id: 'AiSuggestionItem',
   type: 'object',

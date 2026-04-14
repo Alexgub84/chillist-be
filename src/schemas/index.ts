@@ -104,6 +104,7 @@ import {
   dietaryMembersBodySchema,
 } from './dietary.schema.js'
 import {
+  aiSuggestionsRequestSchema,
   aiSuggestionItemSchema,
   aiSuggestionsResponseSchema,
 } from './ai-suggestions.schema.js'
@@ -211,6 +212,7 @@ const schemas = [
   internalUpdateItemStatusResponseSchema,
   dietaryMemberSchema,
   dietaryMembersBodySchema,
+  aiSuggestionsRequestSchema,
   aiSuggestionItemSchema,
   aiSuggestionsResponseSchema,
   aiUsageLogSchema,

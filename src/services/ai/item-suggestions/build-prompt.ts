@@ -8,6 +8,7 @@ import {
   SYSTEM_INSTRUCTION,
   getLanguageInstruction,
   getDietaryInstruction,
+  getCategoriesInstruction,
   CONTEXT_GUIDANCE,
   CATEGORY_RULES,
   SUBCATEGORY_GUIDANCE,
@@ -80,6 +81,10 @@ export function buildItemSuggestionsPrompt(
 
   if (plan.dietarySummary?.trim()) {
     sections.push('', getDietaryInstruction(plan.dietarySummary.trim()))
+  }
+
+  if (plan.categories) {
+    sections.push('', getCategoriesInstruction(plan.categories))
   }
 
   sections.push(

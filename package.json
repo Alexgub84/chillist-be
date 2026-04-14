@@ -21,6 +21,7 @@
     "test:integration": "vitest run tests/integration",
     "test:e2e": "vitest run tests/e2e",
     "test:ai-prompt-quality": "bash scripts/test-ai-prompt-quality.sh",
+    "test:ai-suggestions-e2e": "npx vitest run tests/e2e/ai-suggestions-prod.test.ts",
     "prepare": "husky",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
