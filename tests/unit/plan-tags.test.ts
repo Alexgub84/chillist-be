@@ -19,16 +19,22 @@ describe('getPlanTags', () => {
     expect((tags['version'] as string).length).toBeGreaterThan(0)
   })
 
-  it('tier1 has options array with id, label, emoji on each entry', () => {
+  it('tier1 has options array with id, bilingual label, emoji on each entry', () => {
     const tags = getPlanTags()
     const tier1 = tags['tier1'] as {
-      options: Array<{ id: string; label: string; emoji: string }>
+      options: Array<{
+        id: string
+        label: { en: string; he: string }
+        emoji: string
+      }>
     }
     expect(Array.isArray(tier1.options)).toBe(true)
     expect(tier1.options.length).toBeGreaterThan(0)
     for (const opt of tier1.options) {
       expect(typeof opt.id).toBe('string')
-      expect(typeof opt.label).toBe('string')
+      expect(typeof opt.label).toBe('object')
+      expect(typeof opt.label.en).toBe('string')
+      expect(typeof opt.label.he).toBe('string')
       expect(typeof opt.emoji).toBe('string')
     }
   })
