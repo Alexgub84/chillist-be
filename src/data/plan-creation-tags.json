@@ -1,11 +1,43 @@
 {
-  "version": "1.3",
+  "version": "1.4",
   "description": "Chillist plan creation wizard tag schema. Bilingual (en + he). Tier 1 = plan archetype (single-select). Universal flags asked once regardless of Tier 1. Tier 2 = named axes conditional on Tier 1, each axis internally single-select to prevent contradictions. Tier 3 = specifics conditional on Tier 2 values (single-select by default; see multi_select_parents).",
+
+  "selection_by_tier": {
+    "description": "Explicit single- vs multi-select rules per wizard tier. Mirrors the select fields on nested objects; use this for at-a-glance UI logic.",
+    "tier1": {
+      "select": "single",
+      "note": "Exactly one plan archetype id from tier1.options."
+    },
+    "universal_flags": {
+      "mode": "per_flag",
+      "note": "Each key under universal_flags is a separate question; each has its own select field.",
+      "flags": {
+        "destination_scope": { "select": "single" },
+        "group_character": { "select": "multi", "max_select": 3 }
+      }
+    },
+    "tier2_axes": {
+      "mode": "per_axis",
+      "note": "Each key under tier2_axes is one axis; each has its own select field.",
+      "axes": {
+        "sleep": { "select": "single" },
+        "food_strategy": { "select": "single" },
+        "activities": { "select": "multi" },
+        "venue": { "select": "single" }
+      }
+    },
+    "tier3": {
+      "mode": "per_tier2_option_id",
+      "note": "Drill-down groups in options_by_parent, keyed by tier2 option id.",
+      "default_select": "single",
+      "multi_select_parents": ["booked_activity"]
+    }
+  },
 
   "structural_contract": {
     "purpose": "Structural guarantees both consumers (frontend wizard + chatbot service) rely on. Changes to data INSIDE these structures are safe. Changes to the structure ITSELF require coordinated updates to consumer code and bot instructions.",
     "guarantees": [
-      "Top-level keys are stable: 'version', 'tier1', 'universal_flags', 'tier2_axes', 'tier3', 'item_generation_bundles'.",
+      "Top-level keys are stable: 'version', 'selection_by_tier', 'tier1', 'universal_flags', 'tier2_axes', 'tier3', 'item_generation_bundles'.",
       "Every user-facing 'label' field is an object of the shape { en: string, he: string }. Consumers pick the language at render time.",
       "All 'id' values are stable English strings safe to use as database values. Renaming an id is a breaking change; editing a label (en or he) is not.",
       "tier1 has 'select' ('single') and 'options' (array of {id, label, emoji}).",
@@ -23,7 +55,8 @@
       "Adding new entries to tier3.options_by_parent",
       "Adding new bundles to item_generation_bundles",
       "Adding or removing pairs in universal_flags[*].contradictions",
-      "Adding or removing ids in tier3.multi_select_parents"
+      "Adding or removing ids in tier3.multi_select_parents",
+      "Editing selection_by_tier to match nested select fields when axes or flags change"
     ],
     "breaking_changes_consumer_update_required": [
       "Adding a new top-level key (e.g. tier4)",
@@ -190,6 +223,8 @@
 
   "tier3": {
     "description": "Specifics conditional on Tier 2 values. Keyed by Tier 2 option id. Single-select by default. Only parent ids listed in multi_select_parents allow multiple selections.",
+    "select": "per_parent",
+    "default_select": "single",
     "multi_select_parents": ["booked_activity"],
     "options_by_parent": {
       "tent": [
@@ -268,6 +303,10 @@
   },
 
   "changelog": {
+    "1.4": [
+      "Added selection_by_tier — explicit single vs multi (and per-flag / per-axis breakdown) for FE at-a-glance.",
+      "Added tier3.select ('per_parent'), tier3.default_select ('single'), and duplicated multi_select_parents under selection_by_tier.tier3 for consistency."
+    ],
     "1.3": [
       "Added group_character.contradictions — pairs of option ids that cannot both be selected. FE should deselect the previous choice when a contradicting option is picked.",
       "Added tier3.multi_select_parents — array of tier2 option ids whose tier3 drill-downs allow multi-select. All other tier3 groups are single-select.",

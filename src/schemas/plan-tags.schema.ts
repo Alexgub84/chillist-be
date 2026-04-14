@@ -29,6 +29,11 @@
  * ## Stable id contract
  * All `id` values are stable English slugs safe to store in the database.
  * Renaming an id is a breaking change; editing a label text is not.
+ *
+ * ## selection_by_tier
+ * Top-level summary of single vs multi for each tier (`tier1`, `universal_flags.flags`,
+ * `tier2_axes.axes`, `tier3`). Prefer reading nested `select` on each object; use
+ * `selection_by_tier` for quick UI routing.
  */
 
 /** Shared bilingual label shape used on every user-facing string. */
@@ -87,9 +92,12 @@ Labels are bilingual objects \`{ en, he }\` — pick the active locale at render
 All \`id\` values are stable slugs safe to persist as tag values.
 
 **Rendering order:** tier1 → universal_flags → tier2_axes (filtered by chosen tier1) → tier3 (drill-down per chosen tier2 value).
+
+**Selection summary:** Read \`selection_by_tier\` for explicit single vs multi per tier and per flag/axis. Nested objects remain authoritative (\`tier1.select\`, each flag/axis \`select\`, \`tier3.default_select\` + \`multi_select_parents\`).
   `.trim(),
   required: [
     'version',
+    'selection_by_tier',
     'tier1',
     'universal_flags',
     'tier2_axes',
@@ -99,13 +107,117 @@ All \`id\` values are stable slugs safe to persist as tag values.
   properties: {
     version: {
       type: 'string',
-      description: 'Taxonomy version string, e.g. "1.2".',
-      example: '1.2',
+      description: 'Taxonomy version string, e.g. "1.4".',
+      example: '1.4',
     },
 
     description: {
       type: 'string',
       description: 'Human-readable summary of this taxonomy version.',
+    },
+
+    selection_by_tier: {
+      type: 'object',
+      description: `
+At-a-glance summary of **single vs multi-select** for each wizard tier. Mirrors the \`select\` fields on nested definitions; use for routing (radio vs checkbox) without scanning the full tree.
+
+- **tier1.select** — always \`single\`.
+- **universal_flags.flags** — each flag has its own \`select\` (\`single\` or \`multi\` + optional \`max_select\`).
+- **tier2_axes.axes** — each axis has its own \`select\` (only \`activities\` is \`multi\` today).
+- **tier3** — \`default_select\` is \`single\`; parents listed in \`multi_select_parents\` use multi-select for that drill-down group.
+      `.trim(),
+      required: ['tier1', 'universal_flags', 'tier2_axes', 'tier3'],
+      properties: {
+        description: {
+          type: 'string',
+          description: 'Internal note for consumers.',
+        },
+        tier1: {
+          type: 'object',
+          required: ['select'],
+          properties: {
+            select: {
+              type: 'string',
+              enum: ['single'],
+              description: 'Tier 1 is always single-select.',
+            },
+            note: { type: 'string' },
+          },
+        },
+        universal_flags: {
+          type: 'object',
+          description:
+            'Each entry in `flags` matches a key under `universal_flags`.',
+          required: ['mode', 'flags'],
+          properties: {
+            mode: {
+              type: 'string',
+              enum: ['per_flag'],
+              description:
+                'Each flag is independent; open each definition for full options.',
+            },
+            note: { type: 'string' },
+            flags: {
+              type: 'object',
+              additionalProperties: {
+                type: 'object',
+                required: ['select'],
+                properties: {
+                  select: { type: 'string', enum: ['single', 'multi'] },
+                  max_select: { type: 'integer' },
+                },
+              },
+            },
+          },
+        },
+        tier2_axes: {
+          type: 'object',
+          required: ['mode', 'axes'],
+          properties: {
+            mode: {
+              type: 'string',
+              enum: ['per_axis'],
+              description: 'Each axis is one question.',
+            },
+            note: { type: 'string' },
+            axes: {
+              type: 'object',
+              additionalProperties: {
+                type: 'object',
+                required: ['select'],
+                properties: {
+                  select: { type: 'string', enum: ['single', 'multi'] },
+                },
+              },
+            },
+          },
+        },
+        tier3: {
+          type: 'object',
+          required: ['mode', 'default_select', 'multi_select_parents'],
+          properties: {
+            mode: {
+              type: 'string',
+              enum: ['per_tier2_option_id'],
+              description:
+                'Groups keyed by tier2 option id in options_by_parent.',
+            },
+            note: { type: 'string' },
+            default_select: {
+              type: 'string',
+              enum: ['single'],
+              description:
+                'Each drill-down group is single-select unless the parent id is in multi_select_parents.',
+            },
+            multi_select_parents: {
+              type: 'array',
+              items: { type: 'string' },
+              description:
+                'Tier2 option ids whose tier3 follow-up allows multiple selections.',
+            },
+          },
+        },
+      },
     },
 
     // ─── Tier 1 ────────────────────────────────────────────────────────────
@@ -289,11 +401,28 @@ Optional drill-down specifics, conditional on tier2 selections.
    - NO  → render as a **radio group** (single-select).
 4. If \`options_by_parent[tier2OptionId]\` is absent → no drill-down for that selection.
       `.trim(),
-      required: ['multi_select_parents', 'options_by_parent'],
+      required: [
+        'select',
+        'default_select',
+        'multi_select_parents',
+        'options_by_parent',
+      ],
       properties: {
         description: {
           type: 'string',
           description: 'Internal note. Not shown to users.',
+        },
+        select: {
+          type: 'string',
+          enum: ['per_parent'],
+          description:
+            'Tier 3 is organized as one follow-up group per tier2 option id (parent key in options_by_parent).',
+        },
+        default_select: {
+          type: 'string',
+          enum: ['single'],
+          description:
+            'Unless a parent tier2 id is in multi_select_parents, the user picks exactly one tier3 option.',
         },
         multi_select_parents: {
           type: 'array',
