@@ -68,7 +68,7 @@ describe('GET /plan-tags (FE endpoint — JWT required)', () => {
     expect(body).toHaveProperty('item_generation_bundles')
   })
 
-  it('tier1 options have id, label, emoji', async () => {
+  it('tier1 options have id, bilingual label, emoji', async () => {
     const token = await signTestJwt({
       sub: 'user-123',
       email: 'test@example.com',
@@ -81,13 +81,15 @@ describe('GET /plan-tags (FE endpoint — JWT required)', () => {
     const body = res.json()
     const options = body.tier1.options as Array<{
       id: string
-      label: string
+      label: { en: string; he: string }
       emoji: string
     }>
     expect(options.length).toBeGreaterThan(0)
     for (const opt of options) {
       expect(typeof opt.id).toBe('string')
-      expect(typeof opt.label).toBe('string')
+      expect(typeof opt.label).toBe('object')
+      expect(typeof opt.label.en).toBe('string')
+      expect(typeof opt.label.he).toBe('string')
       expect(typeof opt.emoji).toBe('string')
     }
   })

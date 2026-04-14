@@ -1,23 +1,346 @@
 /**
- * The plan tags response is a static JSON file served as-is.
- * We declare the schema as a free-form object so Fastify does not strip
- * any keys during serialization, while still producing valid OpenAPI docs.
+ * Schema for GET /plan-tags and GET /api/internal/plan-tags.
+ *
+ * The taxonomy is a static JSON file bundled with the server (src/data/plan-creation-tags.json).
+ * Every user-facing "label" is bilingual: { en: string, he: string }. Consumers pick the
+ * language at render time.
+ *
+ * ## Rendering guide (for the frontend wizard)
+ *
+ * 1. Show all `tier1.options` — single-select.
+ * 2. Show every `universal_flags` entry (asked for ALL tier1 values, in definition order).
+ *    - `select: "single"` → radio / segmented control
+ *    - `select: "multi"` + `max_select` → checkbox group capped at max_select
+ *    - If a flag's option has `injects_bundle`, add the matching
+ *      `item_generation_bundles[injects_bundle]` items when that option is selected.
+ * 3. For each `tier2_axes` entry:
+ *    - Show it only if the chosen tier1 id is in `shown_for_tier1`.
+ *    - Pre-select `defaults_by_tier1[chosenTier1Id]` if present.
+ *    - Hide options whose id appears in `hidden_options_by_tier1[chosenTier1Id]`.
+ *    - `select: "single"` for most axes; `select: "multi"` for `activities`.
+ * 4. After a tier2 option is chosen, check `tier3.options_by_parent[tier2OptionId]`.
+ *    If entries exist → show as a follow-up multi-select drill-down.
+ *
+ * ## Stable id contract
+ * All `id` values are stable English slugs safe to store in the database.
+ * Renaming an id is a breaking change; editing a label text is not.
  */
+
+/** Shared bilingual label shape used on every user-facing string. */
+const bilingualLabel = {
+  type: 'object',
+  description:
+    'Bilingual label. Pick the language matching the active locale at render time.',
+  required: ['en', 'he'],
+  additionalProperties: false,
+  properties: {
+    en: { type: 'string', description: 'English label' },
+    he: { type: 'string', description: 'Hebrew label (RTL)' },
+  },
+} as const
+
+/** A single selectable tag option (used in tier1, tier2 axes, tier3, and universal_flags). */
+const tagOption = {
+  type: 'object',
+  description: 'A single selectable option.',
+  required: ['id', 'label'],
+  properties: {
+    id: {
+      type: 'string',
+      description:
+        'Stable slug, safe to store as a tag value. Never changes between versions.',
+    },
+    label: bilingualLabel,
+    emoji: {
+      type: 'string',
+      description: 'Optional emoji decoration shown next to the label.',
+    },
+    injects_bundle: {
+      type: 'string',
+      description:
+        'When present, selecting this option should also inject the named item_generation_bundles entry into the item list.',
+    },
+  },
+} as const
+
+/** A tier3 drill-down option (no emoji, no bundle injection). */
+const tier3Option = {
+  type: 'object',
+  required: ['id', 'label'],
+  properties: {
+    id: { type: 'string', description: 'Stable slug.' },
+    label: bilingualLabel,
+  },
+} as const
+
 export const planTagsResponseSchema = {
   $id: 'PlanTagsResponse',
   type: 'object',
-  description:
-    'Full plan tag taxonomy (version, tier1, universal_flags, tier2_axes, tier3, item_generation_bundles). Served from a static versioned JSON file bundled with the server.',
-  additionalProperties: true,
+  description: `
+Plan tag taxonomy served as a static versioned JSON file.
+Labels are bilingual objects \`{ en, he }\` — pick the active locale at render time.
+All \`id\` values are stable slugs safe to persist as tag values.
+
+**Rendering order:** tier1 → universal_flags → tier2_axes (filtered by chosen tier1) → tier3 (drill-down per chosen tier2 value).
+  `.trim(),
+  required: [
+    'version',
+    'tier1',
+    'universal_flags',
+    'tier2_axes',
+    'tier3',
+    'item_generation_bundles',
+  ],
   properties: {
     version: {
       type: 'string',
-      description: 'Taxonomy version string, e.g. "1.1"',
+      description: 'Taxonomy version string, e.g. "1.2".',
+      example: '1.2',
     },
+
     description: {
       type: 'string',
-      description: 'Human-readable description of this taxonomy version',
+      description: 'Human-readable summary of this taxonomy version.',
+    },
+
+    // ─── Tier 1 ────────────────────────────────────────────────────────────
+    tier1: {
+      type: 'object',
+      description:
+        'Step 1: plan archetype. Always shown. Single-select (one tier1 id stored on the plan).',
+      required: ['key', 'select', 'options', 'label'],
+      properties: {
+        label: {
+          ...bilingualLabel,
+          description: 'Question label shown above the options.',
+        },
+        key: {
+          type: 'string',
+          description: 'Field name used when storing the selected value.',
+          example: 'plan_type',
+        },
+        select: {
+          type: 'string',
+          enum: ['single'],
+          description:
+            'Always "single" — the user picks exactly one archetype.',
+        },
+        options: {
+          type: 'array',
+          description: 'Ordered list of plan archetype options.',
+          items: tagOption,
+        },
+      },
+    },
+
+    // ─── Universal Flags ───────────────────────────────────────────────────
+    universal_flags: {
+      type: 'object',
+      description: `
+Flags shown for every tier1 choice, in definition order.
+Each key is the flag name (matches the \`key\` field inside the definition).
+Render after tier1, before tier2_axes.
+      `.trim(),
+      additionalProperties: {
+        type: 'object',
+        description: 'A single universal flag definition.',
+        required: ['key', 'select', 'required', 'options', 'label'],
+        properties: {
+          label: {
+            ...bilingualLabel,
+            description: 'Question label shown above the options.',
+          },
+          key: {
+            type: 'string',
+            description:
+              'Field name used when storing selected value(s) on the plan.',
+          },
+          select: {
+            type: 'string',
+            enum: ['single', 'multi'],
+            description:
+              '"single" → radio/segmented. "multi" → checkbox (respect max_select if set).',
+          },
+          max_select: {
+            type: 'integer',
+            description:
+              'Only present on multi-select flags. Maximum number of options the user may choose.',
+          },
+          required: {
+            type: 'boolean',
+            description:
+              'Whether the user must answer this flag before proceeding.',
+          },
+          asked_for_all_tier1: {
+            type: 'boolean',
+            description:
+              'Always true — flag is shown regardless of tier1 choice.',
+          },
+          purpose: {
+            type: 'string',
+            description:
+              'Internal note explaining why this flag exists. Not shown to users.',
+          },
+          options: {
+            type: 'array',
+            items: tagOption,
+          },
+        },
+      },
+    },
+
+    // ─── Tier 2 Axes ───────────────────────────────────────────────────────
+    tier2_axes: {
+      type: 'object',
+      description: `
+Named axes shown conditionally after tier1 + universal_flags.
+Each key is the axis name (matches the \`key\` field inside).
+
+**Rendering rules per axis:**
+- Show only if the selected tier1 id is in \`shown_for_tier1\`.
+- Pre-select \`defaults_by_tier1[chosenTier1Id]\` when entering the step.
+- Hide options listed in \`hidden_options_by_tier1[chosenTier1Id]\`.
+- Most axes are \`select: "single"\`; \`activities\` is \`select: "multi"\`.
+      `.trim(),
+      additionalProperties: {
+        type: 'object',
+        description: 'A single tier2 axis definition.',
+        required: ['key', 'select', 'shown_for_tier1', 'options', 'label'],
+        properties: {
+          label: {
+            ...bilingualLabel,
+            description: 'Question label shown above the options.',
+          },
+          key: {
+            type: 'string',
+            description: 'Field name used when storing selected value(s).',
+          },
+          select: {
+            type: 'string',
+            enum: ['single', 'multi'],
+            description:
+              'Single-select for most axes. Multi-select only for "activities".',
+          },
+          shown_for_tier1: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Tier1 option ids for which this axis should be shown. Hide the axis when the chosen tier1 id is NOT in this list.',
+          },
+          options: {
+            type: 'array',
+            items: tagOption,
+            description: 'All available options for this axis (before hiding).',
+          },
+          defaults_by_tier1: {
+            type: 'object',
+            additionalProperties: { type: 'string' },
+            description:
+              'Maps a tier1 option id → the axis option id to pre-select. Keys are tier1 ids; values are option ids within this axis.',
+          },
+          hidden_options_by_tier1: {
+            type: 'object',
+            additionalProperties: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            description:
+              'Maps a tier1 option id → list of axis option ids to hide for that tier1 choice. Options in this list should not be shown or selectable.',
+          },
+        },
+      },
+    },
+
+    // ─── Tier 3 ────────────────────────────────────────────────────────────
+    tier3: {
+      type: 'object',
+      description:
+        'Optional drill-down specifics, conditional on tier2 selections. Absence of a key means no drill-down for that tier2 option.',
+      required: ['options_by_parent'],
+      properties: {
+        description: {
+          type: 'string',
+          description: 'Internal note. Not shown to users.',
+        },
+        options_by_parent: {
+          type: 'object',
+          description: `
+Maps a **tier2 option id** → array of drill-down options to show after that tier2 value is selected.
+If a tier2 option id is absent from this map, no tier3 follow-up is shown for it.
+Tier3 is always multi-select (the user can pick any combination).
+          `.trim(),
+          additionalProperties: {
+            type: 'array',
+            items: tier3Option,
+          },
+        },
+      },
+    },
+
+    // ─── Item Generation Bundles ───────────────────────────────────────────
+    item_generation_bundles: {
+      type: 'object',
+      description: `
+Pre-defined item bundles injected when a flag option with \`injects_bundle\` is selected.
+Each bundle is an array of bilingual item name objects \`{ en, he }\`.
+These items should be added to the plan's item list in the plan's active language.
+      `.trim(),
+      required: ['travel_abroad'],
+      properties: {
+        description: {
+          type: 'string',
+          description: 'Internal note. Not shown to users.',
+        },
+        travel_abroad: {
+          type: 'array',
+          description:
+            'Injected when the user selects "abroad" in the destination_scope flag. Essential travel-abroad checklist items.',
+          items: {
+            type: 'object',
+            description: 'Bilingual item name.',
+            required: ['en', 'he'],
+            properties: {
+              en: { type: 'string', description: 'Item name in English.' },
+              he: { type: 'string', description: 'Item name in Hebrew.' },
+            },
+          },
+        },
+      },
+      additionalProperties: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['en', 'he'],
+          properties: {
+            en: { type: 'string' },
+            he: { type: 'string' },
+          },
+        },
+      },
+    },
+
+    // ─── Meta (not used by rendering logic) ───────────────────────────────
+    structural_contract: {
+      type: 'object',
+      description:
+        'Documents stable guarantees about this schema. Informational — not used by the wizard UI.',
+      additionalProperties: true,
+    },
+
+    design_principles: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Design rationale. Informational — not used by the wizard UI.',
+    },
+
+    changelog: {
+      type: 'object',
+      additionalProperties: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+      description: 'Per-version change notes. Keys are version strings.',
     },
   },
-  required: ['version'],
 } as const
