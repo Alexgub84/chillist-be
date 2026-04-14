@@ -1,6 +1,6 @@
 {
-  "version": "1.2",
-  "description": "Chillist plan creation wizard tag schema. Bilingual (en + he). Tier 1 = plan archetype (single-select). Universal flags asked once regardless of Tier 1. Tier 2 = named axes conditional on Tier 1, each axis internally single-select to prevent contradictions. Tier 3 = specifics conditional on Tier 2 values.",
+  "version": "1.3",
+  "description": "Chillist plan creation wizard tag schema. Bilingual (en + he). Tier 1 = plan archetype (single-select). Universal flags asked once regardless of Tier 1. Tier 2 = named axes conditional on Tier 1, each axis internally single-select to prevent contradictions. Tier 3 = specifics conditional on Tier 2 values (single-select by default; see multi_select_parents).",
 
   "structural_contract": {
     "purpose": "Structural guarantees both consumers (frontend wizard + chatbot service) rely on. Changes to data INSIDE these structures are safe. Changes to the structure ITSELF require coordinated updates to consumer code and bot instructions.",
@@ -9,9 +9,9 @@
       "Every user-facing 'label' field is an object of the shape { en: string, he: string }. Consumers pick the language at render time.",
       "All 'id' values are stable English strings safe to use as database values. Renaming an id is a breaking change; editing a label (en or he) is not.",
       "tier1 has 'select' ('single') and 'options' (array of {id, label, emoji}).",
-      "universal_flags maps flag names to definitions with 'key', 'select', 'required', 'options'. Multi-select flags may include 'max_select'.",
+      "universal_flags maps flag names to definitions with 'key', 'select', 'required', 'options'. Multi-select flags may include 'max_select' and 'contradictions'.",
       "tier2_axes maps axis names to definitions with 'key', 'select', 'shown_for_tier1', 'options'. Single-select axes may include 'defaults_by_tier1' and 'hidden_options_by_tier1'.",
-      "tier3.options_by_parent maps a tier2 option id to an array of drill-down options. Absence means no drill-down.",
+      "tier3.options_by_parent maps a tier2 option id to an array of drill-down options. Absence means no drill-down. Default select is 'single'; tier3.multi_select_parents lists the exceptions.",
       "item_generation_bundles maps bundle names to arrays of item strings (also bilingual)."
     ],
     "safe_changes_no_consumer_update_needed": [
@@ -21,7 +21,9 @@
       "Changing 'defaults_by_tier1' or 'hidden_options_by_tier1' values",
       "Changing which tier1 ids appear in 'shown_for_tier1' for an axis",
       "Adding new entries to tier3.options_by_parent",
-      "Adding new bundles to item_generation_bundles"
+      "Adding new bundles to item_generation_bundles",
+      "Adding or removing pairs in universal_flags[*].contradictions",
+      "Adding or removing ids in tier3.multi_select_parents"
     ],
     "breaking_changes_consumer_update_required": [
       "Adding a new top-level key (e.g. tier4)",
@@ -36,7 +38,8 @@
     "Wizard only captures what the owner knows at creation time, isn't derivable later, and materially changes the item list.",
     "Each Tier 2 axis is internally single-select to prevent contradictions. 'Mix' is its own value, not two checkboxes.",
     "Activities is the only multi-select Tier 2 axis.",
-    "No 'Other' Tier 1 — absence signals which archetype is missing for v1.3.",
+    "Tier 3 is single-select by default. Only groups listed in tier3.multi_select_parents allow multiple selections.",
+    "No 'Other' Tier 1 — absence signals which archetype is missing for v1.4.",
     "Group composition (kids, pets, dietary) and weather/season are excluded — derived later from participants and dates."
   ],
 
@@ -80,12 +83,17 @@
       "required": false,
       "asked_for_all_tier1": true,
       "purpose": "Feeds the LLM item-generation prompt. Each trait demonstrably shifts the item list.",
+      "contradictions": [
+        ["chill", "party_oriented"],
+        ["chill", "adventurous"],
+        ["comfort_first", "adventurous"]
+      ],
       "options": [
-        { "id": "hygiene_conscious", "label": { "en": "Hygiene-conscious",            "he": "מקפידים על ניקיון" }, "emoji": "🧼" },
-        { "id": "party_oriented",    "label": { "en": "Party-oriented / heavy drinkers","he": "אוהבים לחגוג / שותים" }, "emoji": "🍻" },
-        { "id": "chill",             "label": { "en": "Chill / low-key",               "he": "רגועים" },            "emoji": "🧘" },
-        { "id": "adventurous",       "label": { "en": "Adventurous / outdoorsy",      "he": "הרפתקנים / אוהבי טבע" }, "emoji": "🏕️" },
-        { "id": "comfort_first",     "label": { "en": "Comfort-first / glampers",     "he": "אוהבי נוחות / גלמפינג" }, "emoji": "✨" }
+        { "id": "hygiene_conscious", "label": { "en": "Hygiene-conscious",             "he": "מקפידים על ניקיון" },       "emoji": "🧼" },
+        { "id": "party_oriented",    "label": { "en": "Party-oriented / heavy drinkers","he": "אוהבים לחגוג / שותים" },    "emoji": "🍻" },
+        { "id": "chill",             "label": { "en": "Chill / low-key",               "he": "רגועים" },                  "emoji": "🧘" },
+        { "id": "adventurous",       "label": { "en": "Adventurous / outdoorsy",       "he": "הרפתקנים / אוהבי טבע" },    "emoji": "🏕️" },
+        { "id": "comfort_first",     "label": { "en": "Comfort-first / glampers",      "he": "אוהבי נוחות / גלמפינג" },   "emoji": "✨" }
       ]
     }
   },
@@ -181,7 +189,8 @@
   },
 
   "tier3": {
-    "description": "Specifics conditional on Tier 2 values. Keyed by Tier 2 option id.",
+    "description": "Specifics conditional on Tier 2 values. Keyed by Tier 2 option id. Single-select by default. Only parent ids listed in multi_select_parents allow multiple selections.",
+    "multi_select_parents": ["booked_activity"],
     "options_by_parent": {
       "tent": [
         { "id": "tent_shared",  "label": { "en": "Sharing tents",                "he": "מתחלקים באוהלים" } },
@@ -197,8 +206,8 @@
         { "id": "mixed_flexible",  "label": { "en": "Finding places as we go", "he": "מוצאים מקומות תוך כדי" } }
       ],
       "cooking_ourselves": [
-        { "id": "cook_shared_meals", "label": { "en": "Shared group meals",           "he": "ארוחות משותפות לכולם" } },
-        { "id": "cook_each_own",     "label": { "en": "Everyone cooks their own",     "he": "כל אחד מבשל לעצמו" } },
+        { "id": "cook_shared_meals", "label": { "en": "Shared group meals",            "he": "ארוחות משותפות לכולם" } },
+        { "id": "cook_each_own",     "label": { "en": "Everyone cooks their own",      "he": "כל אחד מבשל לעצמו" } },
         { "id": "cook_assigned",     "label": { "en": "Assigned cooking duties per day","he": "תורנות בישול לפי ימים" } }
       ],
       "mixed_food": [
@@ -207,16 +216,16 @@
         { "id": "mix_balanced",     "label": { "en": "Roughly balanced",                              "he": "בערך חצי חצי" } }
       ],
       "all_inclusive": [
-        { "id": "ai_full_board",       "label": { "en": "Full board (all meals)", "he": "פנסיון מלא" } },
-        { "id": "ai_half_board",       "label": { "en": "Half board (2 meals)",   "he": "חצי פנסיון" } },
-        { "id": "ai_drinks_included",  "label": { "en": "Drinks included",        "he": "כולל שתייה" } }
+        { "id": "ai_full_board",  "label": { "en": "Full board (all meals)", "he": "פנסיון מלא" } },
+        { "id": "ai_half_board",  "label": { "en": "Half board (2 meals)",   "he": "חצי פנסיון" } },
+        { "id": "ai_drinks_only", "label": { "en": "Drinks only",            "he": "רק שתייה" } }
       ],
       "potluck": [
-        { "id": "potluck_assigned", "label": { "en": "Assigned dishes per person", "he": "מחלקים מראש מי מביא מה" } },
+        { "id": "potluck_assigned", "label": { "en": "Assigned dishes per person",    "he": "מחלקים מראש מי מביא מה" } },
         { "id": "potluck_free",     "label": { "en": "Everyone brings what they want", "he": "כל אחד מביא מה שבא לו" } }
       ],
       "packed_food": [
-        { "id": "packed_shared",   "label": { "en": "Shared group supplies",   "he": "אוכל משותף לכולם" } },
+        { "id": "packed_shared",   "label": { "en": "Shared group supplies",      "he": "אוכל משותף לכולם" } },
         { "id": "packed_each_own", "label": { "en": "Each person packs their own", "he": "כל אחד אורז לעצמו" } }
       ],
       "booked_activity": [
@@ -225,8 +234,8 @@
         { "id": "activity_booking_needed",    "label": { "en": "Needs advance booking",         "he": "צריך הזמנה מראש" } }
       ],
       "kayaking": [
-        { "id": "water_gear_owned",  "label": { "en": "Bringing own gear",   "he": "מביאים ציוד משלנו" } },
-        { "id": "water_gear_rental", "label": { "en": "Renting on-site",     "he": "שוכרים במקום" } }
+        { "id": "water_gear_owned",  "label": { "en": "Bringing own gear", "he": "מביאים ציוד משלנו" } },
+        { "id": "water_gear_rental", "label": { "en": "Renting on-site",   "he": "שוכרים במקום" } }
       ],
       "someones_home": [
         { "id": "home_host_provides", "label": { "en": "Host provides everything", "he": "המארח דואג להכל" } },
@@ -234,9 +243,9 @@
         { "id": "home_hired_help",    "label": { "en": "Hired chef / catering",    "he": "שף / קייטרינג" } }
       ],
       "outdoor_bbq": [
-        { "id": "bbq_shared_food", "label": { "en": "Shared group food",                    "he": "אוכל משותף לכולם" } },
-        { "id": "bbq_bring_own",   "label": { "en": "Everyone brings their own meat/food",  "he": "כל אחד מביא את הבשר/אוכל שלו" } },
-        { "id": "bbq_assigned",    "label": { "en": "Assigned items per person",            "he": "מחלקים מראש מי מביא מה" } }
+        { "id": "bbq_shared_food", "label": { "en": "Shared group food",                   "he": "אוכל משותף לכולם" } },
+        { "id": "bbq_bring_own",   "label": { "en": "Everyone brings their own meat/food", "he": "כל אחד מביא את הבשר/אוכל שלו" } },
+        { "id": "bbq_assigned",    "label": { "en": "Assigned items per person",           "he": "מחלקים מראש מי מביא מה" } }
       ],
       "restaurant_venue": [
         { "id": "venue_prebooked", "label": { "en": "Pre-booked / reserved", "he": "הזמנו מראש" } },
@@ -259,6 +268,12 @@
   },
 
   "changelog": {
+    "1.3": [
+      "Added group_character.contradictions — pairs of option ids that cannot both be selected. FE should deselect the previous choice when a contradicting option is picked.",
+      "Added tier3.multi_select_parents — array of tier2 option ids whose tier3 drill-downs allow multi-select. All other tier3 groups are single-select.",
+      "Fixed all_inclusive tier3: replaced ambiguous 'ai_drinks_included' add-on with 'ai_drinks_only' as a proper single-select alternative to board options.",
+      "Updated structural_contract and design_principles to document the new selection rules."
+    ],
     "1.2": [
       "Added bilingual labels (en + he) to all user-facing strings.",
       "All 'label' fields now follow the shape { en, he }.",
