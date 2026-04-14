@@ -11,6 +11,7 @@ import {
   participantExpenses,
   participantJoinRequests,
   aiUsageLogs,
+  aiSuggestions,
   chatbotAiUsage,
   type Location,
   type Assignment,
@@ -52,7 +53,7 @@ async function seed() {
 
   try {
     await db.execute(
-      sql`TRUNCATE plans, participants, items, plan_invites, participant_join_requests, participant_expenses, guest_profiles, users, whatsapp_notifications, ai_usage_logs, chatbot_ai_usage CASCADE`
+      sql`TRUNCATE plans, participants, items, ai_suggestions, plan_invites, participant_join_requests, participant_expenses, guest_profiles, users, whatsapp_notifications, ai_usage_logs, chatbot_ai_usage CASCADE`
     )
     console.log('Cleared all tables')
 
@@ -407,6 +408,81 @@ async function seed() {
 
     const tent = negevItems.find((i) => i.name === 'Tent')!
     const sleepingBag = negevItems.find((i) => i.name === 'Sleeping Bag')!
+
+    const [negevAiUsageLog] = await db
+      .insert(aiUsageLogs)
+      .values({
+        featureType: 'item_suggestions',
+        planId: negevPlan.planId,
+        userId: seedOwnerUserId,
+        provider: 'anthropic',
+        modelId: 'claude-haiku-4-5-20251001',
+        lang: 'he',
+        status: 'success',
+        inputTokens: 1200,
+        outputTokens: 800,
+        totalTokens: 2000,
+        durationMs: 4200,
+        resultCount: 4,
+        metadata: { planTitle: negevPlan.title, seed: true },
+      })
+      .returning()
+
+    const insertedAiSuggestions = await db
+      .insert(aiSuggestions)
+      .values([
+        {
+          aiUsageLogId: negevAiUsageLog.id,
+          planId: negevPlan.planId,
+          name: 'Tent',
+          category: 'group_equipment',
+          subcategory: 'Shelter',
+          quantity: '1',
+          unit: 'pcs',
+          reason:
+            'Desert nights get cold — seed sample (accepted, linked to Tent item)',
+          status: 'accepted',
+          itemId: tent.itemId,
+        },
+        {
+          aiUsageLogId: negevAiUsageLog.id,
+          planId: negevPlan.planId,
+          name: 'Portable shade canopy',
+          category: 'group_equipment',
+          subcategory: 'Shelter',
+          quantity: '1',
+          unit: 'pcs',
+          reason:
+            'Extra UV protection for toddlers — seed sample (still suggested)',
+          status: 'suggested',
+        },
+        {
+          aiUsageLogId: negevAiUsageLog.id,
+          planId: negevPlan.planId,
+          name: 'Wet wipes pack',
+          category: 'personal_equipment',
+          subcategory: 'Hygiene',
+          quantity: '2',
+          unit: 'pack',
+          reason: 'Hand cleanup for kids — seed sample (still suggested)',
+          status: 'suggested',
+        },
+      ])
+      .returning()
+
+    const sugAccepted = insertedAiSuggestions[0]!
+
+    await db
+      .update(items)
+      .set({
+        source: 'ai_suggestion',
+        aiSuggestionId: sugAccepted.id,
+      })
+      .where(eq(items.itemId, tent.itemId))
+
+    console.log(
+      'Created AI usage log + 3 ai_suggestions (1 accepted→Tent, 2 suggested); Tent linked as ai_suggestion source'
+    )
     const campingStove = negevItems.find((i) => i.name === 'Camping Stove')!
     const cooler = negevItems.find((i) => i.name === 'Cooler')!
     const water = negevItems.find((i) => i.name === 'Water')!

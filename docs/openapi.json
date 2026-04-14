@@ -589,6 +589,20 @@
             "type": "boolean",
             "description": "True when this item is assigned to all participants. When a new participant joins the plan, they are automatically added to items with this flag."
           },
+          "source": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "ai_suggestion"
+            ],
+            "description": "How the item was added: manual (user-entered) or ai_suggestion (accepted from AI suggestions)"
+          },
+          "aiSuggestionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "ID of the ai_suggestions row this item was created from. Null for manually added items."
+          },
           "assignmentStatusList": {
             "type": "array",
             "description": "Per-participant assignment and status tracking (replaces the old top-level status field). Each entry is { participantId, status } where status is one of: pending, purchased, packed, canceled. Response visibility: owner/admin sees full list; non-owner sees only their own entry.",
@@ -632,6 +646,8 @@
           "quantity",
           "unit",
           "isAllParticipants",
+          "source",
+          "aiSuggestionId",
           "assignmentStatusList",
           "createdAt",
           "updatedAt"
@@ -722,6 +738,11 @@
           "isAllParticipants": {
             "type": "boolean",
             "description": "Owner-only on create. true means this item is for all participants and new participants should be auto-added later. false (or omitted) means regular assignment list behavior."
+          },
+          "aiSuggestionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional. When provided, links this item to an AI suggestion row (marks the suggestion as accepted). Must belong to the same plan and have status \"suggested\"."
           }
         },
         "required": [
@@ -3099,6 +3120,7 @@
       "def-82": {
         "type": "object",
         "required": [
+          "id",
           "name",
           "category",
           "subcategory",
@@ -3107,6 +3129,11 @@
           "reason"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique ID of this AI suggestion row — pass as aiSuggestionId when calling bulk create to link accepted items"
+          },
           "name": {
             "type": "string"
           },
@@ -3150,9 +3177,15 @@
       "def-83": {
         "type": "object",
         "required": [
-          "suggestions"
+          "suggestions",
+          "aiUsageLogId"
         ],
         "properties": {
+          "aiUsageLogId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID of the ai_usage_logs row for this generation session"
+          },
           "suggestions": {
             "type": "array",
             "items": {
@@ -3807,8 +3840,8 @@
         "properties": {
           "version": {
             "type": "string",
-            "description": "Taxonomy version string, e.g. \"1.4\".",
-            "example": "1.4"
+            "description": "Taxonomy version string, e.g. \"1.5\".",
+            "example": "1.5"
           },
           "description": {
             "type": "string",

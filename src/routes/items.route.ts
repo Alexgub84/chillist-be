@@ -3,6 +3,7 @@ import { eq, and, inArray } from 'drizzle-orm'
 import {
   items,
   participants,
+  aiSuggestions,
   ItemCategory,
   Unit,
   Item,
@@ -14,6 +15,8 @@ import {
   checkItemMutationAccess,
   createPlanItems,
   processItemUpdate,
+  scheduleMarkAiSuggestionsAccepted,
+  validateAiSuggestionForCreate,
   type BulkItemError,
 } from '../services/item.service.js'
 import { filterAssignmentForParticipant } from '../utils/assignment-helpers.js'
@@ -31,6 +34,7 @@ interface CreateItemBody {
   notes?: string | null
   assignmentStatusList?: Assignment[]
   isAllParticipants?: boolean
+  aiSuggestionId?: string | null
 }
 
 interface UpdateItemBody {
@@ -114,9 +118,23 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         const isOwner =
           access.participant?.role === 'owner' || !access.participant
 
+        const suggestionCheck = await validateAiSuggestionForCreate(
+          fastify.db,
+          planId,
+          request.body.aiSuggestionId
+        )
+        if (!suggestionCheck.ok) {
+          return reply.status(400).send({ message: suggestionCheck.message })
+        }
+
+        const createInput: CreateItemInput = {
+          ...(request.body as CreateItemInput),
+          aiSuggestionId: suggestionCheck.suggestionId,
+        }
+
         const result = await createPlanItems(fastify.db, {
           planId,
-          inputs: [request.body as CreateItemInput],
+          inputs: [createInput],
           isOwner,
           changedBy: { userId: request.user?.id ?? null },
           sessionId: request.sessionId ?? null,
@@ -127,6 +145,19 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         }
 
         const createdItem = result.items[0]
+        if (createdItem.aiSuggestionId) {
+          scheduleMarkAiSuggestionsAccepted(
+            fastify.db,
+            planId,
+            [
+              {
+                suggestionId: createdItem.aiSuggestionId,
+                itemId: createdItem.itemId,
+              },
+            ],
+            (ctx, msg) => request.log.error(ctx, msg)
+          )
+        }
         request.log.info({ itemId: createdItem.itemId, planId }, 'Item created')
         fastify.notifyItemChange(planId)
 
@@ -408,26 +439,123 @@ export async function itemsRoutes(fastify: FastifyInstance) {
         const isOwner =
           access.participant?.role === 'owner' || !access.participant
 
-        const { items: createdItems, errors } = await createPlanItems(
-          fastify.db,
-          {
+        const suggestionIds = itemsToCreate
+          .map((it) => it.aiSuggestionId)
+          .filter((id): id is string => !!id)
+
+        const validatedSuggestionIds = new Set<string>()
+        if (suggestionIds.length > 0) {
+          const rows = await fastify.db
+            .select({
+              id: aiSuggestions.id,
+              planId: aiSuggestions.planId,
+              status: aiSuggestions.status,
+            })
+            .from(aiSuggestions)
+            .where(inArray(aiSuggestions.id, suggestionIds))
+
+          const rowMap = new Map(rows.map((r) => [r.id, r]))
+          for (const id of suggestionIds) {
+            const row = rowMap.get(id)
+            if (!row) continue
+            if (row.planId !== planId) continue
+            if (row.status !== 'suggested') continue
+            validatedSuggestionIds.add(id)
+          }
+        }
+
+        const inputs: CreateItemInput[] = itemsToCreate.map((it) => {
+          const sid = it.aiSuggestionId ?? null
+          const isValidSuggestion = sid
+            ? validatedSuggestionIds.has(sid)
+            : false
+          return {
+            ...it,
+            aiSuggestionId: isValidSuggestion ? sid : null,
+          } as CreateItemInput
+        })
+
+        const itemErrors: Array<{ name: string; message: string }> = []
+        for (const it of itemsToCreate) {
+          const sid = it.aiSuggestionId
+          if (!sid) continue
+          if (!validatedSuggestionIds.has(sid)) {
+            const rows = await fastify.db
+              .select({
+                id: aiSuggestions.id,
+                planId: aiSuggestions.planId,
+                status: aiSuggestions.status,
+              })
+              .from(aiSuggestions)
+              .where(eq(aiSuggestions.id, sid))
+            const row = rows[0]
+            if (!row) {
+              itemErrors.push({
+                name: it.name,
+                message: `aiSuggestionId ${sid} not found`,
+              })
+            } else if (row.planId !== planId) {
+              itemErrors.push({
+                name: it.name,
+                message: `aiSuggestionId ${sid} belongs to a different plan`,
+              })
+            } else if (row.status !== 'suggested') {
+              itemErrors.push({
+                name: it.name,
+                message: `aiSuggestionId ${sid} already accepted`,
+              })
+            }
+          }
+        }
+
+        const validInputs = inputs.filter((_inp, idx) => {
+          const sid = itemsToCreate[idx].aiSuggestionId
+          if (!sid) return true
+          return validatedSuggestionIds.has(sid)
+        })
+        const skippedCount = inputs.length - validInputs.length
+
+        const { items: createdItems, errors: createErrors } =
+          await createPlanItems(fastify.db, {
             planId,
-            inputs: itemsToCreate as CreateItemInput[],
+            inputs: validInputs,
             isOwner,
             changedBy: { userId: request.user?.id ?? null },
             sessionId: request.sessionId ?? null,
-          }
-        )
+          })
 
-        const statusCode = errors.length === 0 ? 200 : 207
+        if (createdItems.length > 0) {
+          const pairs = createdItems
+            .filter((item) => item.aiSuggestionId)
+            .map((item) => ({
+              suggestionId: item.aiSuggestionId!,
+              itemId: item.itemId,
+            }))
+          scheduleMarkAiSuggestionsAccepted(
+            fastify.db,
+            planId,
+            pairs,
+            (ctx, msg) => request.log.error(ctx, msg)
+          )
+        }
+
+        const allErrors = [...itemErrors, ...createErrors]
+        const statusCode = allErrors.length === 0 ? 200 : 207
         request.log.info(
-          { planId, created: createdItems.length, failed: errors.length },
+          {
+            planId,
+            created: createdItems.length,
+            failed: allErrors.length,
+            skipped: skippedCount,
+          },
           'Bulk items created'
         )
         if (createdItems.length > 0) {
           fastify.notifyItemChange(planId)
         }
-        return reply.status(statusCode).send({ items: createdItems, errors })
+        return reply
+          .status(statusCode)
+          .send({ items: createdItems, errors: allErrors })
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to bulk create items')
         const classified = classifyDbError(error, 'Failed to bulk create items')

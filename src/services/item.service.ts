@@ -1,6 +1,6 @@
 import { eq, and, inArray } from 'drizzle-orm'
 import type { Database } from '../db/index.js'
-import { items, participants } from '../db/schema.js'
+import { items, participants, aiSuggestions } from '../db/schema.js'
 import type { Item, Assignment, Unit } from '../db/schema.js'
 import type { JwtUser } from '../plugins/auth.js'
 import { recordItemCreated, recordItemUpdated } from '../utils/item-changes.js'
@@ -216,6 +216,72 @@ export interface BulkItemError {
   message: string
 }
 
+export function scheduleMarkAiSuggestionsAccepted(
+  db: Database,
+  planId: string,
+  pairs: Array<{ suggestionId: string; itemId: string }>,
+  logError: (ctx: { err: unknown; planId: string }, msg: string) => void
+): void {
+  if (pairs.length === 0) return
+  const ids = pairs.map((p) => p.suggestionId)
+  const itemBySuggestion = new Map(
+    pairs.map((p) => [p.suggestionId, p.itemId] as const)
+  )
+  void db
+    .update(aiSuggestions)
+    .set({ status: 'accepted' })
+    .where(inArray(aiSuggestions.id, ids))
+    .then(() =>
+      Promise.all(
+        ids.map((sid) =>
+          db
+            .update(aiSuggestions)
+            .set({ itemId: itemBySuggestion.get(sid) ?? null })
+            .where(eq(aiSuggestions.id, sid))
+        )
+      )
+    )
+    .catch((err) => {
+      logError({ err, planId }, 'Failed to mark AI suggestions as accepted')
+    })
+}
+
+export async function validateAiSuggestionForCreate(
+  db: Database,
+  planId: string,
+  aiSuggestionId: string | null | undefined
+): Promise<
+  { ok: true; suggestionId: string | null } | { ok: false; message: string }
+> {
+  if (!aiSuggestionId) {
+    return { ok: true, suggestionId: null }
+  }
+  const [row] = await db
+    .select({
+      id: aiSuggestions.id,
+      planId: aiSuggestions.planId,
+      status: aiSuggestions.status,
+    })
+    .from(aiSuggestions)
+    .where(eq(aiSuggestions.id, aiSuggestionId))
+  if (!row) {
+    return { ok: false, message: `aiSuggestionId ${aiSuggestionId} not found` }
+  }
+  if (row.planId !== planId) {
+    return {
+      ok: false,
+      message: `aiSuggestionId ${aiSuggestionId} belongs to a different plan`,
+    }
+  }
+  if (row.status !== 'suggested') {
+    return {
+      ok: false,
+      message: `aiSuggestionId ${aiSuggestionId} already accepted`,
+    }
+  }
+  return { ok: true, suggestionId: aiSuggestionId }
+}
+
 export async function createPlanItems(
   db: Database,
   options: {
@@ -238,6 +304,8 @@ export async function createPlanItems(
     notes?: string | null
     assignmentStatusList: Assignment[]
     isAllParticipants: boolean
+    source: Item['source']
+    aiSuggestionId?: string | null
   }> = []
   const errors: BulkItemError[] = []
 
@@ -247,7 +315,11 @@ export async function createPlanItems(
       errors.push({ name: input.name, message: prepared.error })
       continue
     }
-    validValues.push({ planId, ...prepared.values })
+    validValues.push({
+      planId,
+      ...prepared.values,
+      source: prepared.values.aiSuggestionId ? 'ai_suggestion' : 'manual',
+    })
   }
 
   let createdItems: Item[] = []

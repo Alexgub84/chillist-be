@@ -53,7 +53,7 @@ export function estimateModelCost(
 export async function recordAiUsage(
   db: Database,
   record: AiUsageRecord
-): Promise<void> {
+): Promise<string | null> {
   try {
     const cost = estimateModelCost(
       record.modelId,
@@ -61,30 +61,36 @@ export async function recordAiUsage(
       record.outputTokens
     )
 
-    await db.insert(aiUsageLogs).values({
-      featureType: record.featureType,
-      planId: record.planId ?? null,
-      userId: record.userId ?? null,
-      sessionId: record.sessionId ?? null,
-      provider: record.provider,
-      modelId: record.modelId,
-      lang: record.lang ?? null,
-      status: record.status,
-      inputTokens: record.inputTokens ?? null,
-      outputTokens: record.outputTokens ?? null,
-      totalTokens: record.totalTokens ?? null,
-      estimatedCost: cost?.toFixed(6) ?? null,
-      durationMs: record.durationMs,
-      promptLength: record.promptLength ?? null,
-      promptText: record.promptText ?? null,
-      resultCount: record.resultCount ?? null,
-      errorMessage: record.errorMessage ?? null,
-      errorType: record.errorType ?? null,
-      finishReason: record.finishReason ?? null,
-      rawResponseText: record.rawResponseText ?? null,
-      metadata: record.metadata ?? null,
-    })
+    const [row] = await db
+      .insert(aiUsageLogs)
+      .values({
+        featureType: record.featureType,
+        planId: record.planId ?? null,
+        userId: record.userId ?? null,
+        sessionId: record.sessionId ?? null,
+        provider: record.provider,
+        modelId: record.modelId,
+        lang: record.lang ?? null,
+        status: record.status,
+        inputTokens: record.inputTokens ?? null,
+        outputTokens: record.outputTokens ?? null,
+        totalTokens: record.totalTokens ?? null,
+        estimatedCost: cost?.toFixed(6) ?? null,
+        durationMs: record.durationMs,
+        promptLength: record.promptLength ?? null,
+        promptText: record.promptText ?? null,
+        resultCount: record.resultCount ?? null,
+        errorMessage: record.errorMessage ?? null,
+        errorType: record.errorType ?? null,
+        finishReason: record.finishReason ?? null,
+        rawResponseText: record.rawResponseText ?? null,
+        metadata: record.metadata ?? null,
+      })
+      .returning({ id: aiUsageLogs.id })
+
+    return row?.id ?? null
   } catch (err) {
     console.error('[ai-usage-tracking] Failed to record AI usage:', err)
+    return null
   }
 }

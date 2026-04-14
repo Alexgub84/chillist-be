@@ -1,5 +1,5 @@
 {
-  "version": "1.4",
+  "version": "1.5",
   "description": "Chillist plan creation wizard tag schema. Bilingual (en + he). Tier 1 = plan archetype (single-select). Universal flags asked once regardless of Tier 1. Tier 2 = named axes conditional on Tier 1, each axis internally single-select to prevent contradictions. Tier 3 = specifics conditional on Tier 2 values (single-select by default; see multi_select_parents).",
 
   "selection_by_tier": {
@@ -72,7 +72,7 @@
     "Each Tier 2 axis is internally single-select to prevent contradictions. 'Mix' is its own value, not two checkboxes.",
     "Activities is the only multi-select Tier 2 axis.",
     "Tier 3 is single-select by default. Only groups listed in tier3.multi_select_parents allow multiple selections.",
-    "No 'Other' Tier 1 — absence signals which archetype is missing for v1.4.",
+    "No 'Other' Tier 1 — absence signals which archetype is missing for v1.5.",
     "Group composition (kids, pets, dietary) and weather/season are excluded — derived later from participants and dates."
   ],
 
@@ -160,7 +160,7 @@
       "label": { "en": "How will food work?", "he": "איך מסתדרים עם האוכל?" },
       "key": "food_strategy",
       "select": "single",
-      "shown_for_tier1": ["camping", "hotel_stay", "airbnb_stay", "hiking", "road_trip", "day_trip", "beach_day", "city_day", "festival", "dinner", "party"],
+      "shown_for_tier1": ["camping", "hotel_stay", "airbnb_stay", "hiking", "road_trip", "day_trip", "beach_day", "city_day", "festival"],
       "options": [
         { "id": "cooking_ourselves", "label": { "en": "We're cooking our own food",      "he": "מבשלים לעצמנו" } },
         { "id": "eating_out",        "label": { "en": "Eating out / restaurants",        "he": "אוכלים בחוץ / מסעדות" } },
@@ -179,12 +179,9 @@
         "day_trip": "packed_food",
         "beach_day": "packed_food",
         "city_day": "eating_out",
-        "festival": "eating_out",
-        "dinner": "potluck",
-        "party": "potluck"
+        "festival": "eating_out"
       },
       "hidden_options_by_tier1": {
-        "dinner": ["packed_food", "drinks_only"],
         "games_gathering": ["all_inclusive", "packed_food"],
         "hiking": ["all_inclusive", "potluck"]
       }
@@ -285,6 +282,11 @@
       "restaurant_venue": [
         { "id": "venue_prebooked", "label": { "en": "Pre-booked / reserved", "he": "הזמנו מראש" } },
         { "id": "venue_walk_in",   "label": { "en": "Walk-in / flexible",    "he": "נכנסים בלי הזמנה" } }
+      ],
+      "rented_space": [
+        { "id": "rented_catered", "label": { "en": "Catered / hired chef",      "he": "קייטרינג / שף" } },
+        { "id": "rented_potluck", "label": { "en": "Everyone brings something", "he": "כל אחד מביא משהו" } },
+        { "id": "rented_ordered", "label": { "en": "Ordering food in",          "he": "מזמינים אוכל" } }
       ]
     }
   },
@@ -303,6 +305,11 @@
   },
 
   "changelog": {
+    "1.5": [
+      "Removed dinner and party from food_strategy.shown_for_tier1 — venue Tier 3 covers food logistics for gathering plans; avoids asking about food twice.",
+      "Removed food_strategy.defaults_by_tier1 and hidden_options_by_tier1 entries for dinner (axis no longer shown for that Tier 1).",
+      "Added tier3.options_by_parent.rented_space — catered vs potluck vs ordering in, for dinner/party at a rented hall."
+    ],
     "1.4": [
       "Added selection_by_tier — explicit single vs multi (and per-flag / per-axis breakdown) for FE at-a-glance.",
       "Added tier3.select ('per_parent'), tier3.default_select ('single'), and duplicated multi_select_parents under selection_by_tier.tier3 for consistency."

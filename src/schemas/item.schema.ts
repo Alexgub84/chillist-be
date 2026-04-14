@@ -2,6 +2,7 @@ import {
   UNIT_VALUES,
   ITEM_CATEGORY_VALUES,
   ITEM_STATUS_VALUES,
+  ITEM_SOURCE_VALUES,
 } from '../db/schema.js'
 
 export const itemSchema = {
@@ -23,6 +24,19 @@ export const itemSchema = {
       type: 'boolean',
       description:
         'True when this item is assigned to all participants. When a new participant joins the plan, they are automatically added to items with this flag.',
+    },
+    source: {
+      type: 'string',
+      enum: [...ITEM_SOURCE_VALUES],
+      description:
+        'How the item was added: manual (user-entered) or ai_suggestion (accepted from AI suggestions)',
+    },
+    aiSuggestionId: {
+      type: 'string',
+      format: 'uuid',
+      nullable: true,
+      description:
+        'ID of the ai_suggestions row this item was created from. Null for manually added items.',
     },
     assignmentStatusList: {
       type: 'array',
@@ -48,6 +62,8 @@ export const itemSchema = {
     'quantity',
     'unit',
     'isAllParticipants',
+    'source',
+    'aiSuggestionId',
     'assignmentStatusList',
     'createdAt',
     'updatedAt',
@@ -96,6 +112,12 @@ export const createItemBodySchema = {
       type: 'boolean',
       description:
         'Owner-only on create. true means this item is for all participants and new participants should be auto-added later. false (or omitted) means regular assignment list behavior.',
+    },
+    aiSuggestionId: {
+      type: 'string',
+      format: 'uuid',
+      description:
+        'Optional. When provided, links this item to an AI suggestion row (marks the suggestion as accepted). Must belong to the same plan and have status "suggested".',
     },
   },
   required: ['name', 'category', 'quantity'],

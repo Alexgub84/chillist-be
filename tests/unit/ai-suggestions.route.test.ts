@@ -59,12 +59,26 @@ const FAKE_SUGGESTIONS = [
   },
 ]
 
+const FAKE_USAGE_LOG_ID = 'cccccccc-0000-0000-0000-000000000001'
+
 function createMockDb() {
   return {
     select: vi.fn(),
     update: vi.fn(),
+    insert: vi.fn(),
     query: { plans: { findFirst: vi.fn() } },
   }
+}
+
+function mockAiSuggestionsInsert(
+  mockDb: ReturnType<typeof createMockDb>,
+  ids: string[] = []
+) {
+  mockDb.insert.mockReturnValue({
+    values: vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue(ids.map((id) => ({ id }))),
+    }),
+  })
 }
 
 function createMockModel(suggestions = FAKE_SUGGESTIONS) {
@@ -146,12 +160,13 @@ describe('AI Suggestions Route', () => {
     vi.clearAllMocks()
     mockDb = createMockDb()
     mockAiGenerationIncrement(mockDb)
+    mockAiSuggestionsInsert(mockDb, ['sug-id-1', 'sug-id-2', 'sug-id-3'])
     const model = createMockModel()
     generateSpy = vi.spyOn(itemSuggestions, 'generateItemSuggestions')
     vi.spyOn(modelProvider, 'resolveLanguageModel').mockReturnValue(model)
     recordUsageSpy = vi
       .spyOn(usageTracking, 'recordAiUsage')
-      .mockResolvedValue(undefined)
+      .mockResolvedValue(FAKE_USAGE_LOG_ID)
 
     app = Fastify({ logger: false })
     app.decorate('db', mockDb)
@@ -203,7 +218,9 @@ describe('AI Suggestions Route', () => {
 
     expect(response.statusCode).toBe(200)
     const body = response.json()
+    expect(body.aiUsageLogId).toBe(FAKE_USAGE_LOG_ID)
     expect(body.suggestions).toHaveLength(3)
+    expect(body.suggestions[0].id).toBe('sug-id-1')
     expect(body.suggestions[0].name).toBe('Sunscreen')
     expect(body.suggestions[0].category).toBe('personal_equipment')
     expect(body.suggestions[2].category).toBe('food')
@@ -266,7 +283,9 @@ describe('AI Suggestions Route', () => {
     })
 
     expect(response.statusCode).toBe(200)
-    expect(response.json().suggestions).toHaveLength(1)
+    const partialBody = response.json()
+    expect(partialBody.aiUsageLogId).toBeDefined()
+    expect(partialBody.suggestions).toHaveLength(1)
     expect(recordUsageSpy).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -329,7 +348,9 @@ describe('AI Suggestions Route', () => {
     })
 
     const body = response.json()
+    expect(body).toHaveProperty('aiUsageLogId')
     for (const item of body.suggestions) {
+      expect(item).toHaveProperty('id')
       expect(item).toHaveProperty('name')
       expect(item).toHaveProperty('category')
       expect(item).toHaveProperty('subcategory')

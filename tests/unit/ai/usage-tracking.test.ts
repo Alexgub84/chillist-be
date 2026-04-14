@@ -80,14 +80,24 @@ describe('MODEL_PRICING sync with resolveLanguageModel', () => {
   })
 })
 
+function createInsertMock(
+  returningRows: Array<{ id: string }> = [
+    { id: '00000000-0000-0000-0000-00000000aa01' },
+  ]
+) {
+  const returningMock = vi.fn().mockResolvedValue(returningRows)
+  const valuesMock = vi.fn().mockReturnValue({ returning: returningMock })
+  const mockDb = {
+    insert: vi.fn().mockReturnValue({ values: valuesMock }),
+  }
+  return { mockDb, valuesMock, returningMock }
+}
+
 describe('recordAiUsage', () => {
   it('inserts a usage record via db.insert (fire-and-forget)', async () => {
-    const valuesMock = vi.fn().mockResolvedValue(undefined)
-    const mockDb = {
-      insert: vi.fn().mockReturnValue({ values: valuesMock }),
-    }
+    const { mockDb, valuesMock } = createInsertMock()
 
-    await recordAiUsage(mockDb as never, {
+    const logId = await recordAiUsage(mockDb as never, {
       featureType: 'item_suggestions',
       planId: '00000000-0000-0000-0000-000000000001',
       userId: 'aaaaaaaa-1111-2222-3333-444444444444',
@@ -103,6 +113,7 @@ describe('recordAiUsage', () => {
       resultCount: 30,
     })
 
+    expect(logId).toBe('00000000-0000-0000-0000-00000000aa01')
     expect(mockDb.insert).toHaveBeenCalledOnce()
     expect(valuesMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -119,10 +130,7 @@ describe('recordAiUsage', () => {
   })
 
   it('persists sessionId when provided', async () => {
-    const valuesMock = vi.fn().mockResolvedValue(undefined)
-    const mockDb = {
-      insert: vi.fn().mockReturnValue({ values: valuesMock }),
-    }
+    const { mockDb, valuesMock } = createInsertMock()
     const sid = '550e8400-e29b-41d4-a716-446655440000'
 
     await recordAiUsage(mockDb as never, {
@@ -140,10 +148,7 @@ describe('recordAiUsage', () => {
   })
 
   it('persists promptText and rawResponseText when provided', async () => {
-    const valuesMock = vi.fn().mockResolvedValue(undefined)
-    const mockDb = {
-      insert: vi.fn().mockReturnValue({ values: valuesMock }),
-    }
+    const { mockDb, valuesMock } = createInsertMock()
 
     await recordAiUsage(mockDb as never, {
       featureType: 'item_suggestions',
@@ -167,10 +172,7 @@ describe('recordAiUsage', () => {
   })
 
   it('persists errorType and defaults new fields to null when absent', async () => {
-    const valuesMock = vi.fn().mockResolvedValue(undefined)
-    const mockDb = {
-      insert: vi.fn().mockReturnValue({ values: valuesMock }),
-    }
+    const { mockDb, valuesMock } = createInsertMock()
 
     await recordAiUsage(mockDb as never, {
       featureType: 'item_suggestions',
@@ -196,7 +198,9 @@ describe('recordAiUsage', () => {
   it('does not throw when db.insert fails', async () => {
     const mockDb = {
       insert: vi.fn().mockReturnValue({
-        values: vi.fn().mockRejectedValue(new Error('DB down')),
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockRejectedValue(new Error('DB down')),
+        }),
       }),
     }
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -210,7 +214,7 @@ describe('recordAiUsage', () => {
         durationMs: 1000,
         errorMessage: 'Test error',
       })
-    ).resolves.not.toThrow()
+    ).resolves.toBeNull()
 
     expect(consoleSpy).toHaveBeenCalledWith(
       '[ai-usage-tracking] Failed to record AI usage:',
@@ -220,10 +224,7 @@ describe('recordAiUsage', () => {
   })
 
   it('stores null estimatedCost for unknown model', async () => {
-    const valuesMock = vi.fn().mockResolvedValue(undefined)
-    const mockDb = {
-      insert: vi.fn().mockReturnValue({ values: valuesMock }),
-    }
+    const { mockDb, valuesMock } = createInsertMock()
 
     await recordAiUsage(mockDb as never, {
       featureType: 'item_suggestions',

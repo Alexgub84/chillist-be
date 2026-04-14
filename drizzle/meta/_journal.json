@@ -239,6 +239,13 @@
       "when": 1775300000000,
       "tag": "0033_drop_plan_tag_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1775400000000,
+      "tag": "0034_ai_suggestion_tracking",
+      "breakpoints": true
     }
   ]
 }
