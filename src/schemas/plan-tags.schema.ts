@@ -19,7 +19,12 @@
  *    - Hide options whose id appears in `hidden_options_by_tier1[chosenTier1Id]`.
  *    - `select: "single"` for most axes; `select: "multi"` for `activities`.
  * 4. After a tier2 option is chosen, check `tier3.options_by_parent[tier2OptionId]`.
- *    If entries exist → show as a follow-up multi-select drill-down.
+ *    If entries exist → show as a follow-up drill-down.
+ *    - Check `tier3.multi_select_parents.includes(tier2OptionId)`:
+ *      YES → multi-select (checkbox). NO → single-select (radio).
+ * 5. For multi-select flags with `contradictions`:
+ *    When the user selects option A, find all pairs containing A and deselect+disable
+ *    the other option in each pair. Re-enable when A is deselected.
  *
  * ## Stable id contract
  * All `id` values are stable English slugs safe to store in the database.
@@ -181,6 +186,23 @@ Render after tier1, before tier2_axes.
             description:
               'Internal note explaining why this flag exists. Not shown to users.',
           },
+          contradictions: {
+            type: 'array',
+            description: `
+Only present on multi-select flags. Lists pairs of option ids that CANNOT both be selected at the same time.
+
+**FE handling:** When the user selects option A, check every pair in this array. If A appears in a pair, automatically deselect (and visually disable) the other option in that pair. Re-enable it if A is later deselected.
+
+Example: \`[["chill", "party_oriented"], ["chill", "adventurous"]]\` means selecting "chill" should deselect "party_oriented" and "adventurous".
+            `.trim(),
+            items: {
+              type: 'array',
+              description: 'A pair of mutually exclusive option ids.',
+              minItems: 2,
+              maxItems: 2,
+              items: { type: 'string' },
+            },
+          },
           options: {
             type: 'array',
             items: tagOption,
@@ -254,20 +276,42 @@ Each key is the axis name (matches the \`key\` field inside).
     // ─── Tier 3 ────────────────────────────────────────────────────────────
     tier3: {
       type: 'object',
-      description:
-        'Optional drill-down specifics, conditional on tier2 selections. Absence of a key means no drill-down for that tier2 option.',
-      required: ['options_by_parent'],
+      description: `
+Optional drill-down specifics, conditional on tier2 selections.
+
+**Default behaviour: single-select.** Most tier3 groups are mutually exclusive — the user picks exactly one option. Only parent ids listed in \`multi_select_parents\` allow the user to pick multiple options.
+
+**FE rendering:**
+1. After a tier2 option is chosen, look up \`options_by_parent[tier2OptionId]\`.
+2. If the array exists → show it as a follow-up question below the tier2 axis.
+3. Check if \`tier2OptionId\` is in \`multi_select_parents\`:
+   - YES → render as a **checkbox group** (multi-select, no limit).
+   - NO  → render as a **radio group** (single-select).
+4. If \`options_by_parent[tier2OptionId]\` is absent → no drill-down for that selection.
+      `.trim(),
+      required: ['multi_select_parents', 'options_by_parent'],
       properties: {
         description: {
           type: 'string',
           description: 'Internal note. Not shown to users.',
         },
+        multi_select_parents: {
+          type: 'array',
+          items: { type: 'string' },
+          description: `
+Array of tier2 option ids whose tier3 drill-down allows **multiple selections** (checkbox). All other tier3 groups are **single-select** (radio).
+
+Currently only \`"booked_activity"\` is multi-select because its options are additive facts (equipment needed AND bookable AND rentable can all be true simultaneously). Every other tier3 group represents mutually exclusive alternatives.
+
+**FE check:** \`tier3.multi_select_parents.includes(chosenTier2OptionId)\`
+          `.trim(),
+        },
         options_by_parent: {
           type: 'object',
           description: `
-Maps a **tier2 option id** → array of drill-down options to show after that tier2 value is selected.
-If a tier2 option id is absent from this map, no tier3 follow-up is shown for it.
-Tier3 is always multi-select (the user can pick any combination).
+Maps a **tier2 option id** → array of drill-down options shown after that tier2 value is selected.
+Absence of a key means no drill-down for that tier2 option.
+Select mode (single vs multi) is determined by \`multi_select_parents\` — NOT by this map.
           `.trim(),
           additionalProperties: {
             type: 'array',

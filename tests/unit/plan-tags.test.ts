@@ -13,10 +13,9 @@ describe('getPlanTags', () => {
     expect(tags).toHaveProperty('item_generation_bundles')
   })
 
-  it('version is a non-empty string', () => {
+  it('version is 1.3', () => {
     const tags = getPlanTags()
-    expect(typeof tags['version']).toBe('string')
-    expect((tags['version'] as string).length).toBeGreaterThan(0)
+    expect(tags['version']).toBe('1.3')
   })
 
   it('tier1 has options array with id, bilingual label, emoji on each entry', () => {
@@ -46,12 +45,29 @@ describe('getPlanTags', () => {
     expect(Object.keys(axes).length).toBeGreaterThan(0)
   })
 
-  it('tier3 has options_by_parent mapping', () => {
+  it('tier3 has options_by_parent mapping and multi_select_parents array', () => {
     const tags = getPlanTags()
     const tier3 = tags['tier3'] as {
       options_by_parent: Record<string, unknown>
+      multi_select_parents: string[]
     }
     expect(typeof tier3.options_by_parent).toBe('object')
+    expect(Array.isArray(tier3.multi_select_parents)).toBe(true)
+    expect(tier3.multi_select_parents).toContain('booked_activity')
+  })
+
+  it('group_character flag has contradictions array with valid pairs', () => {
+    const tags = getPlanTags()
+    const flag = (tags['universal_flags'] as Record<string, unknown>)[
+      'group_character'
+    ] as { contradictions: string[][] }
+    expect(Array.isArray(flag.contradictions)).toBe(true)
+    expect(flag.contradictions.length).toBeGreaterThan(0)
+    for (const pair of flag.contradictions) {
+      expect(pair).toHaveLength(2)
+      expect(typeof pair[0]).toBe('string')
+      expect(typeof pair[1]).toBe('string')
+    }
   })
 
   it('returns the same reference on every call (cached)', () => {
