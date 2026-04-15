@@ -126,10 +126,21 @@ export function getCategoriesInstruction(categories: {
   return lines.join('\n')
 }
 
-export const CLOSING_INSTRUCTION = [
-  'Suggest practical items for this trip. Each item must use a valid category and unit from the lists above.',
-  'Return between 15 and 40 items depending on trip complexity.',
-  'Every item must have a short, specific "reason" explaining why it is needed for THIS particular trip.',
-  'Reminder: personal_equipment quantity is ALWAYS 1 (the system handles per-person duplication).',
-  'CRITICAL: Every item MUST include ALL fields: name, category, subcategory, quantity, unit, reason. Never omit any field.',
-].join('\n')
+export function getClosingInstruction(categoryCount: number = 3): string {
+  const { min, max } =
+    categoryCount >= 3
+      ? { min: 15, max: 40 }
+      : categoryCount === 2
+        ? { min: 10, max: 25 }
+        : { min: 5, max: 15 }
+
+  return [
+    'Suggest practical items for this trip. Each item must use a valid category and unit from the lists above.',
+    `Return between ${min} and ${max} items depending on trip complexity.`,
+    'Every item must have a short, specific "reason" explaining why it is needed for THIS particular trip.',
+    'Reminder: personal_equipment quantity is ALWAYS 1 (the system handles per-person duplication).',
+    'CRITICAL: Every item MUST include ALL fields: name, category, subcategory, quantity, unit, reason. Never omit any field.',
+  ].join('\n')
+}
+
+export const CLOSING_INSTRUCTION = getClosingInstruction(3)

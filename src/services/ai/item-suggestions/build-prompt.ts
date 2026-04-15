@@ -13,7 +13,7 @@ import {
   CATEGORY_RULES,
   SUBCATEGORY_GUIDANCE,
   VALID_ENUMS,
-  CLOSING_INSTRUCTION,
+  getClosingInstruction,
   type SupportedAiLang,
 } from './prompt-templates.js'
 
@@ -83,6 +83,10 @@ export function buildItemSuggestionsPrompt(
     sections.push('', getDietaryInstruction(plan.dietarySummary.trim()))
   }
 
+  const categoryCount = plan.categories
+    ? Object.keys(plan.categories).length
+    : 3
+
   if (plan.categories) {
     sections.push('', getCategoriesInstruction(plan.categories))
   }
@@ -97,7 +101,7 @@ export function buildItemSuggestionsPrompt(
     '',
     VALID_ENUMS,
     '',
-    CLOSING_INSTRUCTION
+    getClosingInstruction(categoryCount)
   )
 
   return sections.join('\n')

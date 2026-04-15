@@ -79,3 +79,20 @@ export const aiSuggestionsResponseSchema = {
     },
   },
 } as const
+
+export const aiSuggestionsStreamDescriptionSchema = {
+  $id: 'AiSuggestionsStreamDescription',
+  type: 'string',
+  description: [
+    'Server-Sent Events (SSE) stream. Content-Type: text/event-stream.',
+    '',
+    'Events:',
+    '  event: suggestions — { category, suggestions: AiSuggestionItem[], aiUsageLogId }',
+    '  event: error — { category, message }',
+    '  event: done — { totalSuggestions, aiUsageLogIds, errors }',
+    '',
+    'One AI call per requested category (personal_equipment, group_equipment, food).',
+    'Each "suggestions" event fires as its category completes — order depends on AI response time.',
+    'The "done" event fires after all categories settle.',
+  ].join('\n'),
+} as const

@@ -107,6 +107,7 @@ import {
   aiSuggestionsRequestSchema,
   aiSuggestionItemSchema,
   aiSuggestionsResponseSchema,
+  aiSuggestionsStreamDescriptionSchema,
 } from './ai-suggestions.schema.js'
 import {
   aiUsageLogSchema,
@@ -215,6 +216,7 @@ const schemas = [
   aiSuggestionsRequestSchema,
   aiSuggestionItemSchema,
   aiSuggestionsResponseSchema,
+  aiSuggestionsStreamDescriptionSchema,
   aiUsageLogSchema,
   aiUsageLogListSchema,
   aiUsageFeatureSummarySchema,
