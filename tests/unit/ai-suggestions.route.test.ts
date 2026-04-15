@@ -543,7 +543,28 @@ describe('AI Suggestions Route', () => {
       expect(response.statusCode).toBe(200)
       expect(generateSpy).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ categories: {} }),
+        expect.not.objectContaining({ categories: expect.anything() }),
+        'en'
+      )
+    })
+
+    it('treats categories={} as no filter and returns all suggestions', async () => {
+      mockPlanAccessAllowed(mockDb)
+      mockPlanDataQuery(mockDb, FAKE_PLAN_ROW)
+      mockParticipantDietaryQuery(mockDb, [])
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${VALID_PLAN_ID}/ai-suggestions`,
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: { categories: {} },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().suggestions).toHaveLength(3)
+      expect(generateSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.not.objectContaining({ categories: expect.anything() }),
         'en'
       )
     })

@@ -88,7 +88,11 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { planId } = request.params
-      const { categories } = request.body ?? {}
+      const rawCategories = (request.body ?? {}).categories
+      const categories =
+        rawCategories && Object.keys(rawCategories).length > 0
+          ? rawCategories
+          : undefined
 
       try {
         const { allowed } = await checkPlanAccess(
