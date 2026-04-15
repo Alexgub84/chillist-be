@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    exclude: ['tests/ai-quality/**', 'node_modules'],
     env: {
       DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
     },

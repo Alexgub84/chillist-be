@@ -1,30 +1,40 @@
 /**
- * Per-category prompt quality tests — SKIPPED by default.
+ * Per-category prompt quality — real AI model.
  *
- * Tests that per-category focused AI calls produce quality results
- * comparable to the single all-categories prompt. Uses generateItemSuggestions
- * directly (no route stack).
+ * Isolated in tests/ai-quality/ — never runs during `npm run test`.
+ * Run manually:  npm run test:ai-prompt-quality-per-category
  *
- * Run manually:
- *   npm run test:ai-prompt-quality-per-category
- *
- * Or one-liner:
- *   RUN_PROMPT_QUALITY_PER_CATEGORY=true AI_PROVIDER=anthropic ANTHROPIC_API_KEY=... \
- *     npx vitest run tests/unit/ai/item-suggestions/prompt-quality-per-category.test.ts
- *
- * These tests validate:
- *   - Per-category calls produce relevant items for that category
- *   - No cross-category bleed (food-only call doesn't return equipment)
- *   - Quality comparison vs single all-categories call (token usage logged)
- *   - Dietary context works in per-category mode
- *   - Hebrew output works in per-category mode
+ * Requires .env with AI_PROVIDER and the matching API key.
  */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { generateItemSuggestions } from '../../../../src/services/ai/item-suggestions/generate.js'
-import { resolveLanguageModel } from '../../../../src/services/ai/model-provider.js'
-import type { PlanForAiContext } from '../../../../src/services/ai/plan-context-formatters.js'
-import type { ItemSuggestion } from '../../../../src/services/ai/item-suggestions/output-schema.js'
-import type { SupportedAiLang } from '../../../../src/services/ai/item-suggestions/prompt-templates.js'
+import { generateItemSuggestions } from '../../src/services/ai/item-suggestions/generate.js'
+import { resolveLanguageModel } from '../../src/services/ai/model-provider.js'
+import type { PlanForAiContext } from '../../src/services/ai/plan-context-formatters.js'
+import type { ItemSuggestion } from '../../src/services/ai/item-suggestions/output-schema.js'
+import type { SupportedAiLang } from '../../src/services/ai/item-suggestions/prompt-templates.js'
+
+function loadEnvFile() {
+  try {
+    const envFile = readFileSync(resolve(process.cwd(), '.env'), 'utf-8')
+    for (const line of envFile.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const eqIndex = trimmed.indexOf('=')
+      if (eqIndex === -1) continue
+      const key = trimmed.slice(0, eqIndex)
+      const value = trimmed.slice(eqIndex + 1)
+      if (!process.env[key]) {
+        process.env[key] = value
+      }
+    }
+  } catch {
+    // .env file not found
+  }
+}
+
+loadEnvFile()
 
 const SLEEPING_GEAR = [
   'sleeping bag',
@@ -227,16 +237,7 @@ async function runAllCategories(
   return entry
 }
 
-const runTests = process.env.RUN_PROMPT_QUALITY_PER_CATEGORY === 'true'
-const provider = process.env.AI_PROVIDER ?? 'anthropic'
-const hasRealApiKey =
-  provider === 'openai'
-    ? Boolean(process.env.OPENAI_API_KEY?.trim())
-    : Boolean(process.env.ANTHROPIC_API_KEY?.trim())
-
-const describePerCategory = runTests && hasRealApiKey ? describe : describe.skip
-
-describePerCategory('Per-category prompt quality (real API)', () => {
+describe('Per-category prompt quality (real API)', () => {
   describe('Camping — personal_equipment only', () => {
     it('includes sleeping bag or headlamp', async () => {
       const { suggestions } = await runPerCategory(
