@@ -114,6 +114,7 @@ function writeResultFile(results: ScenarioResult[]) {
 loadEnvFile()
 
 const provider = process.env.AI_PROVIDER ?? 'anthropic'
+const runAiE2e = process.env.RUN_AI_E2E === 'true'
 const hasRealApiKey =
   provider === 'openai'
     ? Boolean(process.env.OPENAI_API_KEY?.trim())
@@ -177,7 +178,7 @@ const PARTICIPANT_DIETARY: Array<{
   },
 ]
 
-describe.skipIf(!hasRealApiKey)(
+describe.skipIf(!runAiE2e || !hasRealApiKey)(
   'AI Suggestions Stream E2E — Real AI Model',
   () => {
     let app: FastifyInstance

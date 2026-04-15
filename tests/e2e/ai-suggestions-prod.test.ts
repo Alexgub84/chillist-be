@@ -102,6 +102,7 @@ function writeResultFile(results: ScenarioResult[]) {
 loadEnvFile()
 
 const provider = process.env.AI_PROVIDER ?? 'anthropic'
+const runAiE2e = process.env.RUN_AI_E2E === 'true'
 const hasRealApiKey =
   provider === 'openai'
     ? Boolean(process.env.OPENAI_API_KEY?.trim())
@@ -211,168 +212,171 @@ const ALL_CATEGORIES = {
   ],
 }
 
-describe.skipIf(!hasRealApiKey)('AI Suggestions E2E — Real AI Model', () => {
-  let app: FastifyInstance
-  let ownerToken: string
-  let db: Awaited<ReturnType<typeof setupTestDatabase>>
-  let planId: string
-  const scenarioResults: ScenarioResult[] = []
+describe.skipIf(!runAiE2e || !hasRealApiKey)(
+  'AI Suggestions E2E — Real AI Model',
+  () => {
+    let app: FastifyInstance
+    let ownerToken: string
+    let db: Awaited<ReturnType<typeof setupTestDatabase>>
+    let planId: string
+    const scenarioResults: ScenarioResult[] = []
 
-  beforeAll(async () => {
-    db = await setupTestDatabase()
-    await setupTestKeys()
-    ownerToken = await signTestJwt({ sub: OWNER_USER_ID })
+    beforeAll(async () => {
+      db = await setupTestDatabase()
+      await setupTestKeys()
+      ownerToken = await signTestJwt({ sub: OWNER_USER_ID })
 
-    const [plan] = await db.insert(plans).values(PLAN_DATA).returning()
-    planId = plan.planId
+      const [plan] = await db.insert(plans).values(PLAN_DATA).returning()
+      planId = plan.planId
 
-    await db.insert(participants).values(
-      PARTICIPANT_DIETARY.map((p, i) => ({
-        planId,
-        name: p.name,
-        lastName: 'Participant',
-        contactPhone: `+97250000000${i + 1}`,
-        role: p.role,
-        ...(p.userId ? { userId: p.userId } : {}),
-        inviteToken: randomBytes(32).toString('hex'),
-        rsvpStatus: 'confirmed' as const,
-        dietaryMembers: p.dietaryMembers,
-      }))
-    )
-
-    const { buildApp } = await import('../../src/app.js')
-    app = await buildApp(
-      { db },
-      {
-        logger: false,
-        auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
-        rateLimit: false,
-      }
-    )
-  }, 60000)
-
-  afterAll(async () => {
-    writeResultFile(scenarioResults)
-    await app.close()
-    await closeTestDatabase()
-  })
-
-  // -------------------------------------------------------------------------
-  // Scenario 1 — No category filter, full context
-  // -------------------------------------------------------------------------
-  it('returns suggestions with valid structure and records AI usage to DB', async () => {
-    const response = await app.inject({
-      method: 'POST',
-      url: `/plans/${planId}/ai-suggestions`,
-      headers: { authorization: `Bearer ${ownerToken}` },
-    })
-
-    expect(response.statusCode).toBe(200)
-    const body = response.json()
-
-    // Response shape
-    expect(body).toHaveProperty('aiUsageLogId')
-    expect(body.aiUsageLogId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-    )
-    expect(Array.isArray(body.suggestions)).toBe(true)
-    expect(body.suggestions.length).toBeGreaterThanOrEqual(5)
-
-    for (const item of body.suggestions) {
-      expect(item).toHaveProperty('id')
-      expect(ITEM_CATEGORY_VALUES).toContain(item.category)
-      expect(UNIT_VALUES).toContain(item.unit)
-      expect(typeof item.name).toBe('string')
-      expect(item.name.trim().length).toBeGreaterThan(0)
-      expect(typeof item.subcategory).toBe('string')
-      expect(item.subcategory.trim().length).toBeGreaterThan(0)
-      expect(typeof item.quantity).toBe('number')
-      expect(item.quantity).toBeGreaterThan(0)
-      expect(typeof item.reason).toBe('string')
-      expect(item.reason.trim().length).toBeGreaterThan(0)
-    }
-
-    // AI usage log was written to DB
-    const [usageLog] = await db
-      .select()
-      .from(aiUsageLogs)
-      .where(eq(aiUsageLogs.id, body.aiUsageLogId))
-
-    expect(usageLog).toBeDefined()
-    expect(usageLog.planId).toBe(planId)
-    expect(usageLog.featureType).toBe('item_suggestions')
-    expect(usageLog.status).toBe('success')
-    expect(usageLog.promptText).toBeTruthy()
-    expect(Number(usageLog.inputTokens)).toBeGreaterThan(0)
-    expect(Number(usageLog.outputTokens)).toBeGreaterThan(0)
-    expect(usageLog.resultCount).toBe(body.suggestions.length)
-
-    // AI suggestions were persisted to DB
-    const stored = await db
-      .select()
-      .from(aiSuggestions)
-      .where(eq(aiSuggestions.planId, planId))
-
-    expect(stored.length).toBe(body.suggestions.length)
-
-    scenarioResults.push({
-      scenario: 'no-filter — full context',
-      suggestions: body.suggestions,
-      inputTokens: Number(usageLog.inputTokens),
-      outputTokens: Number(usageLog.outputTokens),
-      resultCount: body.suggestions.length,
-    })
-  }, 60000)
-
-  // -------------------------------------------------------------------------
-  // Scenario 2 — All three categories with subcategories (FE wizard output)
-  //              Also verifies dietary context reached the prompt
-  // -------------------------------------------------------------------------
-  it('returns items across all three categories and prompt includes dietary context', async () => {
-    const response = await app.inject({
-      method: 'POST',
-      url: `/plans/${planId}/ai-suggestions`,
-      headers: {
-        authorization: `Bearer ${ownerToken}`,
-        'content-type': 'application/json',
-      },
-      payload: { categories: ALL_CATEGORIES },
-    })
-
-    expect(response.statusCode).toBe(200)
-    const body = response.json()
-
-    expect(body.suggestions.length).toBeGreaterThanOrEqual(5)
-
-    // Every item must belong to one of the three requested categories
-    for (const item of body.suggestions) {
-      expect(['group_equipment', 'personal_equipment', 'food']).toContain(
-        item.category
+      await db.insert(participants).values(
+        PARTICIPANT_DIETARY.map((p, i) => ({
+          planId,
+          name: p.name,
+          lastName: 'Participant',
+          contactPhone: `+97250000000${i + 1}`,
+          role: p.role,
+          ...(p.userId ? { userId: p.userId } : {}),
+          inviteToken: randomBytes(32).toString('hex'),
+          rsvpStatus: 'confirmed' as const,
+          dietaryMembers: p.dietaryMembers,
+        }))
       )
-    }
 
-    // All three categories must be represented
-    const returnedCategories = new Set(
-      body.suggestions.map((s: { category: string }) => s.category)
-    )
-    expect(returnedCategories.has('group_equipment')).toBe(true)
-    expect(returnedCategories.has('personal_equipment')).toBe(true)
-    expect(returnedCategories.has('food')).toBe(true)
+      const { buildApp } = await import('../../src/app.js')
+      app = await buildApp(
+        { db },
+        {
+          logger: false,
+          auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
+          rateLimit: false,
+        }
+      )
+    }, 60000)
 
-    // The usage log prompt must contain the dietary summary from participants
-    const [usageLog] = await db
-      .select()
-      .from(aiUsageLogs)
-      .where(eq(aiUsageLogs.id, body.aiUsageLogId))
-
-    expect(usageLog.promptText).toMatch(/vegan|gluten|allerg/i)
-
-    scenarioResults.push({
-      scenario: 'all-categories — full category filter + dietary context',
-      suggestions: body.suggestions,
-      inputTokens: Number(usageLog.inputTokens),
-      outputTokens: Number(usageLog.outputTokens),
-      resultCount: body.suggestions.length,
+    afterAll(async () => {
+      writeResultFile(scenarioResults)
+      await app.close()
+      await closeTestDatabase()
     })
-  }, 60000)
-})
+
+    // -------------------------------------------------------------------------
+    // Scenario 1 — No category filter, full context
+    // -------------------------------------------------------------------------
+    it('returns suggestions with valid structure and records AI usage to DB', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/ai-suggestions`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+
+      // Response shape
+      expect(body).toHaveProperty('aiUsageLogId')
+      expect(body.aiUsageLogId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+      )
+      expect(Array.isArray(body.suggestions)).toBe(true)
+      expect(body.suggestions.length).toBeGreaterThanOrEqual(5)
+
+      for (const item of body.suggestions) {
+        expect(item).toHaveProperty('id')
+        expect(ITEM_CATEGORY_VALUES).toContain(item.category)
+        expect(UNIT_VALUES).toContain(item.unit)
+        expect(typeof item.name).toBe('string')
+        expect(item.name.trim().length).toBeGreaterThan(0)
+        expect(typeof item.subcategory).toBe('string')
+        expect(item.subcategory.trim().length).toBeGreaterThan(0)
+        expect(typeof item.quantity).toBe('number')
+        expect(item.quantity).toBeGreaterThan(0)
+        expect(typeof item.reason).toBe('string')
+        expect(item.reason.trim().length).toBeGreaterThan(0)
+      }
+
+      // AI usage log was written to DB
+      const [usageLog] = await db
+        .select()
+        .from(aiUsageLogs)
+        .where(eq(aiUsageLogs.id, body.aiUsageLogId))
+
+      expect(usageLog).toBeDefined()
+      expect(usageLog.planId).toBe(planId)
+      expect(usageLog.featureType).toBe('item_suggestions')
+      expect(usageLog.status).toBe('success')
+      expect(usageLog.promptText).toBeTruthy()
+      expect(Number(usageLog.inputTokens)).toBeGreaterThan(0)
+      expect(Number(usageLog.outputTokens)).toBeGreaterThan(0)
+      expect(usageLog.resultCount).toBe(body.suggestions.length)
+
+      // AI suggestions were persisted to DB
+      const stored = await db
+        .select()
+        .from(aiSuggestions)
+        .where(eq(aiSuggestions.planId, planId))
+
+      expect(stored.length).toBe(body.suggestions.length)
+
+      scenarioResults.push({
+        scenario: 'no-filter — full context',
+        suggestions: body.suggestions,
+        inputTokens: Number(usageLog.inputTokens),
+        outputTokens: Number(usageLog.outputTokens),
+        resultCount: body.suggestions.length,
+      })
+    }, 60000)
+
+    // -------------------------------------------------------------------------
+    // Scenario 2 — All three categories with subcategories (FE wizard output)
+    //              Also verifies dietary context reached the prompt
+    // -------------------------------------------------------------------------
+    it('returns items across all three categories and prompt includes dietary context', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${planId}/ai-suggestions`,
+        headers: {
+          authorization: `Bearer ${ownerToken}`,
+          'content-type': 'application/json',
+        },
+        payload: { categories: ALL_CATEGORIES },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+
+      expect(body.suggestions.length).toBeGreaterThanOrEqual(5)
+
+      // Every item must belong to one of the three requested categories
+      for (const item of body.suggestions) {
+        expect(['group_equipment', 'personal_equipment', 'food']).toContain(
+          item.category
+        )
+      }
+
+      // All three categories must be represented
+      const returnedCategories = new Set(
+        body.suggestions.map((s: { category: string }) => s.category)
+      )
+      expect(returnedCategories.has('group_equipment')).toBe(true)
+      expect(returnedCategories.has('personal_equipment')).toBe(true)
+      expect(returnedCategories.has('food')).toBe(true)
+
+      // The usage log prompt must contain the dietary summary from participants
+      const [usageLog] = await db
+        .select()
+        .from(aiUsageLogs)
+        .where(eq(aiUsageLogs.id, body.aiUsageLogId))
+
+      expect(usageLog.promptText).toMatch(/vegan|gluten|allerg/i)
+
+      scenarioResults.push({
+        scenario: 'all-categories — full category filter + dietary context',
+        suggestions: body.suggestions,
+        inputTokens: Number(usageLog.inputTokens),
+        outputTokens: Number(usageLog.outputTokens),
+        resultCount: body.suggestions.length,
+      })
+    }, 60000)
+  }
+)
