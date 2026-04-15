@@ -495,7 +495,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
         tags: ['internal'],
         summary: 'Get plan tag taxonomy for chatbot',
         description:
-          'Returns the full plan tag taxonomy (tier1 archetypes, universal flags, tier2 axes, tier3 specifics). Requires x-service-key header only — no x-user-id needed as this is global reference data. Served from a static versioned JSON file.',
+          'Returns the full bundled plan tag JSON (same payload as public GET /plan-tags). Requires x-service-key only — no x-user-id. Served from a static versioned JSON file.',
         response: {
           200: {
             description: 'Full plan tag taxonomy',

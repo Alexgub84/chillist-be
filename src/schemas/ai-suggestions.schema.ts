@@ -1,3 +1,34 @@
+export const aiSuggestionsRequestSchema = {
+  $id: 'AiSuggestionsRequest',
+  type: ['object', 'null'],
+  additionalProperties: false,
+  properties: {
+    categories: {
+      type: 'object',
+      description:
+        'Map of item category → subcategories to focus on. Omit to include all categories.',
+      additionalProperties: false,
+      properties: {
+        group_equipment: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Subcategories to focus on for group equipment',
+        },
+        personal_equipment: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Subcategories to focus on for personal equipment',
+        },
+        food: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Subcategories to focus on for food',
+        },
+      },
+    },
+  },
+} as const
+
 export const aiSuggestionItemSchema = {
   $id: 'AiSuggestionItem',
   type: 'object',
@@ -47,4 +78,21 @@ export const aiSuggestionsResponseSchema = {
       items: { $ref: 'AiSuggestionItem#' },
     },
   },
+} as const
+
+export const aiSuggestionsStreamDescriptionSchema = {
+  $id: 'AiSuggestionsStreamDescription',
+  type: 'string',
+  description: [
+    'Server-Sent Events (SSE) stream. Content-Type: text/event-stream.',
+    '',
+    'Events:',
+    '  event: suggestions — { category, suggestions: AiSuggestionItem[], aiUsageLogId }',
+    '  event: error — { category, message }',
+    '  event: done — { totalSuggestions, aiUsageLogIds, errors }',
+    '',
+    'One AI call per requested category (personal_equipment, group_equipment, food).',
+    'Each "suggestions" event fires as its category completes — order depends on AI response time.',
+    'The "done" event fires after all categories settle.',
+  ].join('\n'),
 } as const

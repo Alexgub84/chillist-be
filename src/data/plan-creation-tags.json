@@ -196,6 +196,7 @@
         { "id": "swimming",         "label": { "en": "Swimming",                 "he": "שחייה" } },
         { "id": "hiking_activity",  "label": { "en": "Hiking / walks",           "he": "טיולים רגליים" } },
         { "id": "cycling",          "label": { "en": "Cycling",                  "he": "רכיבה על אופניים" } },
+        { "id": "motorbike_trip",   "label": { "en": "Motorbike trip",            "he": "טיול אופנועים" } },
         { "id": "kayaking",         "label": { "en": "Kayaking / water sports",  "he": "קייאק / ספורט ימי" } },
         { "id": "sightseeing",      "label": { "en": "Sightseeing",              "he": "סיורים / אטרקציות" } },
         { "id": "nightlife",        "label": { "en": "Nightlife / bars",         "he": "חיי לילה / ברים" } },

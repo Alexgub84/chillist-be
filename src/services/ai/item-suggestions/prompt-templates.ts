@@ -94,10 +94,53 @@ export const CATEGORY_RULES = [
   '- "food": food and drinks for the group. Quantity = total amount for the whole group scaled by group size and trip duration. Decimals are fine for weight/volume (e.g. 0.5 kg, 1.5 l).',
 ].join('\n')
 
-export const CLOSING_INSTRUCTION = [
-  'Suggest practical items for this trip. Each item must use a valid category and unit from the lists above.',
-  'Return between 15 and 40 items depending on trip complexity.',
-  'Every item must have a short, specific "reason" explaining why it is needed for THIS particular trip.',
-  'Reminder: personal_equipment quantity is ALWAYS 1 (the system handles per-person duplication).',
-  'CRITICAL: Every item MUST include ALL fields: name, category, subcategory, quantity, unit, reason. Never omit any field.',
-].join('\n')
+export function getCategoriesInstruction(categories: {
+  group_equipment?: string[]
+  personal_equipment?: string[]
+  food?: string[]
+}): string {
+  const lines: string[] = [
+    'Requested categories and subcategories:',
+    'Generate items ONLY for the following categories. Do not suggest items from any unlisted category.',
+  ]
+
+  const categoryNames: Array<[string, string[] | undefined]> = [
+    ['group_equipment', categories.group_equipment],
+    ['personal_equipment', categories.personal_equipment],
+    ['food', categories.food],
+  ]
+
+  for (const [cat, subs] of categoryNames) {
+    if (!subs) continue
+    if (subs.length === 0) {
+      lines.push(`- ${cat}: any subcategory`)
+    } else {
+      lines.push(`- ${cat}: ${subs.join(', ')}`)
+    }
+  }
+
+  lines.push(
+    'Keep subcategory labels as close as possible to the ones listed above.'
+  )
+
+  return lines.join('\n')
+}
+
+export function getClosingInstruction(categoryCount: number = 3): string {
+  const { min, max } =
+    categoryCount >= 3
+      ? { min: 15, max: 40 }
+      : categoryCount === 2
+        ? { min: 10, max: 25 }
+        : { min: 5, max: 15 }
+
+  return [
+    'Suggest practical items for this trip. Each item must use a valid category and unit from the lists above.',
+    `Return between ${min} and ${max} items depending on trip complexity.`,
+    'Every item must have a short, specific "reason" explaining why it is needed for THIS particular trip.',
+    'Reminder: personal_equipment quantity is ALWAYS 1 (the system handles per-person duplication).',
+    'CRITICAL: Every item MUST include ALL fields: name, category, subcategory, quantity, unit, reason. Never omit any field.',
+  ].join('\n')
+}
+
+export const CLOSING_INSTRUCTION = getClosingInstruction(3)
