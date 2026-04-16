@@ -244,6 +244,33 @@ export const internalUpdateItemStatusResponseSchema = {
   additionalProperties: false,
 } as const
 
+export const internalUpdateExpenseBodySchema = {
+  $id: 'InternalUpdateExpenseBody',
+  type: 'object',
+  description:
+    'Request body for PATCH /api/internal/expenses/:expenseId (WhatsApp/chatbot service). Authentication: `x-service-key` + `x-user-id`. The caller must own the expense (their participant is the one the expense belongs to). Send only the fields to change; omitted fields stay unchanged. `itemIds` replaces the full list — only newly added IDs advance from `pending` to `purchased`.',
+  properties: {
+    amount: {
+      type: 'number',
+      exclusiveMinimum: 0,
+      description: "Updated positive expense amount in the plan's currency.",
+    },
+    description: {
+      type: 'string',
+      maxLength: 500,
+      nullable: true,
+      description: 'Updated free-text note. Send `null` to clear.',
+    },
+    itemIds: {
+      type: 'array',
+      items: { type: 'string', format: 'uuid' },
+      description:
+        "Replaces the full item list. Every ID must exist on the expense's plan or the request fails with 400. Only newly added IDs (not already on the expense) trigger status advancement from `pending` to `purchased` for the caller's participant.",
+    },
+  },
+  additionalProperties: false,
+} as const
+
 export const internalCreateExpenseBodySchema = {
   $id: 'InternalCreateExpenseBody',
   type: 'object',

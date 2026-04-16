@@ -99,6 +99,7 @@ import {
   internalUpdateItemStatusItemSchema,
   internalUpdateItemStatusResponseSchema,
   internalCreateExpenseBodySchema,
+  internalUpdateExpenseBodySchema,
 } from './internal.schema.js'
 import {
   dietaryMemberSchema,
@@ -213,6 +214,7 @@ const schemas = [
   internalUpdateItemStatusItemSchema,
   internalUpdateItemStatusResponseSchema,
   internalCreateExpenseBodySchema,
+  internalUpdateExpenseBodySchema,
   dietaryMemberSchema,
   dietaryMembersBodySchema,
   aiSuggestionsRequestSchema,

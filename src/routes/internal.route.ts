@@ -629,6 +629,151 @@ export async function internalRoutes(fastify: FastifyInstance) {
     }
   )
 
+  fastify.patch(
+    '/expenses/:expenseId',
+    {
+      schema: {
+        tags: ['internal'],
+        summary:
+          'Update an expense on behalf of the user identified by x-user-id',
+        description:
+          'Chatbot/WhatsApp backend use: updates an existing expense. Headers: `x-service-key` + `x-user-id`. The caller must be the participant the expense belongs to (resolved from `x-user-id`). Send only fields to change. `itemIds` replaces the full list; only newly added IDs advance from `pending` to `purchased`. At least one field must be provided.',
+        params: { $ref: 'ExpenseIdParam#' },
+        body: { $ref: 'InternalUpdateExpenseBody#' },
+        response: {
+          200: {
+            description:
+              'Updated expense. `itemIds` reflects the new list after replacement.',
+            $ref: 'Expense#',
+          },
+          400: {
+            description:
+              'Validation failed — no fields provided, unknown item IDs, items from another plan, or amount ≤ 0.',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Missing `x-user-id`, or `x-service-key` missing/invalid.',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description:
+              '`x-user-id` does not match the participant this expense belongs to.',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: '`expenseId` does not exist.',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Server error while updating the expense.',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+
+      const { expenseId } = request.params as { expenseId: string }
+      const updates = request.body as {
+        amount?: number
+        description?: string | null
+        itemIds?: string[]
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return reply.code(400).send({ message: 'No fields to update' })
+      }
+
+      const [existing] = await fastify.db
+        .select()
+        .from(participantExpenses)
+        .where(eq(participantExpenses.expenseId, expenseId))
+
+      if (!existing) {
+        request.log.warn(
+          { expenseId },
+          'Internal update expense — expense not found'
+        )
+        return reply.code(404).send({ message: 'Expense not found' })
+      }
+
+      const [expenseParticipant] = await fastify.db
+        .select({
+          participantId: participants.participantId,
+          userId: participants.userId,
+        })
+        .from(participants)
+        .where(eq(participants.participantId, existing.participantId))
+        .limit(1)
+
+      if (!expenseParticipant || expenseParticipant.userId !== userId) {
+        request.log.warn(
+          { expenseId, userId },
+          'Internal update expense — not the expense participant'
+        )
+        return reply
+          .code(403)
+          .send({ message: 'You can only edit your own expenses' })
+      }
+
+      if (updates.itemIds !== undefined && updates.itemIds.length > 0) {
+        const validationError = await validateItemIds(
+          fastify.db,
+          updates.itemIds,
+          existing.planId
+        )
+        if (validationError) {
+          return reply.code(400).send({ message: validationError })
+        }
+      }
+
+      const setValues: Record<string, unknown> = { updatedAt: new Date() }
+      if (updates.amount !== undefined) {
+        setValues.amount = String(updates.amount)
+      }
+      if (updates.description !== undefined) {
+        setValues.description = updates.description
+      }
+      if (updates.itemIds !== undefined) {
+        setValues.itemIds = updates.itemIds
+      }
+
+      const updated = await fastify.db.transaction(async (tx) => {
+        const [expense] = await tx
+          .update(participantExpenses)
+          .set(setValues)
+          .where(eq(participantExpenses.expenseId, expenseId))
+          .returning()
+
+        if (updates.itemIds !== undefined) {
+          const oldIds = new Set(existing.itemIds)
+          const newlyAdded = updates.itemIds.filter((id) => !oldIds.has(id))
+          if (newlyAdded.length > 0) {
+            await advanceItemStatusOnExpense(
+              tx,
+              newlyAdded,
+              existing.planId,
+              existing.participantId
+            )
+          }
+        }
+
+        return expense
+      })
+
+      request.log.info(
+        { expenseId, changes: Object.keys(updates) },
+        'Internal expense updated'
+      )
+      return updated
+    }
+  )
+
   fastify.get(
     '/plan-tags',
     {

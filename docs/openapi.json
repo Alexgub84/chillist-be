@@ -939,7 +939,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-82"
+                "$ref": "#/components/schemas/def-83"
               },
               {
                 "type": "null"
@@ -1036,7 +1036,7 @@
             "type": "string"
           },
           "dietaryMembers": {
-            "$ref": "#/components/schemas/def-82",
+            "$ref": "#/components/schemas/def-83",
             "description": "Per-person dietary preferences. Optional on create — send to populate structured dietary data for the participant group."
           },
           "notes": {
@@ -1113,7 +1113,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-82"
+                "$ref": "#/components/schemas/def-83"
               },
               {
                 "type": "null"
@@ -1380,7 +1380,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-82"
+                "$ref": "#/components/schemas/def-83"
               },
               {
                 "type": "null"
@@ -1538,7 +1538,7 @@
             "type": "string"
           },
           "dietaryMembers": {
-            "$ref": "#/components/schemas/def-82",
+            "$ref": "#/components/schemas/def-83",
             "description": "Per-person dietary preferences for this join request. Optional — carried through to the participant record on approval."
           },
           "notes": {
@@ -1638,7 +1638,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-82"
+                "$ref": "#/components/schemas/def-83"
               },
               {
                 "type": "null"
@@ -1805,7 +1805,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-82"
+                "$ref": "#/components/schemas/def-83"
               },
               {
                 "type": "null"
@@ -1873,7 +1873,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-82"
+                "$ref": "#/components/schemas/def-83"
               },
               {
                 "type": "null"
@@ -3072,6 +3072,33 @@
       },
       "def-81": {
         "type": "object",
+        "description": "Request body for PATCH /api/internal/expenses/:expenseId (WhatsApp/chatbot service). Authentication: `x-service-key` + `x-user-id`. The caller must own the expense (their participant is the one the expense belongs to). Send only the fields to change; omitted fields stay unchanged. `itemIds` replaces the full list — only newly added IDs advance from `pending` to `purchased`.",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Updated positive expense amount in the plan's currency."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "description": "Updated free-text note. Send `null` to clear."
+          },
+          "itemIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Replaces the full item list. Every ID must exist on the expense's plan or the request fails with 400. Only newly added IDs (not already on the expense) trigger status advancement from `pending` to `purchased` for the caller's participant."
+          }
+        },
+        "additionalProperties": false,
+        "title": "InternalUpdateExpenseBody"
+      },
+      "def-82": {
+        "type": "object",
         "properties": {
           "type": {
             "type": "string",
@@ -3130,13 +3157,13 @@
         ],
         "title": "DietaryMember"
       },
-      "def-82": {
+      "def-83": {
         "type": "object",
         "properties": {
           "members": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-81"
+              "$ref": "#/components/schemas/def-82"
             },
             "description": "Per-person dietary data for each adult/kid in this participant group. Each entry has a type (adult|kid), a 0-based index within that type, a single diet preference, and an allergies list."
           }
@@ -3146,7 +3173,7 @@
         ],
         "title": "DietaryMembersBody"
       },
-      "def-83": {
+      "def-84": {
         "type": [
           "object",
           "null"
@@ -3184,7 +3211,7 @@
         },
         "title": "AiSuggestionsRequest"
       },
-      "def-84": {
+      "def-85": {
         "type": "object",
         "required": [
           "id",
@@ -3241,7 +3268,7 @@
         },
         "title": "AiSuggestionItem"
       },
-      "def-85": {
+      "def-86": {
         "type": "object",
         "required": [
           "suggestions",
@@ -3256,18 +3283,18 @@
           "suggestions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-84"
+              "$ref": "#/components/schemas/def-85"
             }
           }
         },
         "title": "AiSuggestionsResponse"
       },
-      "def-86": {
+      "def-87": {
         "type": "string",
         "description": "Server-Sent Events (SSE) stream. Content-Type: text/event-stream.\n\nEvents:\n  event: suggestions — { category, suggestions: AiSuggestionItem[], aiUsageLogId }\n  event: error — { category, message }\n  event: done — { totalSuggestions, aiUsageLogIds, errors }\n\nOne AI call per requested category (personal_equipment, group_equipment, food).\nEach \"suggestions\" event fires as its category completes — order depends on AI response time.\nThe \"done\" event fires after all categories settle.",
         "title": "AiSuggestionsStreamDescription"
       },
-      "def-87": {
+      "def-88": {
         "type": "object",
         "properties": {
           "id": {
@@ -3404,14 +3431,14 @@
         ],
         "title": "AiUsageLog"
       },
-      "def-88": {
+      "def-89": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-87"
+          "$ref": "#/components/schemas/def-88"
         },
         "title": "AiUsageLogList"
       },
-      "def-89": {
+      "def-90": {
         "type": "object",
         "properties": {
           "featureType": {
@@ -3434,7 +3461,7 @@
         ],
         "title": "AiUsageFeatureSummary"
       },
-      "def-90": {
+      "def-91": {
         "type": "object",
         "properties": {
           "modelId": {
@@ -3457,7 +3484,7 @@
         ],
         "title": "AiUsageModelSummary"
       },
-      "def-91": {
+      "def-92": {
         "type": "object",
         "properties": {
           "totalRequests": {
@@ -3480,13 +3507,13 @@
           "byFeature": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-89"
+              "$ref": "#/components/schemas/def-90"
             }
           },
           "byModel": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-90"
+              "$ref": "#/components/schemas/def-91"
             }
           }
         },
@@ -3499,7 +3526,7 @@
         ],
         "title": "AiUsageSummary"
       },
-      "def-92": {
+      "def-93": {
         "type": "object",
         "properties": {
           "planId": {
@@ -3554,19 +3581,19 @@
         },
         "title": "AiUsageQuery"
       },
-      "def-93": {
+      "def-94": {
         "type": "object",
         "description": "Paginated AI usage logs with aggregated summary. Admin only.",
         "properties": {
           "logs": {
-            "$ref": "#/components/schemas/def-88"
+            "$ref": "#/components/schemas/def-89"
           },
           "total": {
             "type": "integer",
             "description": "Total count of records matching filters (for pagination)"
           },
           "summary": {
-            "$ref": "#/components/schemas/def-91"
+            "$ref": "#/components/schemas/def-92"
           }
         },
         "required": [
@@ -3576,7 +3603,7 @@
         ],
         "title": "AiUsageResponse"
       },
-      "def-94": {
+      "def-95": {
         "type": "object",
         "properties": {
           "id": {
@@ -3700,14 +3727,14 @@
         ],
         "title": "ChatbotAiUsageLog"
       },
-      "def-95": {
+      "def-96": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-94"
+          "$ref": "#/components/schemas/def-95"
         },
         "title": "ChatbotAiUsageLogList"
       },
-      "def-96": {
+      "def-97": {
         "type": "object",
         "properties": {
           "modelId": {
@@ -3730,7 +3757,7 @@
         ],
         "title": "ChatbotAiUsageModelSummary"
       },
-      "def-97": {
+      "def-98": {
         "type": "object",
         "properties": {
           "chatType": {
@@ -3753,7 +3780,7 @@
         ],
         "title": "ChatbotAiUsageChatTypeSummary"
       },
-      "def-98": {
+      "def-99": {
         "type": "object",
         "properties": {
           "toolName": {
@@ -3771,7 +3798,7 @@
         ],
         "title": "ChatbotAiUsageToolCallSummary"
       },
-      "def-99": {
+      "def-100": {
         "type": "object",
         "properties": {
           "totalRequests": {
@@ -3794,19 +3821,19 @@
           "byModel": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-96"
+              "$ref": "#/components/schemas/def-97"
             }
           },
           "byChatType": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-97"
+              "$ref": "#/components/schemas/def-98"
             }
           },
           "byToolCalls": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-98"
+              "$ref": "#/components/schemas/def-99"
             }
           }
         },
@@ -3820,7 +3847,7 @@
         ],
         "title": "ChatbotAiUsageSummary"
       },
-      "def-100": {
+      "def-101": {
         "type": "object",
         "properties": {
           "userId": {
@@ -3875,19 +3902,19 @@
         },
         "title": "ChatbotAiUsageQuery"
       },
-      "def-101": {
+      "def-102": {
         "type": "object",
         "description": "Paginated chatbot AI usage with aggregates. Admin only. Table is written by the chatbot service.",
         "properties": {
           "logs": {
-            "$ref": "#/components/schemas/def-95"
+            "$ref": "#/components/schemas/def-96"
           },
           "total": {
             "type": "integer",
             "description": "Total rows matching filters (for pagination)"
           },
           "summary": {
-            "$ref": "#/components/schemas/def-99"
+            "$ref": "#/components/schemas/def-100"
           }
         },
         "required": [
@@ -3897,7 +3924,7 @@
         ],
         "title": "ChatbotAiUsageResponse"
       },
-      "def-102": {
+      "def-103": {
         "type": "object",
         "description": "Plan tag taxonomy served as a static versioned JSON file.\nLabels are bilingual objects `{ en, he }` — pick the active locale at render time.\nAll `id` values are stable slugs safe to persist as tag values.\n\n**Rendering order:** tier1 → universal_flags → tier2_axes (filtered by chosen tier1) → tier3 (drill-down per chosen tier2 value).\n\n**Selection summary:** Read `selection_by_tier` for explicit single vs multi per tier and per flag/axis. Nested objects remain authoritative (`tier1.select`, each flag/axis `select`, `tier3.default_select` + `multi_select_parents`).",
         "required": [
@@ -7892,7 +7919,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-83"
+                "$ref": "#/components/schemas/def-84"
               }
             }
           }
@@ -7915,7 +7942,7 @@
               "application/json": {
                 "schema": {
                   "description": "AI-generated item suggestions",
-                  "$ref": "#/components/schemas/def-85"
+                  "$ref": "#/components/schemas/def-86"
                 }
               }
             }
@@ -7978,7 +8005,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-83"
+                "$ref": "#/components/schemas/def-84"
               }
             }
           }
@@ -8001,7 +8028,7 @@
               "application/json": {
                 "schema": {
                   "description": "SSE stream — event: suggestions | error | done. See AiSuggestionsStreamDescription for event format.",
-                  "$ref": "#/components/schemas/def-86"
+                  "$ref": "#/components/schemas/def-87"
                 }
               }
             }
@@ -8147,7 +8174,7 @@
               "application/json": {
                 "schema": {
                   "description": "Paginated logs, total count for the current filters, and summary aggregates",
-                  "$ref": "#/components/schemas/def-93"
+                  "$ref": "#/components/schemas/def-94"
                 }
               }
             }
@@ -8293,7 +8320,7 @@
               "application/json": {
                 "schema": {
                   "description": "Paginated logs, total count for filters, and summary aggregates",
-                  "$ref": "#/components/schemas/def-101"
+                  "$ref": "#/components/schemas/def-102"
                 }
               }
             }
@@ -8348,7 +8375,7 @@
               "application/json": {
                 "schema": {
                   "description": "Full plan tag taxonomy",
-                  "$ref": "#/components/schemas/def-102"
+                  "$ref": "#/components/schemas/def-103"
                 }
               }
             }
@@ -8735,6 +8762,103 @@
         }
       }
     },
+    "/api/internal/expenses/{expenseId}": {
+      "patch": {
+        "summary": "Update an expense on behalf of the user identified by x-user-id",
+        "tags": [
+          "internal"
+        ],
+        "description": "Chatbot/WhatsApp backend use: updates an existing expense. Headers: `x-service-key` + `x-user-id`. The caller must be the participant the expense belongs to (resolved from `x-user-id`). Send only fields to change. `itemIds` replaces the full list; only newly added IDs advance from `pending` to `purchased`. At least one field must be provided.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-81"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "expenseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated expense. `itemIds` reflects the new list after replacement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Updated expense. `itemIds` reflects the new list after replacement.",
+                  "$ref": "#/components/schemas/def-58"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed — no fields provided, unknown item IDs, items from another plan, or amount ≤ 0.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed — no fields provided, unknown item IDs, items from another plan, or amount ≤ 0.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing `x-user-id`, or `x-service-key` missing/invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Missing `x-user-id`, or `x-service-key` missing/invalid.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`x-user-id` does not match the participant this expense belongs to.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "`x-user-id` does not match the participant this expense belongs to.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`expenseId` does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "`expenseId` does not exist.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error while updating the expense.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Server error while updating the expense.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/internal/plan-tags": {
       "get": {
         "summary": "Get plan tag taxonomy for chatbot",
@@ -8749,7 +8873,7 @@
               "application/json": {
                 "schema": {
                   "description": "Full plan tag taxonomy",
-                  "$ref": "#/components/schemas/def-102"
+                  "$ref": "#/components/schemas/def-103"
                 }
               }
             }
