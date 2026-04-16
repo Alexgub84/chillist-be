@@ -3043,7 +3043,7 @@
       },
       "def-80": {
         "type": "object",
-        "description": "Body for POST /api/internal/plans/:planId/expenses. The participant is resolved server-side from x-user-id + planId.",
+        "description": "Request body for POST /api/internal/plans/:planId/expenses (WhatsApp/chatbot service). Authentication: send `x-service-key` (CHATBOT_SERVICE_KEY) and `x-user-id` (Supabase user UUID for the end user). The expense is always attributed to that user’s participant row on `planId` — do not send `participantId`; it is resolved server-side. Omit `itemIds` or send `[]` to log a standalone amount; send UUIDs to link plan items. For each linked item where this participant had `pending` assignment, status becomes `purchased` after the expense is created.",
         "required": [
           "amount"
         ],
@@ -3051,12 +3051,12 @@
           "amount": {
             "type": "number",
             "exclusiveMinimum": 0,
-            "description": "Expense amount (must be greater than 0)"
+            "description": "Positive expense amount in the plan’s currency (same semantics as the public create-expense API)."
           },
           "description": {
             "type": "string",
             "maxLength": 500,
-            "description": "Optional description of what the expense was for"
+            "description": "Optional free-text note (e.g. store name, category). Omit if not needed."
           },
           "itemIds": {
             "type": "array",
@@ -3064,7 +3064,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "description": "Optional list of item IDs this expense is for. All items must belong to the same plan."
+            "description": "Optional. Item UUIDs from this plan to attach to the expense. Every ID must exist on `planId` or the request fails with 400. Duplicate IDs in the array are de-duplicated for validation. To log without items, omit this field or use `[]`. To attach or change items after creation, use the authenticated app API `PATCH /api/expenses/:expenseId` with `itemIds` (this internal route is create-only)."
           }
         },
         "additionalProperties": false,
@@ -8640,11 +8640,11 @@
     },
     "/api/internal/plans/{planId}/expenses": {
       "post": {
-        "summary": "Add an expense on behalf of the chatbot user",
+        "summary": "Create plan expense for the user identified by x-user-id",
         "tags": [
           "internal"
         ],
-        "description": "Creates an expense for the participant resolved from x-user-id on the given plan. Optionally links items and advances their status from pending to purchased. Requires x-service-key and x-user-id headers.",
+        "description": "Chatbot/WhatsApp backend use: records a purchase for the end user on `planId`. Headers: `x-service-key` (service auth) and `x-user-id` (that user’s Supabase UUID). The server finds their `participantId` on this plan and inserts one row in `participant_expenses`. Response `201` body matches the public Expense model (amount as decimal string, `itemIds` array, etc.). If `itemIds` is non-empty, each ID must belong to this plan; linked items where this participant was `pending` move to `purchased`. Create-only — updating or attaching items later is done via `PATCH /api/expenses/:expenseId` with a user JWT, not via this internal API.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8667,66 +8667,66 @@
         ],
         "responses": {
           "201": {
-            "description": "Created expense",
+            "description": "Expense persisted. Use `expenseId` for correlation; `itemIds` reflects the request (or `[]`).",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Created expense",
+                  "description": "Expense persisted. Use `expenseId` for correlation; `itemIds` reflects the request (or `[]`).",
                   "$ref": "#/components/schemas/def-58"
                 }
               }
             }
           },
           "400": {
-            "description": "Bad request — invalid itemIds or validation error",
+            "description": "Validation failed — e.g. unknown item IDs, items from another plan, amount ≤ 0, or schema violation.",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Bad request — invalid itemIds or validation error",
+                  "description": "Validation failed — e.g. unknown item IDs, items from another plan, amount ≤ 0, or schema violation.",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "401": {
-            "description": "Missing x-user-id or invalid x-service-key",
+            "description": "Missing `x-user-id`, or `x-service-key` missing/invalid.",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Missing x-user-id or invalid x-service-key",
+                  "description": "Missing `x-user-id`, or `x-service-key` missing/invalid.",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "403": {
-            "description": "User is not a participant on this plan",
+            "description": "`x-user-id` does not correspond to a participant on this plan.",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "User is not a participant on this plan",
+                  "description": "`x-user-id` does not correspond to a participant on this plan.",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "404": {
-            "description": "Plan not found",
+            "description": "`planId` does not exist.",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Plan not found",
+                  "description": "`planId` does not exist.",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
             }
           },
           "500": {
-            "description": "Unexpected error while creating expense",
+            "description": "Server error while creating the expense.",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Unexpected error while creating expense",
+                  "description": "Server error while creating the expense.",
                   "$ref": "#/components/schemas/def-0"
                 }
               }

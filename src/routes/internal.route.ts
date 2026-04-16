@@ -501,34 +501,38 @@ export async function internalRoutes(fastify: FastifyInstance) {
     {
       schema: {
         tags: ['internal'],
-        summary: 'Add an expense on behalf of the chatbot user',
+        summary: 'Create plan expense for the user identified by x-user-id',
         description:
-          'Creates an expense for the participant resolved from x-user-id on the given plan. Optionally links items and advances their status from pending to purchased. Requires x-service-key and x-user-id headers.',
+          'Chatbot/WhatsApp backend use: records a purchase for the end user on `planId`. Headers: `x-service-key` (service auth) and `x-user-id` (that user’s Supabase UUID). The server finds their `participantId` on this plan and inserts one row in `participant_expenses`. Response `201` body matches the public Expense model (amount as decimal string, `itemIds` array, etc.). If `itemIds` is non-empty, each ID must belong to this plan; linked items where this participant was `pending` move to `purchased`. Create-only — updating or attaching items later is done via `PATCH /api/expenses/:expenseId` with a user JWT, not via this internal API.',
         params: { $ref: 'PlanIdParam#' },
         body: { $ref: 'InternalCreateExpenseBody#' },
         response: {
           201: {
-            description: 'Created expense',
+            description:
+              'Expense persisted. Use `expenseId` for correlation; `itemIds` reflects the request (or `[]`).',
             $ref: 'Expense#',
           },
           400: {
-            description: 'Bad request — invalid itemIds or validation error',
+            description:
+              'Validation failed — e.g. unknown item IDs, items from another plan, amount ≤ 0, or schema violation.',
             $ref: 'ErrorResponse#',
           },
           401: {
-            description: 'Missing x-user-id or invalid x-service-key',
+            description:
+              'Missing `x-user-id`, or `x-service-key` missing/invalid.',
             $ref: 'ErrorResponse#',
           },
           403: {
-            description: 'User is not a participant on this plan',
+            description:
+              '`x-user-id` does not correspond to a participant on this plan.',
             $ref: 'ErrorResponse#',
           },
           404: {
-            description: 'Plan not found',
+            description: '`planId` does not exist.',
             $ref: 'ErrorResponse#',
           },
           500: {
-            description: 'Unexpected error while creating expense',
+            description: 'Server error while creating the expense.',
             $ref: 'ErrorResponse#',
           },
         },

@@ -248,24 +248,26 @@ export const internalCreateExpenseBodySchema = {
   $id: 'InternalCreateExpenseBody',
   type: 'object',
   description:
-    'Body for POST /api/internal/plans/:planId/expenses. The participant is resolved server-side from x-user-id + planId.',
+    'Request body for POST /api/internal/plans/:planId/expenses (WhatsApp/chatbot service). Authentication: send `x-service-key` (CHATBOT_SERVICE_KEY) and `x-user-id` (Supabase user UUID for the end user). The expense is always attributed to that user’s participant row on `planId` — do not send `participantId`; it is resolved server-side. Omit `itemIds` or send `[]` to log a standalone amount; send UUIDs to link plan items. For each linked item where this participant had `pending` assignment, status becomes `purchased` after the expense is created.',
   required: ['amount'],
   properties: {
     amount: {
       type: 'number',
       exclusiveMinimum: 0,
-      description: 'Expense amount (must be greater than 0)',
+      description:
+        'Positive expense amount in the plan’s currency (same semantics as the public create-expense API).',
     },
     description: {
       type: 'string',
       maxLength: 500,
-      description: 'Optional description of what the expense was for',
+      description:
+        'Optional free-text note (e.g. store name, category). Omit if not needed.',
     },
     itemIds: {
       type: 'array',
       items: { type: 'string', format: 'uuid' },
       description:
-        'Optional list of item IDs this expense is for. All items must belong to the same plan.',
+        'Optional. Item UUIDs from this plan to attach to the expense. Every ID must exist on `planId` or the request fails with 400. Duplicate IDs in the array are de-duplicated for validation. To log without items, omit this field or use `[]`. To attach or change items after creation, use the authenticated app API `PATCH /api/expenses/:expenseId` with `itemIds` (this internal route is create-only).',
     },
   },
   additionalProperties: false,
