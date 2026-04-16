@@ -2,9 +2,18 @@ import { FastifyInstance } from 'fastify'
 import { eq, inArray, count, and, asc, or, isNull, gte, sql } from 'drizzle-orm'
 import { resolveUserByPhone } from '../services/internal-auth.service.js'
 import { persistAssignments } from '../services/item.service.js'
+import {
+  validateItemIds,
+  advanceItemStatusOnExpense,
+} from '../services/expense.service.js'
 import { getPlanTags } from '../services/plan-tags.service.js'
 import { normalizePhone } from '../utils/phone.js'
-import { plans, participants, items } from '../db/schema.js'
+import {
+  plans,
+  participants,
+  items,
+  participantExpenses,
+} from '../db/schema.js'
 import type { ItemCategory, ItemStatus } from '../db/schema.js'
 
 const INTERNAL_RATE_LIMIT = { max: 30, timeWindow: '1 minute' }
@@ -484,6 +493,135 @@ export async function internalRoutes(fastify: FastifyInstance) {
           status: responseStatus,
         },
       }
+    }
+  )
+
+  fastify.post(
+    '/plans/:planId/expenses',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Add an expense on behalf of the chatbot user',
+        description:
+          'Creates an expense for the participant resolved from x-user-id on the given plan. Optionally links items and advances their status from pending to purchased. Requires x-service-key and x-user-id headers.',
+        params: { $ref: 'PlanIdParam#' },
+        body: { $ref: 'InternalCreateExpenseBody#' },
+        response: {
+          201: {
+            description: 'Created expense',
+            $ref: 'Expense#',
+          },
+          400: {
+            description: 'Bad request — invalid itemIds or validation error',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description: 'Missing x-user-id or invalid x-service-key',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description: 'User is not a participant on this plan',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Plan not found',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Unexpected error while creating expense',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+
+      const { planId } = request.params as { planId: string }
+      const { amount, description, itemIds } = request.body as {
+        amount: number
+        description?: string
+        itemIds?: string[]
+      }
+
+      const [planRow] = await fastify.db
+        .select({ planId: plans.planId })
+        .from(plans)
+        .where(eq(plans.planId, planId))
+        .limit(1)
+
+      if (!planRow) {
+        request.log.warn({ planId }, 'Internal create expense — plan not found')
+        return reply.code(404).send({ message: 'Plan not found' })
+      }
+
+      const [callerParticipant] = await fastify.db
+        .select({ participantId: participants.participantId })
+        .from(participants)
+        .where(
+          and(eq(participants.planId, planId), eq(participants.userId, userId))
+        )
+        .limit(1)
+
+      if (!callerParticipant) {
+        request.log.warn(
+          { planId, userId },
+          'Internal create expense — user not a participant'
+        )
+        return reply
+          .code(403)
+          .send({ message: 'User is not a participant on this plan' })
+      }
+
+      if (itemIds && itemIds.length > 0) {
+        const validationError = await validateItemIds(
+          fastify.db,
+          itemIds,
+          planId
+        )
+        if (validationError) {
+          return reply.code(400).send({ message: validationError })
+        }
+      }
+
+      const created = await fastify.db.transaction(async (tx) => {
+        const [expense] = await tx
+          .insert(participantExpenses)
+          .values({
+            participantId: callerParticipant.participantId,
+            planId,
+            amount: String(amount),
+            description: description ?? null,
+            itemIds: itemIds ?? [],
+            createdByUserId: userId,
+          })
+          .returning()
+
+        if (itemIds && itemIds.length > 0) {
+          await advanceItemStatusOnExpense(
+            tx,
+            itemIds,
+            planId,
+            callerParticipant.participantId
+          )
+        }
+
+        return expense
+      })
+
+      request.log.info(
+        {
+          expenseId: created.expenseId,
+          planId,
+          participantId: callerParticipant.participantId,
+          userId,
+        },
+        'Internal expense created'
+      )
+      return reply.code(201).send(created)
     }
   )
 

@@ -243,3 +243,30 @@ export const internalUpdateItemStatusResponseSchema = {
   },
   additionalProperties: false,
 } as const
+
+export const internalCreateExpenseBodySchema = {
+  $id: 'InternalCreateExpenseBody',
+  type: 'object',
+  description:
+    'Body for POST /api/internal/plans/:planId/expenses. The participant is resolved server-side from x-user-id + planId.',
+  required: ['amount'],
+  properties: {
+    amount: {
+      type: 'number',
+      exclusiveMinimum: 0,
+      description: 'Expense amount (must be greater than 0)',
+    },
+    description: {
+      type: 'string',
+      maxLength: 500,
+      description: 'Optional description of what the expense was for',
+    },
+    itemIds: {
+      type: 'array',
+      items: { type: 'string', format: 'uuid' },
+      description:
+        'Optional list of item IDs this expense is for. All items must belong to the same plan.',
+    },
+  },
+  additionalProperties: false,
+} as const
