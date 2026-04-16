@@ -243,3 +243,59 @@ export const internalUpdateItemStatusResponseSchema = {
   },
   additionalProperties: false,
 } as const
+
+export const internalUpdateExpenseBodySchema = {
+  $id: 'InternalUpdateExpenseBody',
+  type: 'object',
+  description:
+    'Request body for PATCH /api/internal/expenses/:expenseId (WhatsApp/chatbot service). Authentication: `x-service-key` + `x-user-id`. The caller must own the expense (their participant is the one the expense belongs to). Send only the fields to change; omitted fields stay unchanged. `itemIds` replaces the full list — only newly added IDs advance from `pending` to `purchased`.',
+  properties: {
+    amount: {
+      type: 'number',
+      exclusiveMinimum: 0,
+      description: "Updated positive expense amount in the plan's currency.",
+    },
+    description: {
+      type: 'string',
+      maxLength: 500,
+      nullable: true,
+      description: 'Updated free-text note. Send `null` to clear.',
+    },
+    itemIds: {
+      type: 'array',
+      items: { type: 'string', format: 'uuid' },
+      description:
+        "Replaces the full item list. Every ID must exist on the expense's plan or the request fails with 400. Only newly added IDs (not already on the expense) trigger status advancement from `pending` to `purchased` for the caller's participant.",
+    },
+  },
+  additionalProperties: false,
+} as const
+
+export const internalCreateExpenseBodySchema = {
+  $id: 'InternalCreateExpenseBody',
+  type: 'object',
+  description:
+    'Request body for POST /api/internal/plans/:planId/expenses (WhatsApp/chatbot service). Authentication: send `x-service-key` (CHATBOT_SERVICE_KEY) and `x-user-id` (Supabase user UUID for the end user). The expense is always attributed to that user’s participant row on `planId` — do not send `participantId`; it is resolved server-side. Omit `itemIds` or send `[]` to log a standalone amount; send UUIDs to link plan items. For each linked item where this participant had `pending` assignment, status becomes `purchased` after the expense is created.',
+  required: ['amount'],
+  properties: {
+    amount: {
+      type: 'number',
+      exclusiveMinimum: 0,
+      description:
+        'Positive expense amount in the plan’s currency (same semantics as the public create-expense API).',
+    },
+    description: {
+      type: 'string',
+      maxLength: 500,
+      description:
+        'Optional free-text note (e.g. store name, category). Omit if not needed.',
+    },
+    itemIds: {
+      type: 'array',
+      items: { type: 'string', format: 'uuid' },
+      description:
+        'Optional. Item UUIDs from this plan to attach to the expense. Every ID must exist on `planId` or the request fails with 400. Duplicate IDs in the array are de-duplicated for validation. To log without items, omit this field or use `[]`. To attach or change items after creation, use the authenticated app API `PATCH /api/expenses/:expenseId` with `itemIds` (this internal route is create-only).',
+    },
+  },
+  additionalProperties: false,
+} as const

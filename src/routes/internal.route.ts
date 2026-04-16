@@ -2,9 +2,18 @@ import { FastifyInstance } from 'fastify'
 import { eq, inArray, count, and, asc, or, isNull, gte, sql } from 'drizzle-orm'
 import { resolveUserByPhone } from '../services/internal-auth.service.js'
 import { persistAssignments } from '../services/item.service.js'
+import {
+  validateItemIds,
+  advanceItemStatusOnExpense,
+} from '../services/expense.service.js'
 import { getPlanTags } from '../services/plan-tags.service.js'
 import { normalizePhone } from '../utils/phone.js'
-import { plans, participants, items } from '../db/schema.js'
+import {
+  plans,
+  participants,
+  items,
+  participantExpenses,
+} from '../db/schema.js'
 import type { ItemCategory, ItemStatus } from '../db/schema.js'
 
 const INTERNAL_RATE_LIMIT = { max: 30, timeWindow: '1 minute' }
@@ -484,6 +493,284 @@ export async function internalRoutes(fastify: FastifyInstance) {
           status: responseStatus,
         },
       }
+    }
+  )
+
+  fastify.post(
+    '/plans/:planId/expenses',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Create plan expense for the user identified by x-user-id',
+        description:
+          'Chatbot/WhatsApp backend use: records a purchase for the end user on `planId`. Headers: `x-service-key` (service auth) and `x-user-id` (that user’s Supabase UUID). The server finds their `participantId` on this plan and inserts one row in `participant_expenses`. Response `201` body matches the public Expense model (amount as decimal string, `itemIds` array, etc.). If `itemIds` is non-empty, each ID must belong to this plan; linked items where this participant was `pending` move to `purchased`. Create-only — updating or attaching items later is done via `PATCH /api/expenses/:expenseId` with a user JWT, not via this internal API.',
+        params: { $ref: 'PlanIdParam#' },
+        body: { $ref: 'InternalCreateExpenseBody#' },
+        response: {
+          201: {
+            description:
+              'Expense persisted. Use `expenseId` for correlation; `itemIds` reflects the request (or `[]`).',
+            $ref: 'Expense#',
+          },
+          400: {
+            description:
+              'Validation failed — e.g. unknown item IDs, items from another plan, amount ≤ 0, or schema violation.',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Missing `x-user-id`, or `x-service-key` missing/invalid.',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description:
+              '`x-user-id` does not correspond to a participant on this plan.',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: '`planId` does not exist.',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Server error while creating the expense.',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+
+      const { planId } = request.params as { planId: string }
+      const { amount, description, itemIds } = request.body as {
+        amount: number
+        description?: string
+        itemIds?: string[]
+      }
+
+      const [planRow] = await fastify.db
+        .select({ planId: plans.planId })
+        .from(plans)
+        .where(eq(plans.planId, planId))
+        .limit(1)
+
+      if (!planRow) {
+        request.log.warn({ planId }, 'Internal create expense — plan not found')
+        return reply.code(404).send({ message: 'Plan not found' })
+      }
+
+      const [callerParticipant] = await fastify.db
+        .select({ participantId: participants.participantId })
+        .from(participants)
+        .where(
+          and(eq(participants.planId, planId), eq(participants.userId, userId))
+        )
+        .limit(1)
+
+      if (!callerParticipant) {
+        request.log.warn(
+          { planId, userId },
+          'Internal create expense — user not a participant'
+        )
+        return reply
+          .code(403)
+          .send({ message: 'User is not a participant on this plan' })
+      }
+
+      if (itemIds && itemIds.length > 0) {
+        const validationError = await validateItemIds(
+          fastify.db,
+          itemIds,
+          planId
+        )
+        if (validationError) {
+          return reply.code(400).send({ message: validationError })
+        }
+      }
+
+      const created = await fastify.db.transaction(async (tx) => {
+        const [expense] = await tx
+          .insert(participantExpenses)
+          .values({
+            participantId: callerParticipant.participantId,
+            planId,
+            amount: String(amount),
+            description: description ?? null,
+            itemIds: itemIds ?? [],
+            createdByUserId: userId,
+          })
+          .returning()
+
+        if (itemIds && itemIds.length > 0) {
+          await advanceItemStatusOnExpense(
+            tx,
+            itemIds,
+            planId,
+            callerParticipant.participantId
+          )
+        }
+
+        return expense
+      })
+
+      request.log.info(
+        {
+          expenseId: created.expenseId,
+          planId,
+          participantId: callerParticipant.participantId,
+          userId,
+        },
+        'Internal expense created'
+      )
+      return reply.code(201).send(created)
+    }
+  )
+
+  fastify.patch(
+    '/expenses/:expenseId',
+    {
+      schema: {
+        tags: ['internal'],
+        summary:
+          'Update an expense on behalf of the user identified by x-user-id',
+        description:
+          'Chatbot/WhatsApp backend use: updates an existing expense. Headers: `x-service-key` + `x-user-id`. The caller must be the participant the expense belongs to (resolved from `x-user-id`). Send only fields to change. `itemIds` replaces the full list; only newly added IDs advance from `pending` to `purchased`. At least one field must be provided.',
+        params: { $ref: 'ExpenseIdParam#' },
+        body: { $ref: 'InternalUpdateExpenseBody#' },
+        response: {
+          200: {
+            description:
+              'Updated expense. `itemIds` reflects the new list after replacement.',
+            $ref: 'Expense#',
+          },
+          400: {
+            description:
+              'Validation failed — no fields provided, unknown item IDs, items from another plan, or amount ≤ 0.',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Missing `x-user-id`, or `x-service-key` missing/invalid.',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description:
+              '`x-user-id` does not match the participant this expense belongs to.',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: '`expenseId` does not exist.',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Server error while updating the expense.',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+
+      const { expenseId } = request.params as { expenseId: string }
+      const updates = request.body as {
+        amount?: number
+        description?: string | null
+        itemIds?: string[]
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return reply.code(400).send({ message: 'No fields to update' })
+      }
+
+      const [existing] = await fastify.db
+        .select()
+        .from(participantExpenses)
+        .where(eq(participantExpenses.expenseId, expenseId))
+
+      if (!existing) {
+        request.log.warn(
+          { expenseId },
+          'Internal update expense — expense not found'
+        )
+        return reply.code(404).send({ message: 'Expense not found' })
+      }
+
+      const [expenseParticipant] = await fastify.db
+        .select({
+          participantId: participants.participantId,
+          userId: participants.userId,
+        })
+        .from(participants)
+        .where(eq(participants.participantId, existing.participantId))
+        .limit(1)
+
+      if (!expenseParticipant || expenseParticipant.userId !== userId) {
+        request.log.warn(
+          { expenseId, userId },
+          'Internal update expense — not the expense participant'
+        )
+        return reply
+          .code(403)
+          .send({ message: 'You can only edit your own expenses' })
+      }
+
+      if (updates.itemIds !== undefined && updates.itemIds.length > 0) {
+        const validationError = await validateItemIds(
+          fastify.db,
+          updates.itemIds,
+          existing.planId
+        )
+        if (validationError) {
+          return reply.code(400).send({ message: validationError })
+        }
+      }
+
+      const setValues: Record<string, unknown> = { updatedAt: new Date() }
+      if (updates.amount !== undefined) {
+        setValues.amount = String(updates.amount)
+      }
+      if (updates.description !== undefined) {
+        setValues.description = updates.description
+      }
+      if (updates.itemIds !== undefined) {
+        setValues.itemIds = updates.itemIds
+      }
+
+      const updated = await fastify.db.transaction(async (tx) => {
+        const [expense] = await tx
+          .update(participantExpenses)
+          .set(setValues)
+          .where(eq(participantExpenses.expenseId, expenseId))
+          .returning()
+
+        if (updates.itemIds !== undefined) {
+          const oldIds = new Set(existing.itemIds)
+          const newlyAdded = updates.itemIds.filter((id) => !oldIds.has(id))
+          if (newlyAdded.length > 0) {
+            await advanceItemStatusOnExpense(
+              tx,
+              newlyAdded,
+              existing.planId,
+              existing.participantId
+            )
+          }
+        }
+
+        return expense
+      })
+
+      request.log.info(
+        { expenseId, changes: Object.keys(updates) },
+        'Internal expense updated'
+      )
+      return updated
     }
   )
 
