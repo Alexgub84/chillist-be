@@ -6,10 +6,12 @@ import {
   participants,
   participantJoinRequests,
   NewPlan,
+  ItemQuantitySource,
 } from '../db/schema.js'
 import * as schema from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import { isAdmin } from '../utils/admin.js'
+import { withItemQuantitySourceDefault } from '../utils/plan.js'
 import { syncParticipantFromJwt } from '../services/profile-sync.js'
 import { bootstrapUsersPhoneIfNull } from '../services/phone-sync.js'
 import { normalizePhone } from '../utils/phone.js'
@@ -56,6 +58,7 @@ interface UpdatePlanBody {
   currency?: string | null
   estimatedAdults?: number | null
   estimatedKids?: number | null
+  itemQuantitySource?: ItemQuantitySource | null
 }
 
 export async function plansRoutes(fastify: FastifyInstance) {
@@ -191,7 +194,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
           )
 
           return {
-            ...updatedPlan,
+            ...withItemQuantitySourceDefault(updatedPlan),
             participants: [ownerParticipant, ...createdParticipants],
             items: [],
           }
@@ -268,7 +271,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
           { count: filteredPlans.length, userId },
           'Plans retrieved'
         )
-        return filteredPlans
+        return filteredPlans.map(withItemQuantitySourceDefault)
       } catch (error) {
         request.log.error({ err: error }, 'Failed to retrieve plans')
 
@@ -340,7 +343,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
           { count: allPlans.length },
           'Admin: all plans retrieved'
         )
-        return allPlans
+        return allPlans.map(withItemQuantitySourceDefault)
       } catch (error) {
         request.log.error({ err: error }, 'Admin: failed to retrieve plans')
 
@@ -725,7 +728,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
             : finalParticipants.map((p) => ({ ...p, inviteToken: null }))
 
           const result: Record<string, unknown> = {
-            ...plan,
+            ...withItemQuantitySourceDefault(plan),
             participants: safeParticipants,
           }
 
@@ -918,7 +921,7 @@ export async function plansRoutes(fastify: FastifyInstance) {
           { planId, changes: Object.keys(updates) },
           'Plan updated'
         )
-        return updatedPlan
+        return withItemQuantitySourceDefault(updatedPlan)
       } catch (error) {
         request.log.error({ err: error, planId }, 'Failed to update plan')
 

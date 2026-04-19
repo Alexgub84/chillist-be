@@ -100,6 +100,7 @@ export async function seedTestPlans(
   options?: {
     createdByUserId?: string
     visibility?: 'public' | 'invite_only' | 'private'
+    itemQuantitySource?: schema.ItemQuantitySource | null
   }
 ) {
   const testDb = await getTestDb()
@@ -112,6 +113,9 @@ export async function seedTestPlans(
     ...(options?.createdByUserId && {
       createdByUserId: options.createdByUserId,
     }),
+    ...(options && 'itemQuantitySource' in options
+      ? { itemQuantitySource: options.itemQuantitySource }
+      : {}),
   }))
 
   const inserted = await testDb

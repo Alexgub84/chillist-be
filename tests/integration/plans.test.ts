@@ -1622,6 +1622,162 @@ describe('Plans Route', () => {
     })
   })
 
+  describe('itemQuantitySource', () => {
+    it('GET /plans returns "estimated" when DB value is null', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+        itemQuantitySource: null,
+      })
+      await seedTestParticipantWithUser(plan.planId, TEST_USER_ID)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/plans',
+        headers: authHeaders(),
+      })
+
+      expect(response.statusCode).toBe(200)
+      const [fetched] = response.json()
+      expect(fetched.itemQuantitySource).toBe('estimated')
+    })
+
+    it('GET /plans/:planId returns "estimated" when DB value is null', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+        itemQuantitySource: null,
+      })
+      await seedTestParticipantWithUser(plan.planId, TEST_USER_ID)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().itemQuantitySource).toBe('estimated')
+    })
+
+    it('GET /admin/plans returns "estimated" when DB value is null', async () => {
+      await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+        itemQuantitySource: null,
+      })
+
+      const adminToken = await signAdminJwt()
+      const response = await app.inject({
+        method: 'GET',
+        url: '/admin/plans',
+        headers: { authorization: `Bearer ${adminToken}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const [fetched] = response.json()
+      expect(fetched.itemQuantitySource).toBe('estimated')
+    })
+
+    it('POST /plans persists itemQuantitySource when provided', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: {
+          title: 'Quantity Source Plan',
+          owner: validOwner,
+          itemQuantitySource: 'participant_reported',
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const created = response.json()
+      expect(created.itemQuantitySource).toBe('participant_reported')
+    })
+
+    it('POST /plans returns "estimated" when field is omitted', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: {
+          title: 'No Quantity Source Plan',
+          owner: validOwner,
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const created = response.json()
+      expect(created.itemQuantitySource).toBe('estimated')
+    })
+
+    it('POST /plans returns 400 for invalid enum value', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plans',
+        headers: authHeaders(),
+        payload: {
+          title: 'Invalid Quantity Source',
+          owner: validOwner,
+          itemQuantitySource: 'bogus',
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('PATCH toggles estimated -> participant_reported -> estimated', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const toParticipant = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
+        payload: { itemQuantitySource: 'participant_reported' },
+      })
+      expect(toParticipant.statusCode).toBe(200)
+      expect(toParticipant.json().itemQuantitySource).toBe(
+        'participant_reported'
+      )
+
+      const back = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
+        payload: { itemQuantitySource: 'estimated' },
+      })
+      expect(back.statusCode).toBe(200)
+      expect(back.json().itemQuantitySource).toBe('estimated')
+    })
+
+    it('PATCH with null clears the column and response reports "estimated"', async () => {
+      const [plan] = await seedTestPlans(1, {
+        itemQuantitySource: 'participant_reported',
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
+        payload: { itemQuantitySource: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().itemQuantitySource).toBe('estimated')
+    })
+
+    it('PATCH returns 400 for invalid enum value', async () => {
+      const [plan] = await seedTestPlans(1)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}`,
+        headers: authHeaders(),
+        payload: { itemQuantitySource: 'bogus' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+  })
+
   describe('DELETE /plans/:planId', () => {
     it('owner deletes plan and returns 200 with ok true', async () => {
       const [plan] = await seedTestPlans(1, {

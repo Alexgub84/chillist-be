@@ -219,6 +219,14 @@
             "description": "Estimated number of child participants for this plan",
             "nullable": true
           },
+          "itemQuantitySource": {
+            "type": "string",
+            "enum": [
+              "estimated",
+              "participant_reported"
+            ],
+            "description": "Whether item quantities should be calculated from estimated participant counts (`estimated`) or reported individually by participants (`participant_reported`). Always present in responses: the server resolves a NULL database value to `estimated`."
+          },
           "myParticipantId": {
             "type": "string",
             "format": "uuid",
@@ -249,6 +257,7 @@
           "title",
           "status",
           "visibility",
+          "itemQuantitySource",
           "createdAt",
           "updatedAt"
         ],
@@ -413,6 +422,16 @@
             "minimum": 0,
             "description": "Estimated number of child participants for this plan"
           },
+          "itemQuantitySource": {
+            "type": "string",
+            "enum": [
+              "estimated",
+              "participant_reported",
+              null
+            ],
+            "nullable": true,
+            "description": "Initial quantity source. Omit or send null to leave unset; responses will return `estimated` until changed via PATCH."
+          },
           "owner": {
             "$ref": "#/components/schemas/def-9"
           },
@@ -507,6 +526,16 @@
             "minimum": 0,
             "nullable": true,
             "description": "Estimated number of child participants. Send null to clear."
+          },
+          "itemQuantitySource": {
+            "type": "string",
+            "enum": [
+              "estimated",
+              "participant_reported",
+              null
+            ],
+            "nullable": true,
+            "description": "Switch between `estimated` (quantities derived from estimatedAdults/estimatedKids) and `participant_reported` (quantities reported by participants). Send null to reset to default (responses will return `estimated`)."
           }
         },
         "title": "UpdatePlanBody"
@@ -1248,6 +1277,14 @@
             "description": "Estimated number of child participants for this plan",
             "nullable": true
           },
+          "itemQuantitySource": {
+            "type": "string",
+            "enum": [
+              "estimated",
+              "participant_reported"
+            ],
+            "description": "Whether item quantities should be calculated from estimated participant counts (`estimated`) or reported individually by participants (`participant_reported`). Always present in responses: the server resolves a NULL database value to `estimated`."
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -1271,6 +1308,7 @@
           "title",
           "status",
           "visibility",
+          "itemQuantitySource",
           "createdAt",
           "updatedAt",
           "items",

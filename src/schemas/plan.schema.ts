@@ -1,3 +1,14 @@
+import { ITEM_QUANTITY_SOURCE_VALUES } from '../db/schema.js'
+
+const itemQuantitySourceEnumValues = [
+  ...ITEM_QUANTITY_SOURCE_VALUES,
+] as unknown as string[]
+
+const itemQuantitySourceNullableEnum = [
+  ...ITEM_QUANTITY_SOURCE_VALUES,
+  null,
+] as unknown as string[]
+
 export const locationSchema = {
   $id: 'Location',
   type: 'object',
@@ -51,6 +62,12 @@ export const planSchema = {
       description: 'Estimated number of child participants for this plan',
       nullable: true,
     },
+    itemQuantitySource: {
+      type: 'string',
+      enum: itemQuantitySourceEnumValues,
+      description:
+        'Whether item quantities should be calculated from estimated participant counts (`estimated`) or reported individually by participants (`participant_reported`). Always present in responses: the server resolves a NULL database value to `estimated`.',
+    },
     myParticipantId: {
       type: 'string',
       format: 'uuid',
@@ -73,6 +90,7 @@ export const planSchema = {
     'title',
     'status',
     'visibility',
+    'itemQuantitySource',
     'createdAt',
     'updatedAt',
   ],
@@ -160,6 +178,13 @@ export const createPlanBodySchema = {
       minimum: 0,
       description: 'Estimated number of child participants for this plan',
     },
+    itemQuantitySource: {
+      type: 'string',
+      enum: itemQuantitySourceNullableEnum,
+      nullable: true,
+      description:
+        'Initial quantity source. Omit or send null to leave unset; responses will return `estimated` until changed via PATCH.',
+    },
     owner: { $ref: 'OwnerBody#' },
     participants: {
       type: 'array',
@@ -209,6 +234,13 @@ export const updatePlanBodySchema = {
       nullable: true,
       description:
         'Estimated number of child participants. Send null to clear.',
+    },
+    itemQuantitySource: {
+      type: 'string',
+      enum: itemQuantitySourceNullableEnum,
+      nullable: true,
+      description:
+        'Switch between `estimated` (quantities derived from estimatedAdults/estimatedKids) and `participant_reported` (quantities reported by participants). Send null to reset to default (responses will return `estimated`).',
     },
   },
 } as const
@@ -268,6 +300,12 @@ export const planWithDetailsSchema = {
       description: 'Estimated number of child participants for this plan',
       nullable: true,
     },
+    itemQuantitySource: {
+      type: 'string',
+      enum: itemQuantitySourceEnumValues,
+      description:
+        'Whether item quantities should be calculated from estimated participant counts (`estimated`) or reported individually by participants (`participant_reported`). Always present in responses: the server resolves a NULL database value to `estimated`.',
+    },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
     items: { $ref: 'ItemList#' },
@@ -279,6 +317,7 @@ export const planWithDetailsSchema = {
     'title',
     'status',
     'visibility',
+    'itemQuantitySource',
     'createdAt',
     'updatedAt',
     'items',

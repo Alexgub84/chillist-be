@@ -37,8 +37,24 @@ function generateInviteToken(): string {
   return randomBytes(32).toString('hex')
 }
 
+/** Local date N days from today at HH:MM — keeps seed plans in the “upcoming” bucket on the FE plans list. */
+function dateDaysFromNow(
+  daysFromNow: number,
+  hours: number,
+  minutes = 0
+): Date {
+  const d = new Date()
+  d.setDate(d.getDate() + daysFromNow)
+  d.setHours(hours, minutes, 0, 0)
+  d.setSeconds(0, 0)
+  return d
+}
+
 const connectionString = process.env.DATABASE_URL
 const seedOwnerUserId = process.env.SEED_OWNER_USER_ID ?? null
+
+/** When set (e.g. in `.env.local`), Negev plan keeps this id across `db:seed` so local FE bookmarks stay valid. */
+const seedNegevPlanId = process.env.SEED_NEGEV_PLAN_ID ?? null
 
 if (!connectionString) {
   console.error('DATABASE_URL environment variable is required')
@@ -71,6 +87,7 @@ async function seed() {
     const [negevPlan] = await db
       .insert(plans)
       .values({
+        ...(seedNegevPlanId ? { planId: seedNegevPlanId } : {}),
         title: 'Desert Camping — Negev Family Trip',
         description:
           '5 adults and 5 toddlers camping in the Negev desert. ' +
@@ -79,19 +96,28 @@ async function seed() {
         status: 'active',
         visibility: 'public',
         location: negevLocation,
-        startDate: new Date('2026-04-03T08:00:00+03:00'),
-        endDate: new Date('2026-04-04T16:00:00+03:00'),
+        startDate: dateDaysFromNow(14, 8, 0),
+        endDate: dateDaysFromNow(15, 16, 0),
         tags: ['camping', 'camping_cooking', 'camping_tent', 'camping_wild'],
         defaultLang: 'he',
         currency: 'ILS',
         estimatedAdults: 7,
         estimatedKids: 5,
+        itemQuantitySource: 'estimated',
         aiGenerationCount: 0,
         ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
       })
       .returning()
 
     console.log('Created plan:', negevPlan.planId)
+    if (seedNegevPlanId) {
+      console.log('  (SEED_NEGEV_PLAN_ID — stable URL for local FE bookmarks)')
+    }
+    console.log(
+      '  FE (Vite): http://localhost:5173/plans/' +
+        negevPlan.planId +
+        '  ← full seed item list'
+    )
     if (seedOwnerUserId) {
       console.log('Seed owner linked to Supabase user:', seedOwnerUserId)
     }
@@ -347,6 +373,447 @@ async function seed() {
         quantity: 3,
         unit: 'pcs' as const,
       },
+      {
+        name: 'Groundsheet',
+        category: 'group_equipment' as const,
+        subcategory: 'Venue Setup and Layout',
+        quantity: 2,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Tarp',
+        category: 'group_equipment' as const,
+        subcategory: 'Venue Setup and Layout',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Lantern',
+        category: 'group_equipment' as const,
+        subcategory: 'Lighting and Visibility',
+        quantity: 2,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Matches',
+        category: 'group_equipment' as const,
+        subcategory: 'Cooking and Heating Equipment',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Rope',
+        category: 'group_equipment' as const,
+        subcategory: 'Tools and Quick Repairs',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Duct Tape',
+        category: 'group_equipment' as const,
+        subcategory: 'Tools and Quick Repairs',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Power Bank',
+        category: 'group_equipment' as const,
+        subcategory: 'Power and Charging',
+        quantity: 2,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Spare Batteries',
+        category: 'group_equipment' as const,
+        subcategory: 'Power and Charging',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Aluminum Foil',
+        category: 'group_equipment' as const,
+        subcategory: 'Serving and Tableware',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Kitchen Knife',
+        category: 'group_equipment' as const,
+        subcategory: 'Cooking and Heating Equipment',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Cutting Board',
+        category: 'group_equipment' as const,
+        subcategory: 'Cooking and Heating Equipment',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Can Opener',
+        category: 'group_equipment' as const,
+        subcategory: 'Food Preparation Tools',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Paper Towels',
+        category: 'group_equipment' as const,
+        subcategory: 'Other',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Hand Sanitizer',
+        category: 'group_equipment' as const,
+        subcategory: 'Hygiene and Bathroom Supplies',
+        quantity: 3,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Sponge',
+        category: 'group_equipment' as const,
+        subcategory: 'Hygiene and Bathroom Supplies',
+        quantity: 2,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Wet Wipes',
+        category: 'group_equipment' as const,
+        subcategory: 'Hygiene and Bathroom Supplies',
+        quantity: 3,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Flashlight',
+        category: 'personal_equipment' as const,
+        subcategory: 'Personal Essentials',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Air Mattress',
+        category: 'personal_equipment' as const,
+        subcategory: 'Sleeping Gear',
+        quantity: 3,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Camp Blanket',
+        category: 'personal_equipment' as const,
+        subcategory: 'Sleeping Gear',
+        quantity: 4,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Camping Pillow',
+        category: 'personal_equipment' as const,
+        subcategory: 'Sleeping Gear',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Emergency Blanket',
+        category: 'personal_equipment' as const,
+        subcategory: 'Sleeping Gear',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Bread',
+        category: 'food' as const,
+        subcategory: 'Breakfast Staples',
+        quantity: 3,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Cheese',
+        category: 'food' as const,
+        subcategory: 'Cheese',
+        quantity: 1,
+        unit: 'kg' as const,
+      },
+      {
+        name: 'Chips',
+        category: 'food' as const,
+        subcategory: 'Snacks and Chips',
+        quantity: 4,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Chocolate',
+        category: 'food' as const,
+        subcategory: 'Snacks and Chips',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Coffee',
+        category: 'food' as const,
+        subcategory: 'Beverages (non-alcoholic)',
+        quantity: 1,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Granola',
+        category: 'food' as const,
+        subcategory: 'Breakfast Staples',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Juice',
+        category: 'food' as const,
+        subcategory: 'Beverages (non-alcoholic)',
+        quantity: 3,
+        unit: 'l' as const,
+      },
+      {
+        name: 'Milk',
+        category: 'food' as const,
+        subcategory: 'Beverages (non-alcoholic)',
+        quantity: 3,
+        unit: 'l' as const,
+      },
+      {
+        name: 'Tea Bags',
+        category: 'food' as const,
+        subcategory: 'Beverages (non-alcoholic)',
+        quantity: 1,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Cucumber',
+        category: 'food' as const,
+        subcategory: 'Fresh Vegetables',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Tomatoes',
+        category: 'food' as const,
+        subcategory: 'Fresh Vegetables',
+        quantity: 2,
+        unit: 'kg' as const,
+      },
+      {
+        name: 'Bananas',
+        category: 'food' as const,
+        subcategory: 'Fresh Fruit',
+        quantity: 2,
+        unit: 'kg' as const,
+      },
+      {
+        name: 'Apples',
+        category: 'food' as const,
+        subcategory: 'Fresh Fruit',
+        quantity: 2,
+        unit: 'kg' as const,
+      },
+      {
+        name: 'Olives',
+        category: 'food' as const,
+        subcategory: 'Sauces, Condiments, and Spreads',
+        quantity: 2,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Cooler Bag',
+        category: 'group_equipment' as const,
+        subcategory: 'Food Storage and Cooling',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Food Storage Containers',
+        category: 'group_equipment' as const,
+        subcategory: 'Food Storage and Cooling',
+        quantity: 1,
+        unit: 'set' as const,
+      },
+      {
+        name: 'Ice Packs',
+        category: 'group_equipment' as const,
+        subcategory: 'Food Storage and Cooling',
+        quantity: 4,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Folding Table',
+        category: 'group_equipment' as const,
+        subcategory: 'Other',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Frisbee',
+        category: 'group_equipment' as const,
+        subcategory: 'Games and Activities',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Football',
+        category: 'group_equipment' as const,
+        subcategory: 'Games and Activities',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Map',
+        category: 'group_equipment' as const,
+        subcategory: 'Documentation and Access',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Tongs',
+        category: 'group_equipment' as const,
+        subcategory: 'Cooking and Heating Equipment',
+        quantity: 1,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Toilet Paper',
+        category: 'group_equipment' as const,
+        subcategory: 'Hygiene and Bathroom Supplies',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Daypack',
+        category: 'personal_equipment' as const,
+        subcategory: 'Packs and Hydration',
+        quantity: 3,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Deodorant',
+        category: 'personal_equipment' as const,
+        subcategory: 'Hygiene and Toiletries',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Fleece Jacket',
+        category: 'personal_equipment' as const,
+        subcategory: 'Clothing and Layers',
+        quantity: 4,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Flip Flops',
+        category: 'personal_equipment' as const,
+        subcategory: 'Footwear',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Hat',
+        category: 'personal_equipment' as const,
+        subcategory: 'Headwear and Accessories',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Hiking Boots',
+        category: 'personal_equipment' as const,
+        subcategory: 'Footwear',
+        quantity: 4,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Hiking Pants',
+        category: 'personal_equipment' as const,
+        subcategory: 'Clothing and Layers',
+        quantity: 4,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Lip Balm',
+        category: 'personal_equipment' as const,
+        subcategory: 'Hygiene and Toiletries',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Sunglasses',
+        category: 'personal_equipment' as const,
+        subcategory: 'Headwear and Accessories',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Toothbrush',
+        category: 'personal_equipment' as const,
+        subcategory: 'Hygiene and Toiletries',
+        quantity: 5,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Wool Socks',
+        category: 'personal_equipment' as const,
+        subcategory: 'Footwear',
+        quantity: 8,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Chicken Breast',
+        category: 'food' as const,
+        subcategory: 'Meat and Poultry',
+        quantity: 3,
+        unit: 'kg' as const,
+      },
+      {
+        name: 'Tofu',
+        category: 'food' as const,
+        subcategory: 'Vegan',
+        quantity: 1,
+        unit: 'kg' as const,
+      },
+      {
+        name: 'Frozen Burgers',
+        category: 'food' as const,
+        subcategory: 'Frozen Foods',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Ice',
+        category: 'food' as const,
+        subcategory: 'Frozen Foods',
+        quantity: 3,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Ice Cream',
+        category: 'food' as const,
+        subcategory: 'Frozen Foods',
+        quantity: 2,
+        unit: 'pcs' as const,
+      },
+      {
+        name: 'Marshmallows',
+        category: 'food' as const,
+        subcategory: 'Snacks and Chips',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Beer',
+        category: 'food' as const,
+        subcategory: 'Beverages (non-alcoholic)',
+        quantity: 2,
+        unit: 'pack' as const,
+      },
+      {
+        name: 'Wine',
+        category: 'food' as const,
+        subcategory: 'Beverages (non-alcoholic)',
+        quantity: 2,
+        unit: 'pcs' as const,
+      },
     ]
 
     const pIds = [
@@ -404,7 +871,7 @@ async function seed() {
       .values(negevItemValues)
       .returning()
 
-    console.log('Created 20 items')
+    console.log(`Created ${negevItems.length} items`)
 
     const tent = negevItems.find((i) => i.name === 'Tent')!
     const sleepingBag = negevItems.find((i) => i.name === 'Sleeping Bag')!
@@ -554,8 +1021,8 @@ async function seed() {
         status: 'active',
         visibility: 'invite_only',
         location: beachLocation,
-        startDate: new Date('2026-05-15T12:00:00-07:00'),
-        endDate: new Date('2026-05-15T20:00:00-07:00'),
+        startDate: dateDaysFromNow(35, 12, 0),
+        endDate: dateDaysFromNow(35, 20, 0),
         tags: ['beach', 'beach_day', 'beach_cooking'],
         defaultLang: 'en',
         currency: 'USD',
@@ -695,11 +1162,12 @@ async function seed() {
         status: 'active',
         visibility: 'invite_only',
         location: palmachimLocation,
-        startDate: new Date('2026-04-10T17:00:00+03:00'),
-        endDate: new Date('2026-04-10T22:00:00+03:00'),
+        startDate: dateDaysFromNow(21, 17, 0),
+        endDate: dateDaysFromNow(21, 22, 0),
         tags: ['dinner_party', 'dinner_bbq', 'bbq_shared_food'],
         defaultLang: 'he',
         currency: 'ILS',
+        itemQuantitySource: 'participant_reported',
         aiGenerationCount: 0,
         ...(seedOwnerUserId && { createdByUserId: seedOwnerUserId }),
       })
@@ -1151,11 +1619,11 @@ async function seed() {
 
     console.log('\n--- Seed Summary ---')
     console.log('')
-    console.log('Plan 1 (you = OWNER):')
+    console.log('Plan 1 (you = OWNER) — use this for the large item list:')
     console.log('  ID:', negevPlan.planId)
     console.log('  Title:', negevPlan.title)
     console.log('  Owner:', negevOwner.name, negevOwner.lastName)
-    console.log('  Participants: 5, Items: 20, Expenses: 5')
+    console.log('  Participants: 5, Items: 82, Expenses: 5')
     if (seedOwnerUserId) {
       console.log('  → Your Supabase ID linked as owner')
     }

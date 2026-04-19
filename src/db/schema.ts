@@ -126,6 +126,13 @@ export const aiSuggestionStatusEnum = pgEnum('ai_suggestion_status', [
 ])
 export const AI_SUGGESTION_STATUS_VALUES = aiSuggestionStatusEnum.enumValues
 export type AiSuggestionStatus = (typeof AI_SUGGESTION_STATUS_VALUES)[number]
+
+export const itemQuantitySourceEnum = pgEnum('item_quantity_source', [
+  'estimated',
+  'participant_reported',
+])
+export const ITEM_QUANTITY_SOURCE_VALUES = itemQuantitySourceEnum.enumValues
+export type ItemQuantitySource = (typeof ITEM_QUANTITY_SOURCE_VALUES)[number]
 export const unitEnum = pgEnum('unit', [
   'pcs',
   'kg',
@@ -208,6 +215,7 @@ export const plans = pgTable('plans', {
   currency: varchar('currency', { length: 10 }),
   estimatedAdults: integer('estimated_adults'),
   estimatedKids: integer('estimated_kids'),
+  itemQuantitySource: itemQuantitySourceEnum('item_quantity_source'),
   aiGenerationCount: integer('ai_generation_count').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
