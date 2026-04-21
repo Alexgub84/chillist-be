@@ -1,30 +1,18 @@
+import { ITEM_CATEGORY_VALUES, UNIT_VALUES } from '../db/schema.js'
+
 export const aiSuggestionsRequestSchema = {
   $id: 'AiSuggestionsRequest',
   type: ['object', 'null'],
   additionalProperties: false,
+  description:
+    'Optional hints for the single-category generation call. Omit body or pass {} for no hints.',
   properties: {
-    categories: {
-      type: 'object',
+    subcategories: {
+      type: 'array',
+      items: { type: 'string', maxLength: 120 },
+      maxItems: 20,
       description:
-        'Map of item category → subcategories to focus on. Omit to include all categories.',
-      additionalProperties: false,
-      properties: {
-        group_equipment: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Subcategories to focus on for group equipment',
-        },
-        personal_equipment: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Subcategories to focus on for personal equipment',
-        },
-        food: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Subcategories to focus on for food',
-        },
-      },
+        'Subcategories to focus on within the requested category (e.g. ["breakfast","snacks"] for food).',
     },
   },
 } as const
@@ -51,13 +39,13 @@ export const aiSuggestionItemSchema = {
     name: { type: 'string' },
     category: {
       type: 'string',
-      enum: ['group_equipment', 'personal_equipment', 'food'],
+      enum: [...ITEM_CATEGORY_VALUES],
     },
     subcategory: { type: 'string' },
     quantity: { type: 'number', exclusiveMinimum: 0 },
     unit: {
       type: 'string',
-      enum: ['pcs', 'kg', 'g', 'lb', 'oz', 'l', 'ml', 'm', 'cm', 'pack', 'set'],
+      enum: [...UNIT_VALUES],
     },
     reason: { type: 'string' },
   },
@@ -66,33 +54,38 @@ export const aiSuggestionItemSchema = {
 export const aiSuggestionsResponseSchema = {
   $id: 'AiSuggestionsResponse',
   type: 'object',
-  required: ['suggestions', 'aiUsageLogId'],
+  required: ['suggestions', 'aiUsageLogId', 'generationId'],
   properties: {
-    aiUsageLogId: {
-      type: 'string',
-      format: 'uuid',
-      description: 'ID of the ai_usage_logs row for this generation session',
-    },
     suggestions: {
       type: 'array',
       items: { $ref: 'AiSuggestionItem#' },
+      description:
+        'Generated items for the requested category (post-filtered to match the path category).',
+    },
+    aiUsageLogId: {
+      type: 'string',
+      description:
+        'ID of the ai_usage_logs row recorded for this call. Empty string if persistence failed.',
+    },
+    generationId: {
+      type: 'string',
+      format: 'uuid',
+      description:
+        'UUID correlating all AI calls within a single FE "Generate" click. Echoes the X-Generation-Id request header when provided, otherwise a BE-generated fallback.',
     },
   },
 } as const
 
-export const aiSuggestionsStreamDescriptionSchema = {
-  $id: 'AiSuggestionsStreamDescription',
-  type: 'string',
-  description: [
-    'Server-Sent Events (SSE) stream. Content-Type: text/event-stream.',
-    '',
-    'Events:',
-    '  event: suggestions — { category, suggestions: AiSuggestionItem[], aiUsageLogId }',
-    '  event: error — { category, message }',
-    '  event: done — { totalSuggestions, aiUsageLogIds, errors }',
-    '',
-    'One AI call per requested category (personal_equipment, group_equipment, food).',
-    'Each "suggestions" event fires as its category completes — order depends on AI response time.',
-    'The "done" event fires after all categories settle.',
-  ].join('\n'),
+export const categoryParamSchema = {
+  $id: 'CategoryParam',
+  type: 'object',
+  required: ['planId', 'category'],
+  properties: {
+    planId: { type: 'string', format: 'uuid' },
+    category: {
+      type: 'string',
+      enum: [...ITEM_CATEGORY_VALUES],
+      description: 'Item category to generate suggestions for.',
+    },
+  },
 } as const

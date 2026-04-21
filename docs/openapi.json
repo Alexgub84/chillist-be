@@ -3179,34 +3179,16 @@
           "null"
         ],
         "additionalProperties": false,
+        "description": "Optional hints for the single-category generation call. Omit body or pass {} for no hints.",
         "properties": {
-          "categories": {
-            "type": "object",
-            "description": "Map of item category → subcategories to focus on. Omit to include all categories.",
-            "additionalProperties": false,
-            "properties": {
-              "group_equipment": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Subcategories to focus on for group equipment"
-              },
-              "personal_equipment": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Subcategories to focus on for personal equipment"
-              },
-              "food": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Subcategories to focus on for food"
-              }
-            }
+          "subcategories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "maxItems": 20,
+            "description": "Subcategories to focus on within the requested category (e.g. [\"breakfast\",\"snacks\"] for food)."
           }
         },
         "title": "AiSuggestionsRequest"
@@ -3272,27 +3254,51 @@
         "type": "object",
         "required": [
           "suggestions",
-          "aiUsageLogId"
+          "aiUsageLogId",
+          "generationId"
         ],
         "properties": {
-          "aiUsageLogId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "ID of the ai_usage_logs row for this generation session"
-          },
           "suggestions": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/def-85"
-            }
+            },
+            "description": "Generated items for the requested category (post-filtered to match the path category)."
+          },
+          "aiUsageLogId": {
+            "type": "string",
+            "description": "ID of the ai_usage_logs row recorded for this call. Empty string if persistence failed."
+          },
+          "generationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID correlating all AI calls within a single FE \"Generate\" click. Echoes the X-Generation-Id request header when provided, otherwise a BE-generated fallback."
           }
         },
         "title": "AiSuggestionsResponse"
       },
       "def-87": {
-        "type": "string",
-        "description": "Server-Sent Events (SSE) stream. Content-Type: text/event-stream.\n\nEvents:\n  event: suggestions — { category, suggestions: AiSuggestionItem[], aiUsageLogId }\n  event: error — { category, message }\n  event: done — { totalSuggestions, aiUsageLogIds, errors }\n\nOne AI call per requested category (personal_equipment, group_equipment, food).\nEach \"suggestions\" event fires as its category completes — order depends on AI response time.\nThe \"done\" event fires after all categories settle.",
-        "title": "AiSuggestionsStreamDescription"
+        "type": "object",
+        "required": [
+          "planId",
+          "category"
+        ],
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "group_equipment",
+              "personal_equipment",
+              "food"
+            ],
+            "description": "Item category to generate suggestions for."
+          }
+        },
+        "title": "CategoryParam"
       },
       "def-88": {
         "type": "object",
@@ -7908,13 +7914,13 @@
         }
       }
     },
-    "/plans/{planId}/ai-suggestions": {
+    "/plans/{planId}/ai-suggestions/{category}": {
       "post": {
-        "summary": "Generate AI item suggestions for a plan",
+        "summary": "Generate AI item suggestions for a single category",
         "tags": [
           "items"
         ],
-        "description": "Uses AI to generate a list of suggested packing/food items based on plan context (dates, location, tags, participants). Output language is determined by the plan defaultLang field (en, he, es). JWT required. Must be a participant.",
+        "description": "Fires one AI call for the given category and returns the generated items as plain JSON. The FE sends 3 parallel requests (one per category) and renders each response as it arrives. JWT required. Must be a participant of the plan.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7933,102 +7939,49 @@
             "in": "path",
             "name": "planId",
             "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "group_equipment",
+                "personal_equipment",
+                "food"
+              ]
+            },
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "description": "Item category to generate suggestions for."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-generation-id",
+            "required": false,
+            "description": "Optional UUID to correlate all 3 per-category calls of a single \"Generate\" click. BE generates a fallback UUID if missing."
           }
         ],
         "responses": {
           "200": {
-            "description": "AI-generated item suggestions",
+            "description": "Default Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "AI-generated item suggestions",
                   "$ref": "#/components/schemas/def-86"
                 }
               }
             }
           },
-          "401": {
-            "description": "Authentication required — JWT token missing or invalid",
+          "400": {
+            "description": "Invalid category path segment or invalid X-Generation-Id header",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Authentication required — JWT token missing or invalid",
+                  "description": "Invalid category path segment or invalid X-Generation-Id header",
                   "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found — plan does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "Not found — plan does not exist",
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "Internal server error",
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service temporarily unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "Service temporarily unavailable",
-                  "$ref": "#/components/schemas/def-0"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/plans/{planId}/ai-suggestions/stream": {
-      "post": {
-        "summary": "Stream AI item suggestions by category (SSE)",
-        "tags": [
-          "items"
-        ],
-        "description": "Fires one AI call per category in parallel and streams results via Server-Sent Events as each category completes. Events: \"suggestions\" (per-category results), \"error\" (per-category failure), \"done\" (final summary). JWT required. Must be a participant.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/def-84"
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
-            "name": "planId",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "SSE stream — event: suggestions | error | done. See AiSuggestionsStreamDescription for event format.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "description": "SSE stream — event: suggestions | error | done. See AiSuggestionsStreamDescription for event format.",
-                  "$ref": "#/components/schemas/def-87"
                 }
               }
             }
@@ -8045,11 +7998,11 @@
             }
           },
           "404": {
-            "description": "Not found — plan does not exist",
+            "description": "Plan not found or user is not a participant",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Not found — plan does not exist",
+                  "description": "Plan not found or user is not a participant",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -8061,6 +8014,17 @@
               "application/json": {
                 "schema": {
                   "description": "Internal server error",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "AI service temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "AI service temporarily unavailable",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
