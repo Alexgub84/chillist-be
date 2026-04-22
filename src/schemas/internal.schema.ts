@@ -78,6 +78,98 @@ export const internalPlanSummarySchema = {
   additionalProperties: false,
 } as const
 
+export const internalPlanCreatedSchema = {
+  $id: 'InternalPlanCreated',
+  type: 'object',
+  description:
+    'Minimal plan summary returned after POST /api/internal/plans (chatbot contract).',
+  required: ['id', 'name', 'date'],
+  additionalProperties: false,
+  properties: {
+    id: {
+      type: 'string',
+      format: 'uuid',
+      description: 'New plan id (maps to plans.planId).',
+    },
+    name: { type: 'string', description: 'Plan title.' },
+    date: {
+      type: 'string',
+      format: 'date-time',
+      nullable: true,
+      description:
+        'Plan start date as ISO 8601, or null when no start date was set.',
+    },
+  },
+} as const
+
+export const internalCreatePlanResponseSchema = {
+  $id: 'InternalCreatePlanResponse',
+  type: 'object',
+  description: 'Response for POST /api/internal/plans.',
+  required: ['plan'],
+  additionalProperties: false,
+  properties: {
+    plan: { $ref: 'InternalPlanCreated#' },
+  },
+} as const
+
+export const internalCreatePlanBodySchema = {
+  $id: 'InternalCreatePlanBody',
+  type: 'object',
+  description:
+    'Create plan for the user identified by `x-user-id`. Requires `x-service-key`. Owner name and phone are resolved server-side (not in this body). `title` is required; other fields are optional.',
+  required: ['title'],
+  additionalProperties: false,
+  properties: {
+    title: { type: 'string', minLength: 1, maxLength: 255 },
+    description: { type: 'string', nullable: true },
+    startDate: {
+      type: 'string',
+      nullable: true,
+      description:
+        'ISO 8601 date-time or `YYYY-MM-DD` (start of day UTC when date-only).',
+    },
+    endDate: {
+      type: 'string',
+      nullable: true,
+      description:
+        'ISO 8601 date-time or `YYYY-MM-DD` (start of day UTC when date-only).',
+    },
+    tags: {
+      type: 'array',
+      items: { type: 'string' },
+      nullable: true,
+      description: 'Plan tag ids from the bundled taxonomy.',
+    },
+    defaultLang: {
+      type: 'string',
+      maxLength: 10,
+      description: 'ISO 639-1 language code (e.g. en, he).',
+    },
+    currency: {
+      type: 'string',
+      maxLength: 10,
+      description: 'ISO 4217 currency code (e.g. USD, ILS).',
+    },
+    estimatedAdults: {
+      type: 'integer',
+      minimum: 0,
+      description: 'Estimated adults for the plan.',
+    },
+    estimatedKids: {
+      type: 'integer',
+      minimum: 0,
+      description: 'Estimated children for the plan.',
+    },
+    locationName: {
+      type: 'string',
+      maxLength: 500,
+      description:
+        'Free-text location name; stored as a minimal Location object with a generated `locationId`.',
+    },
+  },
+} as const
+
 export const internalPlansResponseSchema = {
   $id: 'InternalPlansResponse',
   type: 'object',

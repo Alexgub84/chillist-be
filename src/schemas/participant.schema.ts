@@ -103,7 +103,12 @@ export const updateParticipantBodySchema = {
       examples: ['+972501234567', '+15551234567'],
     },
     displayName: { type: 'string', maxLength: 255, nullable: true },
-    role: { type: 'string', enum: ['participant', 'viewer'] },
+    role: {
+      type: 'string',
+      enum: ['owner', 'participant', 'viewer'],
+      description:
+        'Set to owner to transfer plan ownership to this participant (plan creator only). Demotes the previous owner to participant and updates plan.ownerParticipantId and createdByUserId.',
+    },
     avatarUrl: { type: 'string', nullable: true },
     contactEmail: { type: 'string', maxLength: 255, nullable: true },
     adultsCount: { type: 'integer', minimum: 0, nullable: true },

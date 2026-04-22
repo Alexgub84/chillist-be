@@ -1,5 +1,6 @@
 import { config } from '../config.js'
 import { parseNameFromMetadata } from './name.js'
+import { normalizePhone } from './phone.js'
 
 interface SupabaseAdminUser {
   user_metadata?: {
@@ -59,4 +60,58 @@ export async function fetchSupabaseUserMetadata(
   const displayName = lastName ? `${firstName} ${lastName}` : firstName
   log?.info({ userId }, 'Supabase displayName resolved')
   return { displayName, ...(meta.phone && { phone: meta.phone }) }
+}
+
+export async function fetchSupabaseUserMetadataFields(
+  userId: string,
+  log?: MinimalLogger
+): Promise<{
+  phoneFromMeta?: string
+  firstName?: string
+  lastName?: string
+} | null> {
+  if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
+    log?.warn({ userId }, 'Supabase config missing — skipping metadata fetch')
+    return null
+  }
+
+  const url = `${config.supabaseUrl}/auth/v1/admin/users/${userId}`
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
+      apikey: config.supabaseServiceRoleKey,
+    },
+  })
+
+  if (!response.ok) {
+    log?.warn(
+      { userId, status: response.status },
+      'Supabase metadata fetch failed'
+    )
+    return null
+  }
+
+  const data = (await response.json()) as SupabaseAdminUser
+  const meta = data.user_metadata
+
+  if (!meta) {
+    log?.warn({ userId }, 'Supabase user has no user_metadata')
+    return null
+  }
+
+  const { firstName, lastName } = parseNameFromMetadata(meta)
+  let phoneFromMeta: string | undefined
+  if (meta.phone) {
+    try {
+      phoneFromMeta = normalizePhone(String(meta.phone))
+    } catch {
+      phoneFromMeta = undefined
+    }
+  }
+
+  return {
+    ...(phoneFromMeta && { phoneFromMeta }),
+    ...(firstName && { firstName, ...(lastName && { lastName }) }),
+  }
 }
