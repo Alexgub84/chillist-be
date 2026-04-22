@@ -619,7 +619,7 @@ describe('Participants Route', () => {
         payload: { role: 'owner' },
       })
 
-      const body = response.json()
+      const body = response.json() as { role: string; code?: string }
       expect(response.statusCode).toBe(200)
       expect(body.code).not.toBe('FST_ERR_VALIDATION')
       expect(body.role).toBe('owner')
@@ -629,8 +629,8 @@ describe('Participants Route', () => {
         .from(plans)
         .where(eq(plans.planId, plan.planId))
 
-      expect(planAfter.ownerParticipantId).toBe(planBefore.ownerParticipantId)
-      expect(planAfter.createdByUserId).toBe(planBefore.createdByUserId)
+      expect(planAfter.ownerParticipantId).toBe(planBefore!.ownerParticipantId)
+      expect(planAfter.createdByUserId).toBe(planBefore!.createdByUserId)
 
       const [prevOwner] = await db
         .select()
@@ -696,7 +696,9 @@ describe('Participants Route', () => {
       })
 
       expect(promote2.statusCode).toBe(200)
-      expect(promote2.json().code).not.toBe('FST_ERR_VALIDATION')
+      expect((promote2.json() as { code?: string }).code).not.toBe(
+        'FST_ERR_VALIDATION'
+      )
 
       const ownerRows = await db
         .select()
