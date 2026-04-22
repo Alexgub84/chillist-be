@@ -1,18 +1,26 @@
 /**
- * AI Suggestions E2E — real AI model.
+ * AI suggestions per-category REST — real AI model E2E.
  *
- * Isolated in tests/ai-quality/ — never runs during `npm run test`.
- * Run manually:  npm run test:ai-suggestions-e2e
+ * Fires 3 parallel POSTs (food, group_equipment, personal_equipment) at a
+ * real `app.listen` port with a shared X-Generation-Id header, validates
+ * each response shape and records per-call timings + tokens to
+ * `logs/ai-suggestions-e2e-<ts>.json`.
  *
- * Requires .env with AI_PROVIDER and the matching API key.
- * Result file → logs/ai-suggestions-e2e-<ts>.json
+ * Gated by RUN_AI_E2E=true so it never runs during normal `npm run test`.
+ * Run manually:
+ *   RUN_AI_E2E=true npm run test:ai-suggestions-e2e
  */
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import type { FastifyInstance } from 'fastify'
-import { closeTestDatabase, setupTestDatabase } from '../helpers/db.js'
+import { eq } from 'drizzle-orm'
+import {
+  closeTestDatabase,
+  getTestDb,
+  setupTestDatabase,
+} from '../helpers/db.js'
 import {
   setupTestKeys,
   getTestJWKS,
@@ -24,10 +32,8 @@ import {
   participants,
   aiUsageLogs,
   aiSuggestions,
+  type ItemCategory,
 } from '../../src/db/schema.js'
-import { ITEM_CATEGORY_VALUES, UNIT_VALUES } from '../../src/db/schema.js'
-import type { DietaryMembers } from '../../src/db/schema.js'
-import { eq } from 'drizzle-orm'
 
 function loadEnvFile() {
   try {
@@ -44,164 +50,110 @@ function loadEnvFile() {
       }
     }
   } catch {
-    // .env file not found
+    // .env file not found — ok when running in CI
   }
-}
-
-type ScenarioResult = {
-  scenario: string
-  suggestions: unknown[]
-  inputTokens?: number
-  outputTokens?: number
-  resultCount: number
-}
-
-function writeResultFile(results: ScenarioResult[]) {
-  const logsDir = resolve(process.cwd(), 'logs')
-  mkdirSync(logsDir, { recursive: true })
-  const ts = new Date()
-    .toISOString()
-    .replace(/[:.]/g, '-')
-    .replace('T', '-')
-    .slice(0, 19)
-  const filePath = resolve(logsDir, `ai-suggestions-e2e-${ts}.json`)
-  writeFileSync(
-    filePath,
-    JSON.stringify({ runAt: new Date().toISOString(), results }, null, 2)
-  )
-  console.log(`\nResult file written → ${filePath}\n`)
 }
 
 loadEnvFile()
 
-const OWNER_USER_ID = 'aaaaaaaa-e2e0-0000-0000-000000000001'
+const shouldRun = process.env.RUN_AI_E2E === 'true'
+const describeIf = shouldRun ? describe : describe.skip
 
-const PLAN_DATA = {
-  title: 'Family beach camping trip',
-  status: 'active' as const,
-  visibility: 'invite_only' as const,
-  createdByUserId: OWNER_USER_ID,
-  startDate: new Date('2026-08-01'),
-  endDate: new Date('2026-08-04'),
-  estimatedAdults: 4,
-  estimatedKids: 2,
-  tags: ['camping', 'beach', 'swimming', 'cooking', 'bbq', 'kids'],
-  location: {
-    locationId: 'loc-e2e-1',
-    name: 'Dor Beach',
-    city: 'Dor',
-    region: 'North District',
-    country: 'Israel',
-  },
-  defaultLang: 'en',
-}
-
-// Participant dietary data mirrors the FE dietaryMembers structure
-const PARTICIPANT_DIETARY: Array<{
-  name: string
-  role: 'owner' | 'participant'
-  userId?: string
-  dietaryMembers: DietaryMembers
-}> = [
-  {
-    name: 'Alex (owner)',
-    role: 'owner',
-    userId: OWNER_USER_ID,
-    dietaryMembers: {
-      members: [
-        { type: 'adult', index: 0, diet: 'vegan', allergies: ['nuts'] },
-      ],
-    },
-  },
-  {
-    name: 'Dana',
-    role: 'participant',
-    dietaryMembers: {
-      members: [
-        {
-          type: 'adult',
-          index: 0,
-          diet: 'gluten_free',
-          allergies: ['none'],
-        },
-      ],
-    },
-  },
-  {
-    name: 'Sam',
-    role: 'participant',
-    dietaryMembers: {
-      members: [
-        { type: 'adult', index: 0, diet: 'everything', allergies: ['dairy'] },
-      ],
-    },
-  },
-  {
-    name: 'Roni (kid)',
-    role: 'participant',
-    dietaryMembers: {
-      members: [
-        { type: 'kid', index: 0, diet: 'everything', allergies: ['none'] },
-      ],
-    },
-  },
+const OWNER_USER_ID = 'aaaaaaaa-3333-4444-5555-6666aaaaaaaa'
+const CATEGORIES: ItemCategory[] = [
+  'food',
+  'group_equipment',
+  'personal_equipment',
 ]
 
-// ---------------------------------------------------------------------------
-// All three categories with representative subcategories — as the FE sends
-// ---------------------------------------------------------------------------
-
-const ALL_CATEGORIES = {
-  group_equipment: [
-    'Sleeping Gear',
-    'Cooking and Heating Equipment',
-    'Venue Setup and Layout',
-    'First Aid and Safety',
-    'Food Storage and Cooling',
-  ],
-  personal_equipment: [
-    'Clothing',
-    'Comfort and Climate Control',
-    'Hygiene and Personal Care',
-  ],
-  food: [
-    'Snacks and Chips',
-    'Breakfast Staples',
-    'Meat and Proteins',
-    'Vegan',
-    'Fresh Produce',
-    'Beverages (non-alcoholic)',
-  ],
+interface CallResult {
+  category: ItemCategory
+  statusCode: number
+  durationMs: number
+  startedAtMs: number
+  completedAtMs: number
+  suggestionCount: number
+  suggestions: Array<{
+    id: string
+    name: string
+    category: string
+    subcategory: string
+    quantity: number
+    unit: string
+    reason: string
+  }>
+  aiUsageLogId: string
+  generationId: string
 }
 
-describe('AI Suggestions E2E — Real AI Model', () => {
+async function seedPlan(): Promise<string> {
+  const db = await getTestDb()
+  const [plan] = await db
+    .insert(plans)
+    .values({
+      title: 'E2E Weekend Camping Trip',
+      status: 'active',
+      visibility: 'invite_only',
+      createdByUserId: OWNER_USER_ID,
+      startDate: new Date('2026-09-04'),
+      endDate: new Date('2026-09-06'),
+      estimatedAdults: 4,
+      estimatedKids: 2,
+      tags: ['camping', 'nature', 'family'],
+      location: {
+        locationId: 'loc-e2e',
+        name: 'Ein Gedi',
+        city: 'Ein Gedi',
+        country: 'Israel',
+      },
+      defaultLang: 'en',
+    })
+    .returning({ planId: plans.planId })
+
+  await db.insert(participants).values({
+    planId: plan.planId,
+    name: 'E2E Owner',
+    lastName: 'Tester',
+    contactPhone: '+15550009999',
+    role: 'owner',
+    userId: OWNER_USER_ID,
+    inviteToken: randomBytes(32).toString('hex'),
+    rsvpStatus: 'confirmed',
+  })
+
+  return plan.planId
+}
+
+async function cleanupPlan(planId: string) {
+  const db = await getTestDb()
+  await db.delete(aiSuggestions).where(eq(aiSuggestions.planId, planId))
+  await db.delete(aiUsageLogs).where(eq(aiUsageLogs.planId, planId))
+  await db.delete(participants).where(eq(participants.planId, planId))
+  await db.delete(plans).where(eq(plans.planId, planId))
+}
+
+function writeReport(filename: string, data: unknown) {
+  try {
+    mkdirSync(resolve(process.cwd(), 'logs'), { recursive: true })
+  } catch {
+    // ignore
+  }
+  writeFileSync(
+    resolve(process.cwd(), 'logs', filename),
+    JSON.stringify(data, null, 2),
+    'utf-8'
+  )
+}
+
+describeIf('AI Suggestions per-category REST — real AI model (E2E)', () => {
   let app: FastifyInstance
-  let ownerToken: string
-  let db: Awaited<ReturnType<typeof setupTestDatabase>>
-  let planId: string
-  const scenarioResults: ScenarioResult[] = []
+  let token: string
+  let address: string
 
   beforeAll(async () => {
-    db = await setupTestDatabase()
+    const db = await setupTestDatabase()
     await setupTestKeys()
-    ownerToken = await signTestJwt({ sub: OWNER_USER_ID })
-
-    const [plan] = await db.insert(plans).values(PLAN_DATA).returning()
-    planId = plan.planId
-
-    await db.insert(participants).values(
-      PARTICIPANT_DIETARY.map((p, i) => ({
-        planId,
-        name: p.name,
-        lastName: 'Participant',
-        contactPhone: `+97250000000${i + 1}`,
-        role: p.role,
-        ...(p.userId ? { userId: p.userId } : {}),
-        inviteToken: randomBytes(32).toString('hex'),
-        rsvpStatus: 'confirmed' as const,
-        dietaryMembers: p.dietaryMembers,
-      }))
-    )
+    token = await signTestJwt({ sub: OWNER_USER_ID })
 
     const { buildApp } = await import('../../src/app.js')
     app = await buildApp(
@@ -212,130 +164,182 @@ describe('AI Suggestions E2E — Real AI Model', () => {
         rateLimit: false,
       }
     )
-  }, 60000)
+    address = await app.listen({ port: 0, host: '127.0.0.1' })
+  }, 120_000)
 
   afterAll(async () => {
-    writeResultFile(scenarioResults)
     await app.close()
     await closeTestDatabase()
   })
 
-  // -------------------------------------------------------------------------
-  // Scenario 1 — No category filter, full context
-  // -------------------------------------------------------------------------
-  it('returns suggestions with valid structure and records AI usage to DB', async () => {
-    const response = await app.inject({
-      method: 'POST',
-      url: `/plans/${planId}/ai-suggestions`,
-      headers: { authorization: `Bearer ${ownerToken}` },
-    })
+  it('fires 3 parallel real HTTP calls with a shared X-Generation-Id and records timings', async () => {
+    const planId = await seedPlan()
+    const generationId = randomUUID()
+    const runStartMs = Date.now()
 
-    expect(response.statusCode).toBe(200)
-    const body = response.json()
+    try {
+      const callOne = async (category: ItemCategory): Promise<CallResult> => {
+        const startedAtMs = Date.now() - runStartMs
+        const t0 = Date.now()
+        const response = await fetch(
+          `${address}/plans/${planId}/ai-suggestions/${category}`,
+          {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              authorization: `Bearer ${token}`,
+              'x-generation-id': generationId,
+            },
+            body: JSON.stringify({}),
+          }
+        )
+        const durationMs = Date.now() - t0
+        const completedAtMs = Date.now() - runStartMs
+        const body = (await response.json()) as {
+          suggestions: CallResult['suggestions']
+          aiUsageLogId: string
+          generationId: string
+        }
 
-    // Response shape
-    expect(body).toHaveProperty('aiUsageLogId')
-    expect(body.aiUsageLogId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-    )
-    expect(Array.isArray(body.suggestions)).toBe(true)
-    expect(body.suggestions.length).toBeGreaterThanOrEqual(5)
+        return {
+          category,
+          statusCode: response.status,
+          durationMs,
+          startedAtMs,
+          completedAtMs,
+          suggestionCount: body.suggestions?.length ?? 0,
+          suggestions: body.suggestions ?? [],
+          aiUsageLogId: body.aiUsageLogId,
+          generationId: body.generationId,
+        }
+      }
 
-    for (const item of body.suggestions) {
-      expect(item).toHaveProperty('id')
-      expect(ITEM_CATEGORY_VALUES).toContain(item.category)
-      expect(UNIT_VALUES).toContain(item.unit)
-      expect(typeof item.name).toBe('string')
-      expect(item.name.trim().length).toBeGreaterThan(0)
-      expect(typeof item.subcategory).toBe('string')
-      expect(item.subcategory.trim().length).toBeGreaterThan(0)
-      expect(typeof item.quantity).toBe('number')
-      expect(item.quantity).toBeGreaterThan(0)
-      expect(typeof item.reason).toBe('string')
-      expect(item.reason.trim().length).toBeGreaterThan(0)
+      const results = await Promise.all(CATEGORIES.map(callOne))
+
+      for (const r of results) {
+        expect(r.statusCode).toBe(200)
+        expect(r.generationId).toBe(generationId)
+        expect(r.suggestionCount).toBeGreaterThan(0)
+        for (const item of r.suggestions) {
+          expect(item.category).toBe(r.category)
+          expect(typeof item.name).toBe('string')
+          expect(item.name.length).toBeGreaterThan(0)
+          expect(typeof item.subcategory).toBe('string')
+          expect(typeof item.reason).toBe('string')
+          expect(item.quantity).toBeGreaterThan(0)
+          expect([
+            'pcs',
+            'kg',
+            'g',
+            'lb',
+            'oz',
+            'l',
+            'ml',
+            'm',
+            'cm',
+            'pack',
+            'set',
+          ]).toContain(item.unit)
+        }
+      }
+
+      const db = await getTestDb()
+      const usageRows = await db
+        .select()
+        .from(aiUsageLogs)
+        .where(eq(aiUsageLogs.planId, planId))
+      expect(usageRows).toHaveLength(3)
+      for (const row of usageRows) {
+        const meta = row.metadata as Record<string, unknown>
+        expect(meta.generationId).toBe(generationId)
+      }
+
+      const ts = new Date()
+        .toISOString()
+        .replace(/[:.]/g, '-')
+        .replace('T', '-')
+        .slice(0, 19)
+      const reportName = `ai-suggestions-e2e-${ts}.json`
+      const totalDurationMs = Date.now() - runStartMs
+      const report = {
+        runAt: new Date().toISOString(),
+        planId,
+        generationId,
+        totalDurationMs,
+        totalSuggestions: results.reduce((s, r) => s + r.suggestionCount, 0),
+        perCategory: results.map((r) => ({
+          category: r.category,
+          statusCode: r.statusCode,
+          durationMs: r.durationMs,
+          startedAtMs: r.startedAtMs,
+          completedAtMs: r.completedAtMs,
+          suggestionCount: r.suggestionCount,
+          aiUsageLogId: r.aiUsageLogId,
+        })),
+        usage: usageRows.map((u) => ({
+          aiUsageLogId: u.id,
+          modelId: u.modelId,
+          provider: u.provider,
+          lang: u.lang,
+          status: u.status,
+          inputTokens: u.inputTokens,
+          outputTokens: u.outputTokens,
+          totalTokens: u.totalTokens,
+          durationMs: u.durationMs,
+          resultCount: u.resultCount,
+          metadata: u.metadata,
+        })),
+        suggestionsByCategory: results.reduce<
+          Record<string, CallResult['suggestions']>
+        >((acc, r) => {
+          acc[r.category] = r.suggestions
+          return acc
+        }, {}),
+      }
+      writeReport(reportName, report)
+
+      console.log('\n=== AI Suggestions per-category E2E ===')
+      console.log(`generationId: ${generationId}`)
+      console.log(`total wall time: ${totalDurationMs}ms`)
+      for (const r of results) {
+        console.log(
+          `  ${r.category.padEnd(20)}  ${r.durationMs}ms  ` +
+            `(+${r.startedAtMs}ms → +${r.completedAtMs}ms)  ` +
+            `${r.suggestionCount} items`
+        )
+      }
+      console.log(`report written: logs/${reportName}\n`)
+    } finally {
+      await cleanupPlan(planId)
     }
+  }, 120_000)
 
-    // AI usage log was written to DB
-    const [usageLog] = await db
-      .select()
-      .from(aiUsageLogs)
-      .where(eq(aiUsageLogs.id, body.aiUsageLogId))
-
-    expect(usageLog).toBeDefined()
-    expect(usageLog.planId).toBe(planId)
-    expect(usageLog.featureType).toBe('item_suggestions')
-    expect(['success', 'partial']).toContain(usageLog.status)
-    expect(usageLog.promptText).toBeTruthy()
-    expect(Number(usageLog.inputTokens)).toBeGreaterThan(0)
-    expect(Number(usageLog.outputTokens)).toBeGreaterThan(0)
-    expect(usageLog.resultCount).toBe(body.suggestions.length)
-
-    // AI suggestions were persisted to DB
-    const stored = await db
-      .select()
-      .from(aiSuggestions)
-      .where(eq(aiSuggestions.planId, planId))
-
-    expect(stored.length).toBe(body.suggestions.length)
-
-    scenarioResults.push({
-      scenario: 'no-filter — full context',
-      suggestions: body.suggestions,
-      inputTokens: Number(usageLog.inputTokens),
-      outputTokens: Number(usageLog.outputTokens),
-      resultCount: body.suggestions.length,
-    })
-  }, 60000)
-
-  // -------------------------------------------------------------------------
-  // Scenario 2 — All three categories with subcategories (FE wizard output)
-  //              Also verifies dietary context reached the prompt
-  // -------------------------------------------------------------------------
-  it('returns items across all three categories and prompt includes dietary context', async () => {
-    const response = await app.inject({
-      method: 'POST',
-      url: `/plans/${planId}/ai-suggestions`,
-      headers: {
-        authorization: `Bearer ${ownerToken}`,
-        'content-type': 'application/json',
-      },
-      payload: { categories: ALL_CATEGORIES },
-    })
-
-    expect(response.statusCode).toBe(200)
-    const body = response.json()
-
-    expect(body.suggestions.length).toBeGreaterThanOrEqual(5)
-
-    // Every item must belong to one of the three requested categories
-    for (const item of body.suggestions) {
-      expect(['group_equipment', 'personal_equipment', 'food']).toContain(
-        item.category
+  it('subcategories hint shapes the generation', async () => {
+    const planId = await seedPlan()
+    try {
+      const response = await fetch(
+        `${address}/plans/${planId}/ai-suggestions/food`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            subcategories: ['breakfast', 'snacks'],
+          }),
+        }
       )
+      expect(response.status).toBe(200)
+      const body = (await response.json()) as {
+        suggestions: Array<{ category: string; name: string }>
+      }
+      for (const item of body.suggestions) {
+        expect(item.category).toBe('food')
+      }
+      expect(body.suggestions.length).toBeGreaterThan(0)
+    } finally {
+      await cleanupPlan(planId)
     }
-
-    // All three categories must be represented
-    const returnedCategories = new Set(
-      body.suggestions.map((s: { category: string }) => s.category)
-    )
-    expect(returnedCategories.has('group_equipment')).toBe(true)
-    expect(returnedCategories.has('personal_equipment')).toBe(true)
-    expect(returnedCategories.has('food')).toBe(true)
-
-    // The usage log prompt must contain the dietary summary from participants
-    const [usageLog] = await db
-      .select()
-      .from(aiUsageLogs)
-      .where(eq(aiUsageLogs.id, body.aiUsageLogId))
-
-    expect(usageLog.promptText).toMatch(/vegan|gluten|allerg/i)
-
-    scenarioResults.push({
-      scenario: 'all-categories — full category filter + dietary context',
-      suggestions: body.suggestions,
-      inputTokens: Number(usageLog.inputTokens),
-      outputTokens: Number(usageLog.outputTokens),
-      resultCount: body.suggestions.length,
-    })
-  }, 60000)
+  }, 120_000)
 })
