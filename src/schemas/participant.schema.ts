@@ -107,7 +107,7 @@ export const updateParticipantBodySchema = {
       type: 'string',
       enum: ['owner', 'participant', 'viewer'],
       description:
-        'Set to owner to transfer plan ownership to this participant (plan creator only). Demotes the previous owner to participant and updates plan.ownerParticipantId and createdByUserId.',
+        'Set to owner to add a co-owner: only a current owner (participants.role owner on this plan) may set this, with no other body fields. Target must be linked to a user. Does not change plans.ownerParticipantId or createdByUserId.',
     },
     avatarUrl: { type: 'string', nullable: true },
     contactEmail: { type: 'string', maxLength: 255, nullable: true },
