@@ -1,6 +1,11 @@
+import { randomBytes, randomUUID } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
 import { eq, inArray, count, and, asc, or, isNull, gte, sql } from 'drizzle-orm'
-import { resolveUserByPhone } from '../services/internal-auth.service.js'
+import {
+  resolveUserByPhone,
+  resolveOwnerForInternalPlan,
+} from '../services/internal-auth.service.js'
+import { bootstrapUsersPhoneIfNull } from '../services/phone-sync.js'
 import { persistAssignments } from '../services/item.service.js'
 import {
   validateItemIds,
@@ -14,9 +19,32 @@ import {
   items,
   participantExpenses,
 } from '../db/schema.js'
-import type { ItemCategory, ItemStatus } from '../db/schema.js'
+import type { ItemCategory, ItemStatus, Location } from '../db/schema.js'
 
 const INTERNAL_RATE_LIMIT = { max: 30, timeWindow: '1 minute' }
+
+function generateInviteToken(): string {
+  return randomBytes(32).toString('hex')
+}
+
+function parseOptionalIsoDate(
+  raw: unknown
+): { ok: true; value?: Date } | { ok: false } {
+  if (raw === undefined || raw === null || raw === '') {
+    return { ok: true }
+  }
+  if (typeof raw !== 'string') {
+    return { ok: false }
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return { ok: true, value: new Date(`${raw}T00:00:00.000Z`) }
+  }
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) {
+    return { ok: false }
+  }
+  return { ok: true, value: d }
+}
 
 const COMPLETED_STATUSES: ItemStatus[] = ['packed', 'purchased']
 
@@ -218,6 +246,186 @@ export async function internalRoutes(fastify: FastifyInstance) {
         'Internal plans retrieved'
       )
       return { plans: result }
+    }
+  )
+
+  fastify.post(
+    '/plans',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Create a plan for the user identified by x-user-id',
+        description:
+          'WhatsApp/chatbot: creates a plan owned by the user from `x-user-id`. Sends `x-service-key` + `x-user-id`. Owner name and phone are resolved server-side (users table, Supabase metadata, participant fallback). Body requires `title`; optional description, dates, tags, defaultLang, currency, estimated headcount, locationName.',
+        body: { $ref: 'InternalCreatePlanBody#' },
+        response: {
+          201: {
+            description:
+              'Plan created; returns id, title as name, and start date.',
+            $ref: 'InternalCreatePlanResponse#',
+          },
+          400: {
+            description:
+              'Validation error, invalid dates, or owner phone/name could not be resolved',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Missing or invalid x-service-key, or missing x-user-id',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Unexpected server error while creating the plan',
+            $ref: 'ErrorResponse#',
+          },
+          503: {
+            description: 'Database connection error',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+
+      const owner = await resolveOwnerForInternalPlan(
+        fastify.db,
+        userId,
+        request.log
+      )
+      if (!owner) {
+        request.log.warn(
+          { userId },
+          'Internal create plan — cannot resolve owner phone'
+        )
+        return reply.code(400).send({
+          message:
+            'Cannot create plan: no phone on file for this user. Add a phone in the app profile first.',
+        })
+      }
+
+      const body = request.body as Record<string, unknown>
+      const title = typeof body.title === 'string' ? body.title.trim() : ''
+      if (!title) {
+        return reply.code(400).send({ message: 'title is required' })
+      }
+
+      const startParsed = parseOptionalIsoDate(body.startDate)
+      const endParsed = parseOptionalIsoDate(body.endDate)
+      if (!startParsed.ok || !endParsed.ok) {
+        return reply.code(400).send({ message: 'Invalid startDate or endDate' })
+      }
+
+      const locationName =
+        typeof body.locationName === 'string' ? body.locationName.trim() : ''
+      let location: Location | null = null
+      if (locationName) {
+        location = { locationId: randomUUID(), name: locationName }
+      }
+
+      const tags = Array.isArray(body.tags)
+        ? (body.tags.filter((t) => typeof t === 'string') as string[])
+        : undefined
+
+      try {
+        const result = await fastify.db.transaction(async (tx) => {
+          const planValues: Record<string, unknown> = {
+            title,
+            description:
+              body.description === null || body.description === undefined
+                ? undefined
+                : String(body.description),
+            visibility: 'invite_only' as const,
+            createdByUserId: userId,
+            ...(location && { location }),
+            ...(startParsed.value && { startDate: startParsed.value }),
+            ...(endParsed.value && { endDate: endParsed.value }),
+            ...(tags !== undefined && { tags }),
+            ...(typeof body.defaultLang === 'string' && {
+              defaultLang: body.defaultLang,
+            }),
+            ...(typeof body.currency === 'string' && {
+              currency: body.currency,
+            }),
+            ...(typeof body.estimatedAdults === 'number' &&
+              Number.isInteger(body.estimatedAdults) &&
+              body.estimatedAdults >= 0 && {
+                estimatedAdults: body.estimatedAdults,
+              }),
+            ...(typeof body.estimatedKids === 'number' &&
+              Number.isInteger(body.estimatedKids) &&
+              body.estimatedKids >= 0 && {
+                estimatedKids: body.estimatedKids,
+              }),
+          }
+
+          const [createdPlan] = await tx
+            .insert(plans)
+            .values(planValues as typeof plans.$inferInsert)
+            .returning()
+
+          const [ownerParticipant] = await tx
+            .insert(participants)
+            .values({
+              planId: createdPlan.planId,
+              userId,
+              name: owner.name,
+              lastName: owner.lastName,
+              contactPhone: owner.contactPhone,
+              displayName: owner.displayName ?? null,
+              role: 'owner',
+              inviteToken: generateInviteToken(),
+            })
+            .returning()
+
+          const [updatedPlan] = await tx
+            .update(plans)
+            .set({ ownerParticipantId: ownerParticipant.participantId })
+            .where(eq(plans.planId, createdPlan.planId))
+            .returning()
+
+          await bootstrapUsersPhoneIfNull(
+            tx,
+            userId,
+            normalizePhone(owner.contactPhone)
+          )
+
+          return updatedPlan
+        })
+
+        request.log.info(
+          { planId: result.planId, userId },
+          'Internal plan created'
+        )
+
+        return reply.code(201).send({
+          plan: {
+            id: result.planId,
+            name: result.title,
+            date: result.startDate ? result.startDate.toISOString() : null,
+          },
+        })
+      } catch (error) {
+        request.log.error({ err: error }, 'Internal create plan failed')
+
+        const isConnectionError =
+          error instanceof Error &&
+          (error.message.includes('connect') ||
+            error.message.includes('timeout'))
+
+        if (isConnectionError) {
+          return reply.code(503).send({
+            message: 'Database connection error',
+          })
+        }
+
+        return reply.code(500).send({
+          message: 'Failed to create plan',
+        })
+      }
     }
   )
 

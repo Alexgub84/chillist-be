@@ -15,7 +15,8 @@ import {
   getTestIssuer,
   signTestJwt,
 } from '../helpers/auth.js'
-import { participants } from '../../src/db/schema.js'
+import { eq } from 'drizzle-orm'
+import { participants, plans } from '../../src/db/schema.js'
 import { randomBytes } from 'node:crypto'
 
 const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
@@ -574,6 +575,112 @@ describe('Participants Route', () => {
       expect(response.json()).toEqual({
         message: 'Cannot change role of owner participant',
       })
+    })
+
+    it('transfers plan ownership when creator sets another linked participant to owner', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const seeded = await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const ownerRow = seeded.find((p) => p.role === 'owner')!
+      const memberRow = seeded.find((p) => p.role === 'participant')!
+
+      const db = await getTestDb()
+      await db
+        .update(participants)
+        .set({ userId: OTHER_USER_ID })
+        .where(eq(participants.participantId, memberRow.participantId))
+
+      await db
+        .update(plans)
+        .set({ ownerParticipantId: ownerRow.participantId })
+        .where(eq(plans.planId, plan.planId))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${memberRow.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { role: 'owner' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().role).toBe('owner')
+
+      const [planAfter] = await db
+        .select()
+        .from(plans)
+        .where(eq(plans.planId, plan.planId))
+
+      expect(planAfter.ownerParticipantId).toBe(memberRow.participantId)
+      expect(planAfter.createdByUserId).toBe(OTHER_USER_ID)
+
+      const [prevOwner] = await db
+        .select()
+        .from(participants)
+        .where(eq(participants.participantId, ownerRow.participantId))
+
+      expect(prevOwner.role).toBe('participant')
+    })
+
+    it('returns 403 when non-creator tries to assign owner role', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const seeded = await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const memberRow = seeded.find((p) => p.role === 'participant')!
+
+      const db = await getTestDb()
+      await db
+        .update(participants)
+        .set({ userId: OTHER_USER_ID })
+        .where(eq(participants.participantId, memberRow.participantId))
+
+      const otherToken = await signTestJwt({ sub: OTHER_USER_ID })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${memberRow.participantId}`,
+        headers: { authorization: `Bearer ${otherToken}` },
+        payload: { role: 'owner' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(response.json().message).toBe(
+        'Only the plan owner can transfer ownership'
+      )
+    })
+
+    it('returns 400 when transferring ownership to a participant without userId', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const seeded = await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const ownerRow = seeded.find((p) => p.role === 'owner')!
+      const memberRow = seeded.find((p) => p.role === 'participant')!
+
+      const db = await getTestDb()
+      await db
+        .update(plans)
+        .set({ ownerParticipantId: ownerRow.participantId })
+        .where(eq(plans.planId, plan.planId))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${memberRow.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { role: 'owner' },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().message).toBe(
+        'Ownership can only be transferred to a participant linked to a user account'
+      )
     })
 
     it('allows updating owner non-role fields', async () => {

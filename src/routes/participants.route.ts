@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { participants, plans, DietaryMembers } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import {
@@ -39,7 +39,7 @@ interface UpdateParticipantBody {
   lastName?: string
   contactPhone?: string
   displayName?: string | null
-  role?: 'participant' | 'viewer'
+  role?: 'owner' | 'participant' | 'viewer'
   avatarUrl?: string | null
   contactEmail?: string | null
   adultsCount?: number | null
@@ -392,7 +392,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         tags: ['participants'],
         summary: 'Update a participant',
         description:
-          'Update an existing participant by its ID. Owner/admin can update any participant; linked participants can only update their own record.',
+          'Update an existing participant by its ID. Owner/admin can update any participant; linked participants can only update their own record. Setting role to owner transfers plan ownership (creator only): previous owner becomes participant; plan ownerParticipantId and createdByUserId update to the promoted user.',
         params: { $ref: 'ParticipantIdParam#' },
         body: { $ref: 'UpdateParticipantBody#' },
         response: {
@@ -470,6 +470,164 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           return reply.status(403).send({
             message: 'You can only edit your own preferences',
           })
+        }
+
+        if (updates.role === 'owner') {
+          if (!isOwner) {
+            return reply.status(403).send({
+              message: 'Only the plan owner can transfer ownership',
+            })
+          }
+          if (existingParticipant.role === 'owner') {
+            const restOnly: Partial<UpdateParticipantBody> = { ...updates }
+            delete restOnly.role
+            if (Object.keys(restOnly).length > 0) {
+              return reply.status(400).send({
+                message:
+                  'Cannot combine role owner with other fields on the owner record',
+              })
+            }
+            const [unchanged] = await fastify.db
+              .select()
+              .from(participants)
+              .where(eq(participants.participantId, participantId))
+              .limit(1)
+            if (!unchanged) {
+              return reply.status(404).send({
+                message: 'Participant not found',
+              })
+            }
+            return isOwner ? unchanged : { ...unchanged, inviteToken: null }
+          }
+          if (!existingParticipant.userId) {
+            return reply.status(400).send({
+              message:
+                'Ownership can only be transferred to a participant linked to a user account',
+            })
+          }
+
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7758/ingest/2d5a4e95-8b4c-4848-a7fe-576e7f847559',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '6b7a17',
+              },
+              body: JSON.stringify({
+                sessionId: '6b7a17',
+                hypothesisId: 'H1',
+                location: 'participants.route.ts:transferOwner',
+                message: 'ownership transfer start',
+                data: {
+                  planId: existingParticipant.planId,
+                  targetParticipantId: participantId,
+                },
+                timestamp: Date.now(),
+              }),
+            }
+          ).catch(() => {})
+          // #endregion
+
+          const restUpdates: Partial<UpdateParticipantBody> = { ...updates }
+          delete restUpdates.role
+
+          try {
+            const promoted = await fastify.db.transaction(async (tx) => {
+              const [currentOwner] = await tx
+                .select({ participantId: participants.participantId })
+                .from(participants)
+                .where(
+                  and(
+                    eq(participants.planId, existingParticipant.planId),
+                    eq(participants.role, 'owner')
+                  )
+                )
+                .limit(1)
+
+              if (!currentOwner) {
+                throw new Error('Plan has no owner participant')
+              }
+
+              await tx
+                .update(participants)
+                .set({ role: 'participant', updatedAt: new Date() })
+                .where(
+                  eq(participants.participantId, currentOwner.participantId)
+                )
+
+              const [newOwnerRow] = await tx
+                .update(participants)
+                .set({
+                  ...restUpdates,
+                  role: 'owner',
+                  updatedAt: new Date(),
+                })
+                .where(eq(participants.participantId, participantId))
+                .returning()
+
+              if (!newOwnerRow) {
+                throw new Error('Promoted participant not found')
+              }
+
+              await tx
+                .update(plans)
+                .set({
+                  ownerParticipantId: newOwnerRow.participantId,
+                  createdByUserId: newOwnerRow.userId!,
+                  updatedAt: new Date(),
+                })
+                .where(eq(plans.planId, existingParticipant.planId))
+
+              return newOwnerRow
+            })
+
+            // #region agent log
+            fetch(
+              'http://127.0.0.1:7758/ingest/2d5a4e95-8b4c-4848-a7fe-576e7f847559',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Debug-Session-Id': '6b7a17',
+                },
+                body: JSON.stringify({
+                  sessionId: '6b7a17',
+                  hypothesisId: 'H1',
+                  location: 'participants.route.ts:transferOwner',
+                  message: 'ownership transfer done',
+                  data: {
+                    planId: existingParticipant.planId,
+                    newOwnerParticipantId: promoted.participantId,
+                  },
+                  timestamp: Date.now(),
+                }),
+              }
+            ).catch(() => {})
+            // #endregion
+
+            request.log.info(
+              {
+                planId: existingParticipant.planId,
+                newOwnerParticipantId: promoted.participantId,
+              },
+              'Plan ownership transferred'
+            )
+
+            const result = isOwner
+              ? promoted
+              : { ...promoted, inviteToken: null }
+            return result
+          } catch (err) {
+            request.log.error(
+              { err, participantId },
+              'Ownership transfer failed'
+            )
+            return reply.status(500).send({
+              message: 'Failed to transfer ownership',
+            })
+          }
         }
 
         if (existingParticipant.role === 'owner' && updates.role) {
