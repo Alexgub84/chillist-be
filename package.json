@@ -1,6 +1,6 @@
 {
   "name": "chillist-be",
-  "version": "1.31.0",
+  "version": "1.32.0",
   "description": "Chillist Backend API - Trip planning with shared checklists",
   "type": "module",
   "engines": {
@@ -23,8 +23,7 @@
     "test:ai-quality": "npx vitest run --config vitest.ai-quality.config.ts",
     "test:ai-prompt-quality": "npx vitest run --config vitest.ai-quality.config.ts tests/ai-quality/prompt-quality.test.ts",
     "test:ai-prompt-quality-per-category": "npx vitest run --config vitest.ai-quality.config.ts tests/ai-quality/prompt-quality-per-category.test.ts",
-    "test:ai-suggestions-e2e": "npx vitest run --config vitest.ai-quality.config.ts tests/ai-quality/ai-suggestions-prod.test.ts",
-    "test:ai-suggestions-stream-e2e": "npx vitest run --config vitest.ai-quality.config.ts tests/ai-quality/ai-suggestions-stream-prod.test.ts",
+    "test:ai-suggestions-e2e": "RUN_AI_E2E=true npx vitest run --config vitest.ai-quality.config.ts tests/ai-quality/ai-suggestions-prod.test.ts",
     "prepare": "husky",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",

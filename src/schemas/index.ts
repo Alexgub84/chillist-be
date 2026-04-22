@@ -109,7 +109,7 @@ import {
   aiSuggestionsRequestSchema,
   aiSuggestionItemSchema,
   aiSuggestionsResponseSchema,
-  aiSuggestionsStreamDescriptionSchema,
+  categoryParamSchema,
 } from './ai-suggestions.schema.js'
 import {
   aiUsageLogSchema,
@@ -220,7 +220,7 @@ const schemas = [
   aiSuggestionsRequestSchema,
   aiSuggestionItemSchema,
   aiSuggestionsResponseSchema,
-  aiSuggestionsStreamDescriptionSchema,
+  categoryParamSchema,
   aiUsageLogSchema,
   aiUsageLogListSchema,
   aiUsageFeatureSummarySchema,
