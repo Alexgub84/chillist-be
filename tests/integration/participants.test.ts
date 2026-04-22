@@ -15,12 +15,14 @@ import {
   getTestIssuer,
   signTestJwt,
 } from '../helpers/auth.js'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { participants, plans } from '../../src/db/schema.js'
+import { updateParticipantBodySchema } from '../../src/schemas/participant.schema.js'
 import { randomBytes } from 'node:crypto'
 
 const TEST_USER_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
 const OTHER_USER_ID = 'bbbbbbbb-1111-2222-3333-444444444444'
+const THIRD_USER_ID = 'cccccccc-1111-2222-3333-444444444444'
 const ADMIN_USER_ID = 'dddddddd-1111-2222-3333-444444444444'
 
 describe('Participants Route', () => {
@@ -366,6 +368,13 @@ describe('Participants Route', () => {
   })
 
   describe('PATCH /participants/:participantId', () => {
+    it('keeps role enum contract including owner for PATCH body', () => {
+      const roleProp = updateParticipantBodySchema.properties.role as {
+        enum: readonly string[]
+      }
+      expect(roleProp.enum).toContain('owner')
+    })
+
     it('updates name and returns 200', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: TEST_USER_ID,
@@ -577,7 +586,7 @@ describe('Participants Route', () => {
       })
     })
 
-    it('transfers plan ownership when creator sets another linked participant to owner', async () => {
+    it('adds a co-owner when a current owner sets a linked participant to role owner', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: TEST_USER_ID,
       })
@@ -598,6 +607,11 @@ describe('Participants Route', () => {
         .set({ ownerParticipantId: ownerRow.participantId })
         .where(eq(plans.planId, plan.planId))
 
+      const [planBefore] = await db
+        .select()
+        .from(plans)
+        .where(eq(plans.planId, plan.planId))
+
       const response = await app.inject({
         method: 'PATCH',
         url: `/participants/${memberRow.participantId}`,
@@ -605,26 +619,99 @@ describe('Participants Route', () => {
         payload: { role: 'owner' },
       })
 
+      const body = response.json()
       expect(response.statusCode).toBe(200)
-      expect(response.json().role).toBe('owner')
+      expect(body.code).not.toBe('FST_ERR_VALIDATION')
+      expect(body.role).toBe('owner')
 
       const [planAfter] = await db
         .select()
         .from(plans)
         .where(eq(plans.planId, plan.planId))
 
-      expect(planAfter.ownerParticipantId).toBe(memberRow.participantId)
-      expect(planAfter.createdByUserId).toBe(OTHER_USER_ID)
+      expect(planAfter.ownerParticipantId).toBe(planBefore.ownerParticipantId)
+      expect(planAfter.createdByUserId).toBe(planBefore.createdByUserId)
 
       const [prevOwner] = await db
         .select()
         .from(participants)
         .where(eq(participants.participantId, ownerRow.participantId))
 
-      expect(prevOwner.role).toBe('participant')
+      expect(prevOwner.role).toBe('owner')
+
+      const ownerRows = await db
+        .select()
+        .from(participants)
+        .where(
+          and(
+            eq(participants.planId, plan.planId),
+            eq(participants.role, 'owner')
+          )
+        )
+
+      expect(ownerRows).toHaveLength(2)
     })
 
-    it('returns 403 when non-creator tries to assign owner role', async () => {
+    it('lets a non-creator co-owner promote another linked participant to owner', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const seeded = await seedTestParticipants(plan.planId, 3, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const p0 = seeded[0]!
+      const p1 = seeded[1]!
+      const p2 = seeded[2]!
+
+      const db = await getTestDb()
+      await db
+        .update(participants)
+        .set({ userId: OTHER_USER_ID })
+        .where(eq(participants.participantId, p1.participantId))
+      await db
+        .update(participants)
+        .set({ userId: THIRD_USER_ID })
+        .where(eq(participants.participantId, p2.participantId))
+
+      await db
+        .update(plans)
+        .set({ ownerParticipantId: p0.participantId })
+        .where(eq(plans.planId, plan.planId))
+
+      const promote1 = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${p1.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { role: 'owner' },
+      })
+      expect(promote1.statusCode).toBe(200)
+      expect(promote1.json().role).toBe('owner')
+
+      const otherToken = await signTestJwt({ sub: OTHER_USER_ID })
+      const promote2 = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${p2.participantId}`,
+        headers: { authorization: `Bearer ${otherToken}` },
+        payload: { role: 'owner' },
+      })
+
+      expect(promote2.statusCode).toBe(200)
+      expect(promote2.json().code).not.toBe('FST_ERR_VALIDATION')
+
+      const ownerRows = await db
+        .select()
+        .from(participants)
+        .where(
+          and(
+            eq(participants.planId, plan.planId),
+            eq(participants.role, 'owner')
+          )
+        )
+
+      expect(ownerRows).toHaveLength(3)
+    })
+
+    it('returns 403 with not_plan_owner when a non-owner tries to assign owner role', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: TEST_USER_ID,
       })
@@ -648,13 +735,12 @@ describe('Participants Route', () => {
         payload: { role: 'owner' },
       })
 
+      const err = response.json() as { message: string; code?: string }
       expect(response.statusCode).toBe(403)
-      expect(response.json().message).toBe(
-        'Only the plan owner can transfer ownership'
-      )
+      expect(err.code).toBe('not_plan_owner')
     })
 
-    it('returns 400 when transferring ownership to a participant without userId', async () => {
+    it('returns 400 participant_not_linked when target has no userId', async () => {
       const [plan] = await seedTestPlans(1, {
         createdByUserId: TEST_USER_ID,
       })
@@ -677,10 +763,54 @@ describe('Participants Route', () => {
         payload: { role: 'owner' },
       })
 
+      const err = response.json() as { message: string; code?: string }
       expect(response.statusCode).toBe(400)
-      expect(response.json().message).toBe(
-        'Ownership can only be transferred to a participant linked to a user account'
-      )
+      expect(err.code).toBe('participant_not_linked')
+    })
+
+    it('returns 400 owner_promotion_invalid_body when role owner is combined with other fields', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const seeded = await seedTestParticipants(plan.planId, 2, {
+        ownerUserId: TEST_USER_ID,
+      })
+      const memberRow = seeded.find((p) => p.role === 'participant')!
+      const db = await getTestDb()
+      await db
+        .update(participants)
+        .set({ userId: OTHER_USER_ID })
+        .where(eq(participants.participantId, memberRow.participantId))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${memberRow.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { role: 'owner', name: 'Promoted' },
+      })
+
+      const err = response.json() as { code?: string }
+      expect(response.statusCode).toBe(400)
+      expect(err.code).toBe('owner_promotion_invalid_body')
+    })
+
+    it('is no-op when target participant is already an owner and body is only role owner', async () => {
+      const [plan] = await seedTestPlans(1, {
+        createdByUserId: TEST_USER_ID,
+      })
+      const [ownerP] = await seedTestParticipants(plan.planId, 1, {
+        ownerUserId: TEST_USER_ID,
+      })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/participants/${ownerP.participantId}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { role: 'owner' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().role).toBe('owner')
     })
 
     it('allows updating owner non-role fields', async () => {

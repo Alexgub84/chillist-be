@@ -1083,7 +1083,7 @@
               "participant",
               "viewer"
             ],
-            "description": "Set to owner to transfer plan ownership to this participant (plan creator only). Demotes the previous owner to participant and updates plan.ownerParticipantId and createdByUserId."
+            "description": "Set to owner to add a co-owner: only a current owner (participants.role owner on this plan) may set this, with no other body fields. Target must be linked to a user. Does not change plans.ownerParticipantId or createdByUserId."
           },
           "avatarUrl": {
             "type": "string",
@@ -5655,7 +5655,7 @@
         "tags": [
           "participants"
         ],
-        "description": "Update an existing participant by its ID. Owner/admin can update any participant; linked participants can only update their own record. Setting role to owner transfers plan ownership (creator only): previous owner becomes participant; plan ownerParticipantId and createdByUserId update to the promoted user.",
+        "description": "Update an existing participant by its ID. The plan creator can update any participant; linked participants can only update their own record. Set role to owner to add a co-owner: any current owner participant (role owner on this plan) may call with body { \"role\": \"owner\" } only. The target must be linked to a user account. plans.createdByUserId and plans.ownerParticipantId are not modified.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5689,11 +5689,11 @@
             }
           },
           "400": {
-            "description": "Bad request — check the message field for details",
+            "description": "Bad request — FST_ERR_VALIDATION for shape/enum. Application codes: owner_promotion_invalid_body (body mixes role owner with other fields), participant_not_linked (target not linked to a user).",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Bad request — check the message field for details",
+                  "description": "Bad request — FST_ERR_VALIDATION for shape/enum. Application codes: owner_promotion_invalid_body (body mixes role owner with other fields), participant_not_linked (target not linked to a user).",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
@@ -5711,11 +5711,11 @@
             }
           },
           "403": {
-            "description": "Forbidden — insufficient permissions",
+            "description": "Forbidden — insufficient permissions, or not_plan_owner (caller is not a current owner on this plan when using role owner).",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Forbidden — insufficient permissions",
+                  "description": "Forbidden — insufficient permissions, or not_plan_owner (caller is not a current owner on this plan when using role owner).",
                   "$ref": "#/components/schemas/def-0"
                 }
               }
