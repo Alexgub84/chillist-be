@@ -392,7 +392,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         tags: ['participants'],
         summary: 'Update a participant',
         description:
-          'Update an existing participant by its ID. The plan creator can update any participant; linked participants can only update their own record. Set role to owner to add a co-owner: any current owner participant (role owner on this plan) may call with body { "role": "owner" } only. The target must be linked to a user account. plans.createdByUserId and plans.ownerParticipantId are not modified.',
+          'Update an existing participant by its ID. The plan creator can update any participant; linked participants can only update their own record. Set `role` to `owner` to add a co-owner: any participant with `role` owner on this plan may call with body `{ "role": "owner" }` only. Target must be linked to a user. Does not change `plans.createdByUserId` or `plans.ownerParticipantId`.',
         params: { $ref: 'ParticipantIdParam#' },
         body: { $ref: 'UpdateParticipantBody#' },
         response: {
@@ -402,7 +402,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           },
           400: {
             description:
-              'Bad request — FST_ERR_VALIDATION for shape/enum. Application codes: owner_promotion_invalid_body (body mixes role owner with other fields), participant_not_linked (target not linked to a user).',
+              'Bad request — FST_ERR_VALIDATION for shape/enum. Application codes: owner_promotion_invalid_body (body mixes `role: owner` with other fields), participant_not_linked (target not linked to a user).',
             $ref: 'ErrorResponse#',
           },
           401: {
@@ -412,7 +412,7 @@ export async function participantsRoutes(fastify: FastifyInstance) {
           },
           403: {
             description:
-              'Forbidden — insufficient permissions, or not_plan_owner (caller is not a current owner on this plan when using role owner).',
+              'Forbidden — insufficient permissions, or not_plan_owner (caller is not a current owner on this plan when using `role: owner`).',
             $ref: 'ErrorResponse#',
           },
           404: {
