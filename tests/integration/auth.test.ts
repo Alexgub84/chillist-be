@@ -17,6 +17,8 @@ import {
   signJwtWithWrongKey,
   signJwtWithWrongIssuer,
 } from '../helpers/auth.js'
+import { Database } from '../../src/db/index.js'
+import { users } from '../../src/db/schema.js'
 
 describe('JWT Auth (injected JWKS)', () => {
   let app: FastifyInstance
@@ -227,6 +229,103 @@ describe('JWT Auth (injected JWKS)', () => {
   describe('jwtEnabled flag', () => {
     it('sets jwtEnabled to true when JWKS is configured', () => {
       expect(app.jwtEnabled).toBe(true)
+    })
+  })
+})
+
+describe('Phone conflict handling', () => {
+  let app: FastifyInstance
+  let db: Database
+
+  const USER_A_ID = 'aaaaaaaa-1111-2222-3333-444444444444'
+  const USER_B_ID = 'bbbbbbbb-5555-6666-7777-888888888888'
+  const PHONE_A = '+972501234567'
+  const PHONE_B = '+972509876543'
+
+  beforeAll(async () => {
+    db = await setupTestDatabase()
+    await setupTestKeys()
+
+    app = await buildApp(
+      { db },
+      {
+        logger: false,
+        auth: { jwks: getTestJWKS(), issuer: getTestIssuer() },
+        rateLimit: false,
+      }
+    )
+  }, 30000)
+
+  afterAll(async () => {
+    await app.close()
+    await closeTestDatabase()
+  })
+
+  beforeEach(async () => {
+    await cleanupTestDatabase()
+
+    await db.insert(users).values([
+      { userId: USER_A_ID, phone: PHONE_A },
+      { userId: USER_B_ID, phone: PHONE_B },
+    ])
+  })
+
+  describe('PATCH /auth/profile — phone conflict returns 409', () => {
+    it('returns 200 when setting phone to a free number', async () => {
+      const jwt = await signTestJwt({ sub: USER_A_ID })
+      const newPhone = '+972500000000'
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${jwt}` },
+        payload: { phone: newPhone },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().preferences.phone).toBe(newPhone)
+    })
+
+    it('returns 200 when setting phone to own current number (idempotent)', async () => {
+      const jwt = await signTestJwt({ sub: USER_A_ID })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${jwt}` },
+        payload: { phone: PHONE_A },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().preferences.phone).toBe(PHONE_A)
+    })
+
+    it('returns 409 when trying to set phone owned by another user', async () => {
+      const jwt = await signTestJwt({ sub: USER_A_ID })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${jwt}` },
+        payload: { phone: PHONE_B },
+      })
+
+      expect(response.statusCode).toBe(409)
+      expect(response.json().message).toContain('already linked')
+    })
+
+    it('returns 200 when clearing phone to null', async () => {
+      const jwt = await signTestJwt({ sub: USER_A_ID })
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/auth/profile',
+        headers: { authorization: `Bearer ${jwt}` },
+        payload: { phone: null },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().preferences.phone).toBeNull()
     })
   })
 })

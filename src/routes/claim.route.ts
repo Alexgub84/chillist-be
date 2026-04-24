@@ -146,7 +146,12 @@ export async function claimRoutes(fastify: FastifyInstance) {
           updateFields.contactPhone = normalizePhone(userRow.phone)
         } else if (participant.contactPhone) {
           const normalized = normalizePhone(participant.contactPhone)
-          await bootstrapUsersPhoneIfNull(fastify.db, userId, normalized)
+          await bootstrapUsersPhoneIfNull(
+            fastify.db,
+            userId,
+            normalized,
+            request.log
+          )
           updateFields.contactPhone = normalized
         }
 

@@ -265,6 +265,42 @@ describe('Internal Auth — POST /api/internal/auth/identify', () => {
     })
   })
 
+  describe('Phone uniqueness constraint', () => {
+    const OTHER_USER_ID = 'dddddddd-4444-5555-6666-777777777777'
+
+    it('prevents inserting duplicate phone via DB unique index', async () => {
+      await expect(
+        db.insert(users).values({
+          userId: OTHER_USER_ID,
+          phone: REGISTERED_PHONE,
+        })
+      ).rejects.toThrow()
+    })
+
+    it('allows inserting different phone numbers', async () => {
+      await expect(
+        db.insert(users).values({
+          userId: OTHER_USER_ID,
+          phone: '+972599999999',
+        })
+      ).resolves.toBeDefined()
+    })
+
+    it('allows inserting null phone (multiple users can have null)', async () => {
+      await db
+        .update(users)
+        .set({ phone: null })
+        .where(eq(users.userId, REGISTERED_USER_ID))
+
+      await expect(
+        db.insert(users).values({
+          userId: OTHER_USER_ID,
+          phone: null,
+        })
+      ).resolves.toBeDefined()
+    })
+  })
+
   describe('Cross-endpoint: phone set via PATCH profile → chatbot identify', () => {
     const E2E_USER_ID = 'cccccccc-3333-4444-5555-666666666666'
     const E2E_PHONE = '+14155550001'

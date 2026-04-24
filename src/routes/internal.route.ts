@@ -4,6 +4,7 @@ import { eq, inArray, count, and, asc, or, isNull, gte, sql } from 'drizzle-orm'
 import {
   resolveUserByPhone,
   resolveOwnerForInternalPlan,
+  isAmbiguousPhoneLookup,
 } from '../services/internal-auth.service.js'
 import { bootstrapUsersPhoneIfNull } from '../services/phone-sync.js'
 import { persistAssignments } from '../services/item.service.js'
@@ -104,7 +105,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
         tags: ['internal'],
         summary: 'Resolve a WhatsApp phone number to a Chillist user',
         description:
-          'Identifies a registered user by their phone number. Returns the Supabase userId and display name. Returns 404 if the phone is not linked to any registered Chillist account.',
+          'Identifies a registered user by their phone number. Returns the Supabase userId and display name. Returns 404 if the phone is not linked to any registered Chillist account. Returns 409 if multiple users share the same phone (data integrity issue).',
         body: { $ref: 'IdentifyRequest#' },
         response: {
           200: {
@@ -120,6 +121,11 @@ export async function internalRoutes(fastify: FastifyInstance) {
             description: 'No registered user linked to this phone number',
             $ref: 'ErrorResponse#',
           },
+          409: {
+            description:
+              'Multiple users share this phone number — data must be deduplicated',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -129,19 +135,26 @@ export async function internalRoutes(fastify: FastifyInstance) {
 
       request.log.info({ phonePrefix }, 'Identifying user by phone')
 
-      const user = await resolveUserByPhone(
+      const result = await resolveUserByPhone(
         fastify.db,
         phoneNumber,
         request.log
       )
 
-      if (!user) {
+      if (isAmbiguousPhoneLookup(result)) {
+        return reply.code(409).send({
+          message:
+            'Multiple Chillist accounts share this phone number. Sign in with one account in the app or remove the duplicate phone from the other profile before using WhatsApp.',
+        })
+      }
+
+      if (!result) {
         request.log.info({ phonePrefix }, 'User not found')
         return reply.code(404).send({ message: 'User not found' })
       }
 
       request.log.info({ phonePrefix }, 'User identified')
-      return user
+      return result
     }
   )
 
@@ -390,7 +403,8 @@ export async function internalRoutes(fastify: FastifyInstance) {
           await bootstrapUsersPhoneIfNull(
             tx,
             userId,
-            normalizePhone(owner.contactPhone)
+            normalizePhone(owner.contactPhone),
+            request.log
           )
 
           return updatedPlan
