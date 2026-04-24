@@ -187,7 +187,8 @@ export async function plansRoutes(fastify: FastifyInstance) {
           await bootstrapUsersPhoneIfNull(
             tx,
             authenticatedUserId,
-            normalizePhone(owner.contactPhone)
+            normalizePhone(owner.contactPhone),
+            request.log
           )
 
           return {

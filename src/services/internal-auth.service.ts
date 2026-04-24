@@ -29,6 +29,22 @@ export interface IdentifiedUser {
   displayName: string
 }
 
+export interface AmbiguousPhoneLookup {
+  ambiguous: true
+  userIds: string[]
+}
+
+export type ResolveUserByPhoneResult =
+  | IdentifiedUser
+  | null
+  | AmbiguousPhoneLookup
+
+export function isAmbiguousPhoneLookup(
+  r: ResolveUserByPhoneResult
+): r is AmbiguousPhoneLookup {
+  return r !== null && typeof r === 'object' && 'ambiguous' in r && r.ambiguous
+}
+
 export interface ResolvedInternalPlanOwner {
   name: string
   lastName: string
@@ -120,23 +136,32 @@ export async function resolveUserByPhone(
   db: Database,
   phone: string,
   log?: MinimalLogger
-): Promise<IdentifiedUser | null> {
+): Promise<ResolveUserByPhoneResult> {
   const normalized = normalizePhone(phone)
   const phonePrefix = normalized.slice(0, 4) + '***'
 
   log?.info({ phonePrefix }, 'Normalized phone for DB lookup')
 
-  const [row] = await db
+  const rows = await db
     .select({ userId: users.userId })
     .from(users)
     .where(eq(users.phone, normalized))
-    .limit(1)
 
-  if (!row) {
+  if (rows.length === 0) {
     log?.info({ phonePrefix }, 'No user row found for phone')
     return null
   }
 
+  if (rows.length > 1) {
+    const userIds = rows.map((r) => r.userId).sort()
+    log?.warn(
+      { phonePrefix, userIds },
+      'Multiple users share canonical phone — identify refused'
+    )
+    return { ambiguous: true, userIds }
+  }
+
+  const row = rows[0]!
   log?.info({ phonePrefix, userId: row.userId }, 'User found in DB')
 
   const supabaseMeta = await fetchSupabaseUserMetadata(row.userId, log)
