@@ -40,7 +40,7 @@ function parseFoodPreferencesJson(raw: string | null): DietType[] {
 
 function dietsFromRow(row: ParticipantDietaryRow): DietType[] {
   if (row.dietaryMembers?.members?.length) {
-    return row.dietaryMembers.members.map((m) => m.diet)
+    return row.dietaryMembers.members.flatMap((m) => m.diets)
   }
   return parseFoodPreferencesJson(row.foodPreferences)
 }

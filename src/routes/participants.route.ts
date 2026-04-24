@@ -4,6 +4,10 @@ import { and, eq } from 'drizzle-orm'
 import { participants, plans, DietaryMembers } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
 import {
+  assertDietaryMembersValid,
+  DietaryMembersValidationError,
+} from '../utils/dietary-members.js'
+import {
   removeParticipantFromAssignments,
   addParticipantToAllFlaggedItems,
 } from '../services/item.service.js'
@@ -198,6 +202,8 @@ export async function participantsRoutes(fastify: FastifyInstance) {
       const { planId } = request.params
 
       try {
+        assertDietaryMembersValid(request.body.dietaryMembers ?? undefined)
+
         const [existingPlan] = await fastify.db
           .select({
             planId: plans.planId,
@@ -274,6 +280,12 @@ export async function participantsRoutes(fastify: FastifyInstance) {
 
         return reply.status(201).send(createdParticipant)
       } catch (error) {
+        if (error instanceof DietaryMembersValidationError) {
+          return reply
+            .status(400)
+            .send({ message: error.message, code: error.code })
+        }
+
         request.log.error(
           { err: error, planId },
           'Failed to create participant'
@@ -441,6 +453,8 @@ export async function participantsRoutes(fastify: FastifyInstance) {
       }
 
       try {
+        assertDietaryMembersValid(updates.dietaryMembers ?? undefined)
+
         const [existingParticipant] = await fastify.db
           .select({
             participantId: participants.participantId,
@@ -566,6 +580,12 @@ export async function participantsRoutes(fastify: FastifyInstance) {
         )
         return result
       } catch (error) {
+        if (error instanceof DietaryMembersValidationError) {
+          return reply
+            .status(400)
+            .send({ message: error.message, code: error.code })
+        }
+
         request.log.error(
           { err: error, participantId },
           'Failed to update participant'

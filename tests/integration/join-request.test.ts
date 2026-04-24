@@ -255,8 +255,13 @@ describe('Join Request Management', () => {
           contactPhone: '+15559990000',
           dietaryMembers: {
             members: [
-              { type: 'adult', index: 0, diet: 'vegan', allergies: ['nuts'] },
-              { type: 'kid', index: 0, diet: 'everything', allergies: [] },
+              {
+                type: 'adult',
+                index: 0,
+                diets: ['vegan'],
+                allergies: ['nuts'],
+              },
+              { type: 'kid', index: 0, diets: ['everything'], allergies: [] },
             ],
           },
         }
@@ -274,9 +279,40 @@ describe('Join Request Management', () => {
       const approved = response.json()
       expect(approved.dietaryMembers).toBeDefined()
       expect(approved.dietaryMembers.members).toHaveLength(2)
-      expect(approved.dietaryMembers.members[0].diet).toBe('vegan')
+      expect(approved.dietaryMembers.members[0].diets).toEqual(['vegan'])
       expect(approved.dietaryMembers.members[0].allergies).toEqual(['nuts'])
       expect(approved.dietaryMembers.members[1].type).toBe('kid')
+    })
+
+    it('returns 400 when join request dietaryMembers has everything combined with another tag', async () => {
+      const { plan } = await createPlanWithOwner(db, OWNER_USER_ID)
+
+      const requesterToken = await signTestJwt({ sub: REQUESTER_USER_ID })
+      const response = await app.inject({
+        method: 'POST',
+        url: `/plans/${plan.planId}/join-requests`,
+        headers: { authorization: `Bearer ${requesterToken}` },
+        payload: {
+          name: 'Jane',
+          lastName: 'Doe',
+          contactPhone: '+15559990001',
+          dietaryMembers: {
+            members: [
+              {
+                type: 'adult',
+                index: 0,
+                diets: ['everything', 'vegan'],
+                allergies: [],
+              },
+            ],
+          },
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().code).toBe(
+        'dietary_member_everything_must_be_exclusive'
+      )
     })
 
     it('returns 409 for already-approved request', async () => {

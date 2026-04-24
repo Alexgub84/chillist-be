@@ -15,10 +15,12 @@ export const dietaryMemberSchema = {
       description:
         '0-based index within the member type (adult 0, adult 1, kid 0, etc.)',
     },
-    diet: {
-      type: 'string',
-      enum: [...DIET_TYPE_VALUES],
-      description: 'Single food preference for this person',
+    diets: {
+      type: 'array',
+      items: { type: 'string', enum: [...DIET_TYPE_VALUES] },
+      minItems: 1,
+      uniqueItems: true,
+      description: 'One or more food preference tags for this person',
     },
     allergies: {
       type: 'array',
@@ -27,7 +29,7 @@ export const dietaryMemberSchema = {
         'List of allergies for this person. Use ["none"] or [] for no allergies.',
     },
   },
-  required: ['type', 'index', 'diet', 'allergies'],
+  required: ['type', 'index', 'diets', 'allergies'],
 } as const
 
 export const dietaryMembersBodySchema = {

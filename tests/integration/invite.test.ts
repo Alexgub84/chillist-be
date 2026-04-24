@@ -343,14 +343,14 @@ describe('Invite Route', () => {
               {
                 type: 'adult',
                 index: 0,
-                diet: 'vegetarian',
+                diets: ['vegetarian'],
                 allergies: ['nuts'],
               },
-              { type: 'adult', index: 1, diet: 'everything', allergies: [] },
+              { type: 'adult', index: 1, diets: ['everything'], allergies: [] },
               {
                 type: 'kid',
                 index: 0,
-                diet: 'everything',
+                diets: ['everything'],
                 allergies: ['gluten'],
               },
             ],
@@ -364,10 +364,38 @@ describe('Invite Route', () => {
       expect(body.kidsCount).toBe(1)
       expect(body.dietaryMembers).toBeDefined()
       expect(body.dietaryMembers.members).toHaveLength(3)
-      expect(body.dietaryMembers.members[0].diet).toBe('vegetarian')
+      expect(body.dietaryMembers.members[0].diets).toEqual(['vegetarian'])
       expect(body.dietaryMembers.members[0].allergies).toEqual(['nuts'])
       expect(body.dietaryMembers.members[2].type).toBe('kid')
       expect(body.dietaryMembers.members[2].allergies).toEqual(['gluten'])
+    })
+
+    it('returns 400 when everything is combined with another tag', async () => {
+      const [plan] = await seedTestPlans(1)
+      const participantList = await seedTestParticipants(plan.planId, 1)
+      const token = participantList[0].inviteToken!
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/plans/${plan.planId}/invite/${token}/preferences`,
+        payload: {
+          dietaryMembers: {
+            members: [
+              {
+                type: 'adult',
+                index: 0,
+                diets: ['everything', 'kosher'],
+                allergies: [],
+              },
+            ],
+          },
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().code).toBe(
+        'dietary_member_everything_must_be_exclusive'
+      )
     })
 
     it('clears dietaryMembers when null is sent', async () => {
@@ -381,7 +409,7 @@ describe('Invite Route', () => {
         payload: {
           dietaryMembers: {
             members: [
-              { type: 'adult', index: 0, diet: 'vegan', allergies: [] },
+              { type: 'adult', index: 0, diets: ['vegan'], allergies: [] },
             ],
           },
         },
