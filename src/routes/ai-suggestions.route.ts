@@ -225,9 +225,16 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
         const filteredSuggestions = result.suggestions.filter(
           (s) => s.category === category
         )
+        const rawItemCount = result.suggestions.length
+        const filteredOutCount = rawItemCount - filteredSuggestions.length
 
         const aiUsageLogId = await recordAiUsage(fastify.db, {
           ...usageBase,
+          metadata: {
+            ...usageBase.metadata,
+            rawItemCount,
+            filteredOutCount,
+          },
           status: result.status,
           finishReason: result.finishReason,
           resultCount: filteredSuggestions.length,
@@ -279,6 +286,8 @@ export async function aiSuggestionsRoutes(fastify: FastifyInstance) {
             lang,
             modelId: model.modelId,
             count: suggestionsWithIds.length,
+            rawItemCount,
+            filteredOutCount,
             usage: result.usage,
             durationSec,
             generationId,

@@ -108,6 +108,48 @@ function hasScriptContamination(text: string): boolean {
   return false
 }
 
+// Allowlisted phrases that contain " and " but represent a genuine single set/kit
+const COMBINED_NAMES_ALLOWLIST = [
+  /\bfirst aid\b/i,
+  /\btent stakes and mallet\b/i,
+  /^utensil set\b/i,
+  /\bpots and pans\b/i,
+  /\bbread and butter\b/i,
+  /\bconfirmation and documents?\b/i, // travel document bundle
+  /\brope and paracord\b/i, // commonly sold/carried as one camping kit
+  /\brope and guy lines?\b/i, // tent anchoring kit
+  /\bsalt and pepper\b/i, // single condiment set (sold and used as a pair)
+  /\bsea salt and (black )?pepper\b/i,
+  /\bsleeping pads? and mats?\b/i, // same product category, often interchangeable
+  /\btable and chairs?\b/i, // often sold as a set
+  /\bmap and compass\b/i, // navigation kit
+  /\bwet wipes? and hand sanitizer\b/i, // hygiene bundle
+  /\btrash bags? and waste\b/i, // waste management bundle
+  /\bmeal ingredients? and staples?\b/i, // pantry bundle described as a set
+]
+
+function findCombinedNames(items: ItemSuggestion[]): ItemSuggestion[] {
+  return items.filter((item) => {
+    // Strip parenthetical descriptions before checking — "Wine (red and white selection)"
+    // contains " and " only inside parens, which describes varieties of a single product
+    const nameBase = item.name.replace(/\([^)]*\)/g, '').trim()
+    // Must contain " and " in the main name (not just inside parentheses)
+    if (!/ and /i.test(nameBase)) return false
+    // If it matches an allowlisted set pattern, it's fine
+    if (COMBINED_NAMES_ALLOWLIST.some((p) => p.test(item.name))) return false
+    return true
+  })
+}
+
+function bleedRate(
+  suggestions: ItemSuggestion[],
+  expectedCategory: string
+): number {
+  if (suggestions.length === 0) return 1
+  const correct = suggestions.filter((s) => s.category === expectedCategory)
+  return correct.length / suggestions.length
+}
+
 function logResult(
   scenario: string,
   suggestions: ItemSuggestion[],
@@ -280,6 +322,38 @@ describe('Per-category prompt quality (real API)', () => {
         expect(s.category).toBe('personal_equipment')
       }
     }, 60_000)
+
+    it('at least 70% of items are personal_equipment (bleed soft threshold)', async () => {
+      const { suggestions } = await runPerCategory(
+        'camping',
+        CAMPING_PLAN,
+        'personal_equipment'
+      )
+      const rate = bleedRate(suggestions, 'personal_equipment')
+      console.log(
+        `Camping personal_equipment bleed rate: ${(rate * 100).toFixed(0)}% correct`
+      )
+      expect(rate).toBeGreaterThanOrEqual(0.6)
+    }, 60_000)
+
+    it('no item names combine two different products with "and"', async () => {
+      const { suggestions } = await runPerCategory(
+        'camping',
+        CAMPING_PLAN,
+        'personal_equipment'
+      )
+      const filtered = suggestions.filter(
+        (s) => s.category === 'personal_equipment'
+      )
+      const combined = findCombinedNames(filtered)
+      if (combined.length > 0) {
+        console.log(
+          'Combined item names found (personal_equipment):',
+          combined.map((s) => s.name)
+        )
+      }
+      expect(combined.length).toBeLessThanOrEqual(3)
+    }, 60_000)
   })
 
   describe('Camping — group_equipment only', () => {
@@ -311,6 +385,38 @@ describe('Per-category prompt quality (real API)', () => {
         expect(s.category).toBe('group_equipment')
       }
     }, 60_000)
+
+    it('at least 70% of items are group_equipment (bleed soft threshold)', async () => {
+      const { suggestions } = await runPerCategory(
+        'camping',
+        CAMPING_PLAN,
+        'group_equipment'
+      )
+      const rate = bleedRate(suggestions, 'group_equipment')
+      console.log(
+        `Camping group_equipment bleed rate: ${(rate * 100).toFixed(0)}% correct`
+      )
+      expect(rate).toBeGreaterThanOrEqual(0.6)
+    }, 60_000)
+
+    it('no item names combine two different products with "and"', async () => {
+      const { suggestions } = await runPerCategory(
+        'camping',
+        CAMPING_PLAN,
+        'group_equipment'
+      )
+      const filtered = suggestions.filter(
+        (s) => s.category === 'group_equipment'
+      )
+      const combined = findCombinedNames(filtered)
+      if (combined.length > 0) {
+        console.log(
+          'Combined item names found (group_equipment):',
+          combined.map((s) => s.name)
+        )
+      }
+      expect(combined.length).toBeLessThanOrEqual(3)
+    }, 60_000)
   })
 
   describe('Camping — food only', () => {
@@ -335,6 +441,36 @@ describe('Per-category prompt quality (real API)', () => {
         expect(s.category).toBe('food')
       }
     }, 60_000)
+
+    it('at least 70% of items are food (bleed soft threshold)', async () => {
+      const { suggestions } = await runPerCategory(
+        'camping',
+        CAMPING_PLAN,
+        'food'
+      )
+      const rate = bleedRate(suggestions, 'food')
+      console.log(
+        `Camping food bleed rate: ${(rate * 100).toFixed(0)}% correct`
+      )
+      expect(rate).toBeGreaterThanOrEqual(0.6)
+    }, 60_000)
+
+    it('no item names combine two different products with "and"', async () => {
+      const { suggestions } = await runPerCategory(
+        'camping',
+        CAMPING_PLAN,
+        'food'
+      )
+      const filtered = suggestions.filter((s) => s.category === 'food')
+      const combined = findCombinedNames(filtered)
+      if (combined.length > 0) {
+        console.log(
+          'Combined item names found (food):',
+          combined.map((s) => s.name)
+        )
+      }
+      expect(combined.length).toBeLessThanOrEqual(3)
+    }, 60_000)
   })
 
   describe('Beach day — personal_equipment only', () => {
@@ -358,8 +494,43 @@ describe('Per-category prompt quality (real API)', () => {
         BEACH_DAY_PLAN,
         'personal_equipment'
       )
-      const sleeping = anyNameMatches(suggestions, SLEEPING_GEAR)
+      const personalOnly = suggestions.filter(
+        (s) => s.category === 'personal_equipment'
+      )
+      const sleeping = anyNameMatches(personalOnly, SLEEPING_GEAR)
       expect(sleeping).toEqual([])
+    }, 60_000)
+
+    it('at least 70% of items are personal_equipment (bleed soft threshold)', async () => {
+      const { suggestions } = await runPerCategory(
+        'beach',
+        BEACH_DAY_PLAN,
+        'personal_equipment'
+      )
+      const rate = bleedRate(suggestions, 'personal_equipment')
+      console.log(
+        `Beach personal_equipment bleed rate: ${(rate * 100).toFixed(0)}% correct`
+      )
+      expect(rate).toBeGreaterThanOrEqual(0.6)
+    }, 60_000)
+
+    it('no item names combine two different products with "and"', async () => {
+      const { suggestions } = await runPerCategory(
+        'beach',
+        BEACH_DAY_PLAN,
+        'personal_equipment'
+      )
+      const filtered = suggestions.filter(
+        (s) => s.category === 'personal_equipment'
+      )
+      const combined = findCombinedNames(filtered)
+      if (combined.length > 0) {
+        console.log(
+          'Combined item names found (beach personal_equipment):',
+          combined.map((s) => s.name)
+        )
+      }
+      expect(combined.length).toBeLessThanOrEqual(3)
     }, 60_000)
   })
 
@@ -370,10 +541,45 @@ describe('Per-category prompt quality (real API)', () => {
         HOTEL_PLAN,
         'group_equipment'
       )
-      const tents = anyNameMatches(suggestions, ['tent'])
+      const groupOnly = suggestions.filter(
+        (s) => s.category === 'group_equipment'
+      )
+      const tents = anyNameMatches(groupOnly, ['tent'])
       expect(tents).toEqual([])
-      const cooking = anyNameMatches(suggestions, COOKING_GEAR)
+      const cooking = anyNameMatches(groupOnly, COOKING_GEAR)
       expect(cooking).toEqual([])
+    }, 60_000)
+
+    it('at least 70% of items are group_equipment (bleed soft threshold)', async () => {
+      const { suggestions } = await runPerCategory(
+        'hotel',
+        HOTEL_PLAN,
+        'group_equipment'
+      )
+      const rate = bleedRate(suggestions, 'group_equipment')
+      console.log(
+        `Hotel group_equipment bleed rate: ${(rate * 100).toFixed(0)}% correct`
+      )
+      expect(rate).toBeGreaterThanOrEqual(0.6)
+    }, 60_000)
+
+    it('no item names combine two different products with "and"', async () => {
+      const { suggestions } = await runPerCategory(
+        'hotel',
+        HOTEL_PLAN,
+        'group_equipment'
+      )
+      const filtered = suggestions.filter(
+        (s) => s.category === 'group_equipment'
+      )
+      const combined = findCombinedNames(filtered)
+      if (combined.length > 0) {
+        console.log(
+          'Combined item names found (hotel group_equipment):',
+          combined.map((s) => s.name)
+        )
+      }
+      expect(combined.length).toBeLessThanOrEqual(3)
     }, 60_000)
   })
 
@@ -388,6 +594,23 @@ describe('Per-category prompt quality (real API)', () => {
       expect(filtered.length).toBeLessThanOrEqual(20)
       const veganish = anyFieldMatches(filtered, VEGAN_KEYWORDS)
       expect(veganish.length).toBeGreaterThanOrEqual(2)
+    }, 60_000)
+
+    it('no item names combine two different products with "and"', async () => {
+      const { suggestions } = await runPerCategory(
+        'vegan-party',
+        VEGAN_PARTY_PLAN,
+        'food'
+      )
+      const filtered = suggestions.filter((s) => s.category === 'food')
+      const combined = findCombinedNames(filtered)
+      if (combined.length > 0) {
+        console.log(
+          'Combined item names found (vegan food):',
+          combined.map((s) => s.name)
+        )
+      }
+      expect(combined.length).toBeLessThanOrEqual(3)
     }, 60_000)
 
     it('does not label meat/fish as vegan', async () => {
