@@ -94,6 +94,15 @@ export const CATEGORY_RULES = [
   '- "food": food and drinks for the group. Quantity = total amount for the whole group scaled by group size and trip duration. Decimals are fine for weight/volume (e.g. 0.5 kg, 1.5 l).',
 ].join('\n')
 
+export const ITEM_ATOMICITY_RULE = [
+  'Item atomicity — one row = one distinct product:',
+  '- Each "name" must describe a SINGLE product (or a single set sold as one unit, e.g. "First Aid Kit", "Cookware Set").',
+  '- NEVER combine two different products using "and" or commas in the name. Bad examples: "Hat and Gloves", "Cheese and Bread", "Coffee and Tea", "Salt and Pepper", "Onion and Garlic", "Fresh Fruit (Apples, Oranges)", "Canned Beans and Vegetables".',
+  '- If two products are usually used together, emit TWO rows — one for each. Example: instead of "Hat and Gloves" → one row named "Hat", one row named "Gloves". Instead of "Coffee and Tea" → one row "Coffee", one row "Tea".',
+  '- "A or B" phrasing for alternatives is acceptable (user picks one): e.g. "Flip-flops or Water Shoes", "Milk Powder or Long-life Milk".',
+  '- Genuine packaged sets are acceptable as one name: e.g. "First Aid Kit", "Utensil Set (Fork, Spoon, Knife)", "Tent Stakes and Mallet" (sold together as a kit).',
+].join('\n')
+
 export function getCategoriesInstruction(categories: {
   group_equipment?: string[]
   personal_equipment?: string[]
@@ -122,6 +131,26 @@ export function getCategoriesInstruction(categories: {
   lines.push(
     'Keep subcategory labels as close as possible to the ones listed above.'
   )
+
+  const activeCategories = categoryNames.filter(
+    ([, subs]) => subs !== undefined
+  )
+  if (activeCategories.length === 1) {
+    const [targetCat] = activeCategories[0]!
+    const bleedExample =
+      targetCat === 'group_equipment'
+        ? 'a sleeping bag, headlamp, or sunscreen (those are personal_equipment — each person needs their own copy)'
+        : targetCat === 'personal_equipment'
+          ? 'a tent, cooler, or camp stove (those are group_equipment — the whole group shares one)'
+          : 'a tent or sleeping bag (those are group_equipment or personal_equipment, not food)'
+    lines.push(
+      '',
+      `SINGLE-CATEGORY MODE — HARD RULE:`,
+      `- You MUST set category="${targetCat}" on EVERY single item in your output. No exceptions.`,
+      `- Do NOT include any items with any other category value. If you are tempted to suggest ${bleedExample}, skip it completely — it belongs to a separate call.`,
+      `- The server will DISCARD every item whose category does not equal "${targetCat}". Items you wrongly categorize waste your token budget and reduce the useful size of the response.`
+    )
+  }
 
   return lines.join('\n')
 }

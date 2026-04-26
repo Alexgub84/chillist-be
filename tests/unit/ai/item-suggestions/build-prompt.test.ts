@@ -294,5 +294,62 @@ describe('buildItemSuggestionsPrompt', () => {
       expect(prompt).toContain('personal_equipment: Sleeping Bag')
       expect(prompt).toContain('food: Snacks')
     })
+
+    it('single-category prompt contains SINGLE-CATEGORY MODE hard rule with target category name', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: { food: [] },
+      })
+      expect(prompt).toContain('SINGLE-CATEGORY MODE — HARD RULE')
+      expect(prompt).toContain('category="food"')
+    })
+
+    it('single-category hard rule names personal_equipment correctly', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: { personal_equipment: [] },
+      })
+      expect(prompt).toContain('SINGLE-CATEGORY MODE — HARD RULE')
+      expect(prompt).toContain('category="personal_equipment"')
+    })
+
+    it('multi-category prompt does NOT contain the single-category hard rule', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: { food: [], group_equipment: [] },
+      })
+      expect(prompt).not.toContain('SINGLE-CATEGORY MODE — HARD RULE')
+    })
+
+    it('prompt with no categories filter does NOT contain the single-category hard rule', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).not.toContain('SINGLE-CATEGORY MODE — HARD RULE')
+    })
+  })
+
+  describe('item atomicity rule', () => {
+    it('every prompt contains the item atomicity section', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain(
+        'Item atomicity — one row = one distinct product'
+      )
+    })
+
+    it('atomicity rule is present in single-category prompts', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: { food: [] },
+      })
+      expect(prompt).toContain(
+        'Item atomicity — one row = one distinct product'
+      )
+      expect(prompt).toContain('NEVER combine two different products')
+    })
+
+    it('atomicity rule gives concrete bad examples', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain('Hat and Gloves')
+      expect(prompt).toContain('Coffee and Tea')
+    })
   })
 })

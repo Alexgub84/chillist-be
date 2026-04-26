@@ -467,6 +467,39 @@ describe('AI Suggestions Route — per-category REST', () => {
         expect(body.suggestions).toHaveLength(1)
         expect(body.suggestions[0].category).toBe('food')
         expect(body.suggestions[0].name).toBe('Apple')
+
+        const db = await getTestDb()
+        const [row] = await db
+          .select()
+          .from(aiUsageLogs)
+          .where(eq(aiUsageLogs.planId, plan.planId))
+        const meta = row?.metadata as Record<string, unknown>
+        expect(meta.rawItemCount).toBe(2)
+        expect(meta.filteredOutCount).toBe(1)
+      } finally {
+        await cleanupRows(plan.planId)
+      }
+    })
+
+    it('records rawItemCount=1 and filteredOutCount=0 when all items match the requested category', async () => {
+      const plan = await seedPlanWithOwner({ ownerUserId: OWNER_USER_ID })
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: `/plans/${plan.planId}/ai-suggestions/food`,
+          headers: { authorization: `Bearer ${ownerToken}` },
+          payload: {},
+        })
+        expect(response.statusCode).toBe(200)
+
+        const db = await getTestDb()
+        const [row] = await db
+          .select()
+          .from(aiUsageLogs)
+          .where(eq(aiUsageLogs.planId, plan.planId))
+        const meta = row?.metadata as Record<string, unknown>
+        expect(meta.rawItemCount).toBe(1)
+        expect(meta.filteredOutCount).toBe(0)
       } finally {
         await cleanupRows(plan.planId)
       }
