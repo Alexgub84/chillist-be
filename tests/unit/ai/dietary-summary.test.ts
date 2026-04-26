@@ -12,16 +12,11 @@ describe('aggregateDietarySummary', () => {
         foodPreferences: null,
         dietaryMembers: {
           members: [
-            {
-              type: 'adult',
-              index: 0,
-              diet: 'vegan',
-              allergies: ['none'],
-            },
+            { type: 'adult', index: 0, diets: ['vegan'], allergies: ['none'] },
             {
               type: 'adult',
               index: 1,
-              diet: 'vegetarian',
+              diets: ['vegetarian'],
               allergies: ['none'],
             },
           ],
@@ -30,6 +25,46 @@ describe('aggregateDietarySummary', () => {
     ])
     expect(s).toContain('vegan')
     expect(s).toContain('vegetarian')
+  })
+
+  it('counts each tag when a member has multiple diets', () => {
+    const s = aggregateDietarySummary([
+      {
+        foodPreferences: null,
+        dietaryMembers: {
+          members: [
+            {
+              type: 'adult',
+              index: 0,
+              diets: ['pescatarian', 'gluten_free'],
+              allergies: ['none'],
+            },
+          ],
+        },
+      },
+    ])
+    expect(s).toContain('pescatarian')
+    expect(s).toContain('gluten free')
+  })
+
+  it('includes no_fish and no_pork in summary', () => {
+    const s = aggregateDietarySummary([
+      {
+        foodPreferences: null,
+        dietaryMembers: {
+          members: [
+            {
+              type: 'adult',
+              index: 0,
+              diets: ['no_fish', 'no_pork'],
+              allergies: ['none'],
+            },
+          ],
+        },
+      },
+    ])
+    expect(s).toContain('no fish')
+    expect(s).toContain('no pork')
   })
 
   it('parses JSON array in foodPreferences when dietaryMembers is null', () => {

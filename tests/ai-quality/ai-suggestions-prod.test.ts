@@ -220,6 +220,7 @@ describeIf('AI Suggestions per-category REST — real AI model (E2E)', () => {
         expect(r.statusCode).toBe(200)
         expect(r.generationId).toBe(generationId)
         expect(r.suggestionCount).toBeGreaterThan(0)
+        expect(r.suggestionCount).toBeLessThanOrEqual(20)
         for (const item of r.suggestions) {
           expect(item.category).toBe(r.category)
           expect(typeof item.name).toBe('string')
@@ -309,6 +310,38 @@ describeIf('AI Suggestions per-category REST — real AI model (E2E)', () => {
         )
       }
       console.log(`report written: logs/${reportName}\n`)
+    } finally {
+      await cleanupPlan(planId)
+    }
+  }, 120_000)
+
+  it('accepts 31 subcategory hints without 400 (regression for FE vocabulary size)', async () => {
+    const planId = await seedPlan()
+    try {
+      const subcategories = Array.from(
+        { length: 31 },
+        (_, i) => `Subcategory ${i}`
+      )
+      const response = await fetch(
+        `${address}/plans/${planId}/ai-suggestions/food`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ subcategories }),
+        }
+      )
+      expect(response.status).toBe(200)
+      const body = (await response.json()) as {
+        suggestions: Array<{ category: string }>
+      }
+      expect(body.suggestions.length).toBeGreaterThan(0)
+      expect(body.suggestions.length).toBeLessThanOrEqual(20)
+      for (const item of body.suggestions) {
+        expect(item.category).toBe('food')
+      }
     } finally {
       await cleanupPlan(planId)
     }

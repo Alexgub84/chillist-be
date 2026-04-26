@@ -7,6 +7,10 @@ import {
   DietaryMembers,
 } from '../db/schema.js'
 import { checkPlanAccess } from '../utils/plan-access.js'
+import {
+  assertDietaryMembersValid,
+  DietaryMembersValidationError,
+} from '../utils/dietary-members.js'
 import { addParticipantToPlan } from '../services/participant.service.js'
 import { config } from '../config.js'
 import {
@@ -103,6 +107,8 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
       const userId = request.user!.id
 
       try {
+        assertDietaryMembersValid(body.dietaryMembers ?? undefined)
+
         const [plan] = await fastify.db
           .select()
           .from(plans)
@@ -255,6 +261,12 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
           updatedAt: created.updatedAt,
         })
       } catch (error) {
+        if (error instanceof DietaryMembersValidationError) {
+          return reply
+            .status(400)
+            .send({ message: error.message, code: error.code })
+        }
+
         request.log.error(
           { err: error, planId, userId },
           'Failed to create join request'

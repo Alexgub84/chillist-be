@@ -167,6 +167,8 @@ export const DIET_TYPE_VALUES = [
   'dairy_free',
   'keto',
   'paleo',
+  'no_fish',
+  'no_pork',
 ] as const
 export type DietType = (typeof DIET_TYPE_VALUES)[number]
 
@@ -187,7 +189,7 @@ export type AllergyType = (typeof ALLERGY_TYPE_VALUES)[number]
 export type DietaryMember = {
   type: 'adult' | 'kid'
   index: number
-  diet: DietType
+  diets: DietType[]
   allergies: AllergyType[]
 }
 

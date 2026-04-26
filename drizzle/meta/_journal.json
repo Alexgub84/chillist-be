@@ -253,6 +253,13 @@
       "when": 1775500000000,
       "tag": "0035_users_phone_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1775600000000,
+      "tag": "0036_dietary_members_diet_to_diets",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,10 @@ import {
 } from '../db/schema.js'
 import * as schema from '../db/schema.js'
 import {
+  assertDietaryMembersValid,
+  DietaryMembersValidationError,
+} from '../utils/dietary-members.js'
+import {
   createPlanItems,
   processItemUpdate,
   type BulkItemError,
@@ -254,6 +258,8 @@ export async function inviteRoutes(fastify: FastifyInstance) {
       }
 
       try {
+        assertDietaryMembersValid(updates.dietaryMembers ?? undefined)
+
         const [participant] = await fastify.db
           .select({
             participantId: participants.participantId,
@@ -305,6 +311,12 @@ export async function inviteRoutes(fastify: FastifyInstance) {
           notes: updated.notes,
         }
       } catch (error) {
+        if (error instanceof DietaryMembersValidationError) {
+          return reply
+            .status(400)
+            .send({ message: error.message, code: error.code })
+        }
+
         request.log.error(
           { err: error, planId },
           'Failed to update guest preferences'

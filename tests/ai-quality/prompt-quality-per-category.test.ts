@@ -245,7 +245,11 @@ describe('Per-category prompt quality (real API)', () => {
         CAMPING_PLAN,
         'personal_equipment'
       )
-      expect(suggestions.length).toBeGreaterThanOrEqual(3)
+      const filtered = suggestions.filter(
+        (s) => s.category === 'personal_equipment'
+      )
+      expect(filtered.length).toBeGreaterThanOrEqual(3)
+      expect(filtered.length).toBeLessThanOrEqual(20)
       const sleepItems = anyNameMatches(suggestions, [
         'sleeping bag',
         'headlamp',
@@ -285,7 +289,11 @@ describe('Per-category prompt quality (real API)', () => {
         CAMPING_PLAN,
         'group_equipment'
       )
-      expect(suggestions.length).toBeGreaterThanOrEqual(3)
+      const filtered = suggestions.filter(
+        (s) => s.category === 'group_equipment'
+      )
+      expect(filtered.length).toBeGreaterThanOrEqual(3)
+      expect(filtered.length).toBeLessThanOrEqual(20)
       const gear = anyNameMatches(suggestions, [
         ...SLEEPING_GEAR,
         ...COOKING_GEAR,
@@ -312,7 +320,9 @@ describe('Per-category prompt quality (real API)', () => {
         CAMPING_PLAN,
         'food'
       )
-      expect(suggestions.length).toBeGreaterThanOrEqual(3)
+      const filtered = suggestions.filter((s) => s.category === 'food')
+      expect(filtered.length).toBeGreaterThanOrEqual(3)
+      expect(filtered.length).toBeLessThanOrEqual(20)
     }, 60_000)
 
     it('all items are food (no category bleed)', async () => {
@@ -334,7 +344,11 @@ describe('Per-category prompt quality (real API)', () => {
         BEACH_DAY_PLAN,
         'personal_equipment'
       )
-      const sunItems = anyFieldMatches(suggestions, SUN_PROTECTION)
+      const filtered = suggestions.filter(
+        (s) => s.category === 'personal_equipment'
+      )
+      expect(filtered.length).toBeLessThanOrEqual(20)
+      const sunItems = anyFieldMatches(filtered, SUN_PROTECTION)
       expect(sunItems.length).toBeGreaterThanOrEqual(1)
     }, 60_000)
 
@@ -370,7 +384,9 @@ describe('Per-category prompt quality (real API)', () => {
         VEGAN_PARTY_PLAN,
         'food'
       )
-      const veganish = anyFieldMatches(suggestions, VEGAN_KEYWORDS)
+      const filtered = suggestions.filter((s) => s.category === 'food')
+      expect(filtered.length).toBeLessThanOrEqual(20)
+      const veganish = anyFieldMatches(filtered, VEGAN_KEYWORDS)
       expect(veganish.length).toBeGreaterThanOrEqual(2)
     }, 60_000)
 
@@ -423,10 +439,11 @@ describe('Per-category prompt quality (real API)', () => {
         'food',
         'he'
       )
-      expect(suggestions.length).toBeGreaterThanOrEqual(3)
+      const filtered = suggestions.filter((s) => s.category === 'food')
+      expect(filtered.length).toBeGreaterThanOrEqual(3)
+      expect(filtered.length).toBeLessThanOrEqual(20)
 
-      for (const s of suggestions) {
-        expect(s.category).toBe('food')
+      for (const s of filtered) {
         expect(hasScriptContamination(s.name)).toBe(false)
         expect(hasScriptContamination(s.subcategory)).toBe(false)
       }

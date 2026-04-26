@@ -10,9 +10,9 @@ export const aiSuggestionsRequestSchema = {
     subcategories: {
       type: 'array',
       items: { type: 'string', maxLength: 120 },
-      maxItems: 20,
+      maxItems: 200,
       description:
-        'Subcategories to focus on within the requested category (e.g. ["breakfast","snacks"] for food).',
+        'Optional hint list of subcategory labels for this category (e.g. ["breakfast","snacks"] for food). The server uses these as prompt hints; up to 200 allowed.',
     },
   },
 } as const
