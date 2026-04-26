@@ -228,6 +228,23 @@ describe('AI Suggestions Route — per-category REST', () => {
       }
     })
 
+    it('returns 400 when subcategories array exceeds 200 items', async () => {
+      const plan = await seedPlanWithOwner({ ownerUserId: OWNER_USER_ID })
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: `/plans/${plan.planId}/ai-suggestions/food`,
+          headers: { authorization: `Bearer ${ownerToken}` },
+          payload: {
+            subcategories: Array.from({ length: 201 }, (_, i) => `s${i}`),
+          },
+        })
+        expect(response.statusCode).toBe(400)
+      } finally {
+        await cleanupRows(plan.planId)
+      }
+    })
+
     it('returns 400 when X-Generation-Id is not a UUID', async () => {
       const plan = await seedPlanWithOwner({ ownerUserId: OWNER_USER_ID })
       try {
@@ -352,6 +369,25 @@ describe('AI Suggestions Route — per-category REST', () => {
         expect(passedPlan.categories).toEqual({
           food: ['breakfast', 'snacks'],
         })
+      } finally {
+        await cleanupRows(plan.planId)
+      }
+    })
+
+    it('accepts 31 subcategory hints (regression for FE canonical food list) and returns 200', async () => {
+      const plan = await seedPlanWithOwner({ ownerUserId: OWNER_USER_ID })
+      try {
+        const subs = Array.from({ length: 31 }, (_, i) => `Food sub ${i}`)
+        const response = await app.inject({
+          method: 'POST',
+          url: `/plans/${plan.planId}/ai-suggestions/food`,
+          headers: { authorization: `Bearer ${ownerToken}` },
+          payload: { subcategories: subs },
+        })
+        expect(response.statusCode).toBe(200)
+        expect(generateSpy).toHaveBeenCalledTimes(1)
+        const [, passedPlan] = generateSpy.mock.calls[0]
+        expect(passedPlan.categories?.food).toHaveLength(31)
       } finally {
         await cleanupRows(plan.planId)
       }

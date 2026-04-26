@@ -132,7 +132,7 @@ export function getClosingInstruction(categoryCount: number = 3): string {
       ? { min: 15, max: 40 }
       : categoryCount === 2
         ? { min: 10, max: 25 }
-        : { min: 5, max: 15 }
+        : { min: 5, max: 20 }
 
   return [
     'Suggest practical items for this trip. Each item must use a valid category and unit from the lists above.',
