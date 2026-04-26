@@ -7081,7 +7081,7 @@
         "tags": [
           "auth"
         ],
-        "description": "Creates or updates the authenticated user's app preferences. When `phone` is set, the value is normalized to E.164 and written to `users.phone`, and all `participants.contact_phone` rows for this user are updated to match. Returns 401 if no valid JWT is provided.",
+        "description": "Creates or updates the authenticated user's app preferences. When `phone` is set, the value is normalized to E.164 and written to `users.phone`, and all `participants.contact_phone` rows for this user are updated to match. Returns 401 if no valid JWT is provided. Returns 409 if the phone is already linked to another account.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7113,6 +7113,17 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Phone number already linked to another account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Phone number already linked to another account",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
           }
         }
       }
@@ -7123,7 +7134,7 @@
         "tags": [
           "auth"
         ],
-        "description": "Updates all participant records linked to the authenticated user with identity fields from the JWT (name, email, phone, avatar). Call this after updating the user profile in Supabase so all plans reflect the latest data.",
+        "description": "Updates all participant records linked to the authenticated user with identity fields from the JWT (name, email, phone, avatar). Call this after updating the user profile in Supabase so all plans reflect the latest data. If the phone in Supabase metadata conflicts with another user, the phone write is skipped and phoneConflict: true is returned.",
         "responses": {
           "200": {
             "description": "Number of participant records synced",
@@ -7135,6 +7146,10 @@
                   "properties": {
                     "synced": {
                       "type": "integer"
+                    },
+                    "phoneConflict": {
+                      "type": "boolean",
+                      "description": "True if the phone in Supabase metadata is already linked to another account. The phone was not written to users.phone."
                     }
                   },
                   "required": [
@@ -8478,7 +8493,7 @@
         "tags": [
           "internal"
         ],
-        "description": "Identifies a registered user by their phone number. Returns the Supabase userId and display name. Returns 404 if the phone is not linked to any registered Chillist account.",
+        "description": "Identifies a registered user by their phone number. Returns the Supabase userId and display name. Returns 404 if the phone is not linked to any registered Chillist account. Returns 409 if multiple users share the same phone (data integrity issue).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8517,6 +8532,17 @@
               "application/json": {
                 "schema": {
                   "description": "No registered user linked to this phone number",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Multiple users share this phone number — data must be deduplicated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Multiple users share this phone number — data must be deduplicated",
                   "$ref": "#/components/schemas/def-0"
                 }
               }

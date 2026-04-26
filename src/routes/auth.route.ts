@@ -6,6 +6,11 @@ import { syncContactPhoneForAllUserParticipants } from '../services/phone-sync.j
 import { fetchSupabaseUserMetadata } from '../utils/supabase-admin.js'
 import { normalizePhone } from '../utils/phone.js'
 import { endSession } from '../services/session.service.js'
+import {
+  assertPhoneNotOwnedByOtherUser,
+  checkPhoneOwnership,
+  PhoneConflictError,
+} from '../services/phone-guard.js'
 
 const AUTH_RATE_LIMIT = {
   max: 10,
@@ -115,7 +120,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         tags: ['auth'],
         summary: 'Update user preferences',
         description:
-          "Creates or updates the authenticated user's app preferences. When `phone` is set, the value is normalized to E.164 and written to `users.phone`, and all `participants.contact_phone` rows for this user are updated to match. Returns 401 if no valid JWT is provided.",
+          "Creates or updates the authenticated user's app preferences. When `phone` is set, the value is normalized to E.164 and written to `users.phone`, and all `participants.contact_phone` rows for this user are updated to match. Returns 401 if no valid JWT is provided. Returns 409 if the phone is already linked to another account.",
         body: { $ref: 'UpdateProfileBody#' },
         response: {
           200: {
@@ -124,6 +129,10 @@ export async function authRoutes(fastify: FastifyInstance) {
           },
           401: {
             description: 'JWT token missing or invalid',
+            $ref: 'ErrorResponse#',
+          },
+          409: {
+            description: 'Phone number already linked to another account',
             $ref: 'ErrorResponse#',
           },
         },
@@ -158,6 +167,24 @@ export async function authRoutes(fastify: FastifyInstance) {
         body.phone === undefined || body.phone === null
           ? body.phone
           : normalizePhone(body.phone)
+
+      if (normalizedPhone) {
+        try {
+          await assertPhoneNotOwnedByOtherUser(
+            fastify.db,
+            request.user.id,
+            normalizedPhone
+          )
+        } catch (err) {
+          if (err instanceof PhoneConflictError) {
+            return reply.status(409).send({
+              message:
+                'This phone number is already linked to another account.',
+            })
+          }
+          throw err
+        }
+      }
 
       const [row] = await fastify.db
         .insert(users)
@@ -218,13 +245,18 @@ export async function authRoutes(fastify: FastifyInstance) {
         tags: ['auth'],
         summary: 'Sync JWT identity to all participant records',
         description:
-          'Updates all participant records linked to the authenticated user with identity fields from the JWT (name, email, phone, avatar). Call this after updating the user profile in Supabase so all plans reflect the latest data.',
+          'Updates all participant records linked to the authenticated user with identity fields from the JWT (name, email, phone, avatar). Call this after updating the user profile in Supabase so all plans reflect the latest data. If the phone in Supabase metadata conflicts with another user, the phone write is skipped and phoneConflict: true is returned.',
         response: {
           200: {
             description: 'Number of participant records synced',
             type: 'object',
             properties: {
               synced: { type: 'integer' },
+              phoneConflict: {
+                type: 'boolean',
+                description:
+                  'True if the phone in Supabase metadata is already linked to another account. The phone was not written to users.phone.',
+              },
             },
             required: ['synced'],
           },
@@ -250,23 +282,39 @@ export async function authRoutes(fastify: FastifyInstance) {
           request.log
         )
 
+        let phoneConflict = false
+
         if (supabaseMeta?.phone) {
           const normalizedPhone = normalizePhone(supabaseMeta.phone)
-          await fastify.db
-            .insert(users)
-            .values({ userId: request.user.id, phone: normalizedPhone })
-            .onConflictDoUpdate({
-              target: users.userId,
-              set: { phone: normalizedPhone, updatedAt: new Date() },
-            })
-          request.log.info(
-            { userId: request.user.id },
-            'users.phone upserted from Supabase metadata'
+          const ownership = await checkPhoneOwnership(
+            fastify.db,
+            request.user.id,
+            normalizedPhone
           )
+
+          if (ownership.conflict) {
+            request.log.warn(
+              { userId: request.user.id, ownerId: ownership.ownerId },
+              'Skipping users.phone write — phone already owned by another user'
+            )
+            phoneConflict = true
+          } else {
+            await fastify.db
+              .insert(users)
+              .values({ userId: request.user.id, phone: normalizedPhone })
+              .onConflictDoUpdate({
+                target: users.userId,
+                set: { phone: normalizedPhone, updatedAt: new Date() },
+              })
+            request.log.info(
+              { userId: request.user.id },
+              'users.phone upserted from Supabase metadata'
+            )
+          }
         }
 
         const user =
-          supabaseMeta?.phone && !request.user.phone
+          supabaseMeta?.phone && !request.user.phone && !phoneConflict
             ? { ...request.user, phone: supabaseMeta.phone }
             : request.user
 
@@ -276,7 +324,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           request.log
         )
 
-        return { synced }
+        return { synced, ...(phoneConflict && { phoneConflict: true }) }
       } catch (error) {
         request.log.error(
           { err: error, userId: request.user.id },

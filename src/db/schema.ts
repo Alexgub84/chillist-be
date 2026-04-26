@@ -39,6 +39,9 @@ export const users = pgTable(
   'users',
   {
     userId: uuid('user_id').primaryKey(),
+    // phone has a partial unique index: users_phone_unique_idx (WHERE phone IS NOT NULL)
+    // This ensures no two users can share the same non-null phone.
+    // See migration 0035_users_phone_unique.sql
     phone: varchar('phone', { length: 50 }),
     preferredLang: varchar('preferred_lang', { length: 10 }),
     foodPreferences: text('food_preferences'),

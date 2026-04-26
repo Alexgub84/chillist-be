@@ -191,7 +191,8 @@ export async function joinRequestRoutes(fastify: FastifyInstance) {
         await bootstrapUsersPhoneIfNull(
           fastify.db,
           userId,
-          normalizePhone(body.contactPhone)
+          normalizePhone(body.contactPhone),
+          request.log
         )
 
         request.log.info(
