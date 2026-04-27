@@ -47,6 +47,58 @@ function parseOptionalIsoDate(
   return { ok: true, value: d }
 }
 
+const RSVP_VALUES = ['pending', 'confirmed', 'not_sure'] as const
+
+function participantFieldsFromOwnerPreferences(raw: unknown): {
+  rsvpStatus?: (typeof RSVP_VALUES)[number]
+  adultsCount?: number
+  kidsCount?: number
+  foodPreferences?: string | null
+  allergies?: string | null
+} {
+  if (raw === null || raw === undefined) {
+    return {}
+  }
+  if (typeof raw !== 'object' || raw === null) {
+    return {}
+  }
+  const o = raw as Record<string, unknown>
+  const out: {
+    rsvpStatus?: (typeof RSVP_VALUES)[number]
+    adultsCount?: number
+    kidsCount?: number
+    foodPreferences?: string | null
+    allergies?: string | null
+  } = {}
+  if (
+    typeof o.rsvpStatus === 'string' &&
+    (RSVP_VALUES as readonly string[]).includes(o.rsvpStatus)
+  ) {
+    out.rsvpStatus = o.rsvpStatus as (typeof RSVP_VALUES)[number]
+  }
+  if (
+    typeof o.adultsCount === 'number' &&
+    Number.isInteger(o.adultsCount) &&
+    o.adultsCount >= 0
+  ) {
+    out.adultsCount = o.adultsCount
+  }
+  if (
+    typeof o.kidsCount === 'number' &&
+    Number.isInteger(o.kidsCount) &&
+    o.kidsCount >= 0
+  ) {
+    out.kidsCount = o.kidsCount
+  }
+  if (typeof o.foodPreferences === 'string') {
+    out.foodPreferences = o.foodPreferences
+  }
+  if (typeof o.allergies === 'string') {
+    out.allergies = o.allergies
+  }
+  return out
+}
+
 const COMPLETED_STATUSES: ItemStatus[] = ['packed', 'purchased']
 
 function participantDisplayName(p: {
@@ -269,7 +321,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
         tags: ['internal'],
         summary: 'Create a plan for the user identified by x-user-id',
         description:
-          'WhatsApp/chatbot: creates a plan owned by the user from `x-user-id`. Sends `x-service-key` + `x-user-id`. Owner name and phone are resolved server-side (users table, Supabase metadata, participant fallback). Body requires `title`; optional description, dates, tags, defaultLang, currency, estimated headcount, locationName.',
+          'WhatsApp/chatbot: creates a plan owned by the user from `x-user-id`. Sends `x-service-key` + `x-user-id`. Owner name and phone are resolved server-side (users table, Supabase metadata, participant fallback). Body requires `title`; optional description, dates, tags, defaultLang, currency, estimated headcount, locationName, and `ownerPreferences` (RSVP, group size, dietary text for the owner participant).',
         body: { $ref: 'InternalCreatePlanBody#' },
         response: {
           201: {
@@ -380,6 +432,10 @@ export async function internalRoutes(fastify: FastifyInstance) {
             .values(planValues as typeof plans.$inferInsert)
             .returning()
 
+          const ownerPreferenceFields = participantFieldsFromOwnerPreferences(
+            body.ownerPreferences
+          )
+
           const [ownerParticipant] = await tx
             .insert(participants)
             .values({
@@ -391,6 +447,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
               displayName: owner.displayName ?? null,
               role: 'owner',
               inviteToken: generateInviteToken(),
+              ...ownerPreferenceFields,
             })
             .returning()
 

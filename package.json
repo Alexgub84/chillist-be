@@ -1,6 +1,6 @@
 {
   "name": "chillist-be",
-  "version": "1.32.0",
+  "version": "1.33.1",
   "description": "Chillist Backend API - Trip planning with shared checklists",
   "type": "module",
   "engines": {
@@ -38,6 +38,17 @@
     "openapi:validate": "tsx scripts/generate-openapi.ts --validate",
     "db:check-migration-order": "tsx scripts/check-migration-order.ts",
     "railway:logs": "bash scripts/fetch-railway-logs.sh"
+  },
+  "_testScripts": {
+    "test": "Typecheck and lint in parallel, then default vitest (watch, uses vitest.config.ts; excludes tests/ai-quality).",
+    "test:run": "Same preflight as test, then one vitest run and exit (CI-style).",
+    "test:unit": "Default vitest config; only tests/unit.",
+    "test:integration": "Default vitest config; only tests/integration.",
+    "test:e2e": "Default vitest config; only tests/e2e.",
+    "test:ai-quality": "Separate config (longer timeout); all tests/ai-quality/**/*.test.ts. E2E in ai-suggestions-prod is skipped unless RUN_AI_E2E=true.",
+    "test:ai-prompt-quality": "Real model; direct generateItemSuggestions, prompt-quality.test.ts only.",
+    "test:ai-prompt-quality-per-category": "Real model; direct generateItemSuggestions, per-category file only.",
+    "test:ai-suggestions-e2e": "RUN_AI_E2E; HTTP E2E for suggestion routes (app + test DB), ai-suggestions-prod.test.ts only."
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.71",

@@ -12,6 +12,7 @@ import {
   CONTEXT_GUIDANCE,
   CATEGORY_RULES,
   ITEM_ATOMICITY_RULE,
+  ITEM_NAMING_RULE,
   SUBCATEGORY_GUIDANCE,
   VALID_ENUMS,
   getClosingInstruction,
@@ -100,12 +101,18 @@ export function buildItemSuggestionsPrompt(
     '',
     ITEM_ATOMICITY_RULE,
     '',
-    SUBCATEGORY_GUIDANCE,
-    '',
-    VALID_ENUMS,
-    '',
-    getClosingInstruction(categoryCount)
+    ITEM_NAMING_RULE
   )
+
+  // Only inject the canonical subcategory list when the caller did NOT send
+  // one. When categories + subcategories are provided (FE path), the
+  // getCategoriesInstruction block above already carries the full list —
+  // adding a second list would create contradictory guidance.
+  if (!plan.categories) {
+    sections.push('', SUBCATEGORY_GUIDANCE)
+  }
+
+  sections.push('', VALID_ENUMS, '', getClosingInstruction(categoryCount))
 
   return sections.join('\n')
 }
