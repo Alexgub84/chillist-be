@@ -61,12 +61,17 @@ async function createPlanWithLinkedParticipant(
     .set({ ownerParticipantId: ownerParticipant.participantId })
     .where(eq(plans.planId, plan.planId))
 
+  const name = opts.participantName ?? 'Old'
+  const lastName = opts.participantLastName ?? 'Name'
+  const displayName = [name, lastName].filter(Boolean).join(' ').trim() || null
+
   const [linkedParticipant] = await db
     .insert(participants)
     .values({
       planId: plan.planId,
-      name: opts.participantName ?? 'Old',
-      lastName: opts.participantLastName ?? 'Name',
+      name,
+      lastName,
+      displayName,
       contactPhone: opts.participantPhone ?? '+15550000001',
       contactEmail: opts.participantEmail ?? null,
       role: 'participant',

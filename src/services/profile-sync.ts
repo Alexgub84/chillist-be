@@ -9,6 +9,11 @@ export function buildIdentityFields(user: JwtUser): Record<string, unknown> {
 
   if (user.firstName) fields.name = user.firstName
   if (user.lastName) fields.lastName = user.lastName
+  if (user.firstName || user.lastName) {
+    const displayName =
+      [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || null
+    fields.displayName = displayName
+  }
   if (user.email) fields.contactEmail = user.email
   if (user.phone) fields.contactPhone = user.phone
   if (user.avatarUrl) fields.avatarUrl = user.avatarUrl
@@ -23,6 +28,7 @@ function needsSync(
   const fieldMap: Record<string, keyof Participant> = {
     name: 'name',
     lastName: 'lastName',
+    displayName: 'displayName',
     contactEmail: 'contactEmail',
     contactPhone: 'contactPhone',
     avatarUrl: 'avatarUrl',
