@@ -113,6 +113,40 @@ export const internalCreatePlanResponseSchema = {
   },
 } as const
 
+export const internalOwnerPreferencesSchema = {
+  $id: 'InternalOwnerPreferences',
+  type: 'object',
+  description:
+    'Per-plan preferences for the owner participant when creating a plan via the chatbot. Send only fields to set; omitted keys keep database defaults.',
+  additionalProperties: false,
+  properties: {
+    rsvpStatus: {
+      type: 'string',
+      enum: ['pending', 'confirmed', 'not_sure'],
+      description:
+        'Owner RSVP on this plan. Use `confirmed` when the creator is attending.',
+    },
+    adultsCount: {
+      type: 'integer',
+      minimum: 0,
+      description: 'Number of adults in the owner’s group for this plan.',
+    },
+    kidsCount: {
+      type: 'integer',
+      minimum: 0,
+      description: 'Number of children in the owner’s group for this plan.',
+    },
+    foodPreferences: {
+      type: 'string',
+      description: 'Free-text dietary preferences for the owner on this plan.',
+    },
+    allergies: {
+      type: 'string',
+      description: 'Free-text allergy notes for the owner on this plan.',
+    },
+  },
+} as const
+
 export const internalCreatePlanBodySchema = {
   $id: 'InternalCreatePlanBody',
   type: 'object',
@@ -166,6 +200,11 @@ export const internalCreatePlanBodySchema = {
       maxLength: 500,
       description:
         'Free-text location name; stored as a minimal Location object with a generated `locationId`.',
+    },
+    ownerPreferences: {
+      description:
+        'Optional. When present and not null, each provided field is written to the owner `participants` row. Omit or send null to use defaults (e.g. RSVP pending, counts and dietary fields null).',
+      anyOf: [{ $ref: 'InternalOwnerPreferences#' }, { type: 'null' }],
     },
   },
 } as const

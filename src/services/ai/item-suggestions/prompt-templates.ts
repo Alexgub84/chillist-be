@@ -1,5 +1,6 @@
 import {
-  EQUIPMENT_SUBCATEGORIES,
+  GROUP_EQUIPMENT_SUBCATEGORIES,
+  PERSONAL_EQUIPMENT_SUBCATEGORIES,
   FOOD_SUBCATEGORIES,
 } from '../subcategories.js'
 import { ITEM_CATEGORY_VALUES, UNIT_VALUES } from '../../../db/schema.js'
@@ -49,15 +50,17 @@ export function getDietaryInstruction(dietarySummary: string): string {
 
 export const SUBCATEGORY_GUIDANCE = [
   'Subcategory guidance:',
-  'Aim for 4-8 distinct subcategory labels total. Too many subcategories fragments the list — group related items under broader labels.',
-  'Use the subcategory examples below as inspiration — they are not an exhaustive list.',
-  'Create subcategories that best fit this plan and its activities (e.g. fishing trip → "Fishing Gear", ski trip → "Ski Equipment", beach day → "Water Sports").',
-  'You are encouraged to invent new subcategory labels when the plan needs a grouping that does not match any example.',
+  'Reuse one of the canonical labels below verbatim (identical wording and casing in English; translated form for Hebrew/Spanish) instead of inventing a close synonym. These are the exact labels the app displays to the user.',
+  'Do NOT invent near-duplicates. Use "Sleeping Gear" (not "Sleep System"), "Packs and Hydration" (not "Hydration"), "Transport and Carry" (not "Carrying and Storage"), "Serving and Tableware" (not "Cooking and Dining"), "Fresh Fruit" / "Fresh Vegetables" (not "Fresh Produce"), "Meat and Poultry" (not "Meat and Proteins"), "Sauces, Condiments, and Spreads" (not "Condiments and Spices"), "Grains and Pasta" (not "Grains and Bread"), "Alcohol and Mixers" (not "Beverages (alcoholic)"), "Spices and Seasonings" (not "Condiments and Spices").',
+  'Only invent a new label when no canonical label fits (e.g. fishing trip → "Fishing Gear", ski trip → "Ski Equipment", beach day → "Water Sports").',
   '',
-  'Example equipment subcategories:',
-  ...EQUIPMENT_SUBCATEGORIES.map((s) => `- ${s}`),
+  'Canonical group_equipment subcategories:',
+  ...GROUP_EQUIPMENT_SUBCATEGORIES.map((s) => `- ${s}`),
   '',
-  'Example food subcategories:',
+  'Canonical personal_equipment subcategories:',
+  ...PERSONAL_EQUIPMENT_SUBCATEGORIES.map((s) => `- ${s}`),
+  '',
+  'Canonical food subcategories:',
   ...FOOD_SUBCATEGORIES.map((s) => `- ${s}`),
 ].join('\n')
 
@@ -97,10 +100,21 @@ export const CATEGORY_RULES = [
 export const ITEM_ATOMICITY_RULE = [
   'Item atomicity — one row = one distinct product:',
   '- Each "name" must describe a SINGLE product (or a single set sold as one unit, e.g. "First Aid Kit", "Cookware Set").',
-  '- NEVER combine two different products using "and" or commas in the name. Bad examples: "Hat and Gloves", "Cheese and Bread", "Coffee and Tea", "Salt and Pepper", "Onion and Garlic", "Fresh Fruit (Apples, Oranges)", "Canned Beans and Vegetables".',
-  '- If two products are usually used together, emit TWO rows — one for each. Example: instead of "Hat and Gloves" → one row named "Hat", one row named "Gloves". Instead of "Coffee and Tea" → one row "Coffee", one row "Tea".',
-  '- "A or B" phrasing for alternatives is acceptable (user picks one): e.g. "Flip-flops or Water Shoes", "Milk Powder or Long-life Milk".',
-  '- Genuine packaged sets are acceptable as one name: e.g. "First Aid Kit", "Utensil Set (Fork, Spoon, Knife)", "Tent Stakes and Mallet" (sold together as a kit).',
+  '- NEVER combine two different products using "and" or commas in the name. Bad examples: "Hat and Gloves", "Cheese and Bread", "Coffee and Tea", "Salt and Pepper", "Onion and Garlic", "Nuts and Dried Fruit Mix", "Notepad and Pen", "Camp Plate and Utensil Set", "Warm Hat and Gloves".',
+  '- If two products are usually used together, emit TWO rows — one for each. Example: instead of "Hat and Gloves" → one row named "Hat", one row named "Gloves". Instead of "Coffee and Tea" → one row "Coffee", one row "Tea". Instead of "Notepad and Pen" → one row "Notepad", one row "Pen".',
+  '- NEVER use "A or B" phrasing inside the name. Pick the single most likely product for this trip and emit that name. If two alternatives both genuinely matter, emit TWO separate rows. Bad examples: "Sleeping Pad or Foam Mat", "Headlamp or Flashlight", "Water Bottle or Hydration Reservoir", "Milk or Powdered Milk", "Hat or Cap", "Chicken Breasts or Ground Meat", "Long Pants or Leggings", "Cereal or Muesli".',
+  '- Genuine packaged sets are acceptable as one name when they ship in one box and the user buys them together: e.g. "First Aid Kit", "Cookware Set", "Tent Stakes and Mallet".',
+].join('\n')
+
+export const ITEM_NAMING_RULE = [
+  'Item naming style — write each name like a product label on a store shelf:',
+  '- Use Title Case for every significant word, in every language. Good: "Sleeping Bag", "First Aid Kit", "Red Wine", "Vegan Protein Pasta". Bad: "vegan protein pasta", "red wine", "fresh spinach".',
+  '- Keep names short, ideally 1-3 words (up to 4 only for genuine compound products like "First Aid Kit" or "Aloe Vera Gel"). Long descriptions and scenario context belong in the "reason" field, NEVER in the name.',
+  '- Use the simplest common name shoppers and packers already recognize. Prefer the generic canonical product name over a qualified variant unless the variant truly identifies a different product. Good: "Tent" (not "Camping Tent"), "Umbrella" (not "Compact Umbrella"), "Sunscreen" (not "Sunscreen (High SPF)"), "Sleeping Bag" (not "Sleeping Bag (Summer/3-Season)").',
+  '- NEVER put parenthetical descriptors in the name — no seasons, ratings, SPF levels, brands, materials, ingredient lists, or variety options inside parentheses. Put that nuance in the "reason" field. Bad: "Sleeping Bag (Summer/3-Season)", "Sunscreen (High SPF)", "Warm Socks (Wool or Synthetic Blend)", "Personal Toiletries Bag (Toothbrush, Toothpaste, Soap)", "Vegetables (Onions, Carrots, Potatoes)", "Cereal (Oatmeal or Granola)", "Bread (crusty baguette or focaccia)", "Vegan dessert (chocolate mousse or sorbet)". Good: "Sleeping Bag", "Sunscreen", "Wool Socks", "Toothbrush" + "Toothpaste" + "Soap" as separate rows, "Onions" + "Carrots" + "Potatoes" as separate rows.',
+  '- Avoid vague qualifier words like "Warm", "Thin", "Light" in the name when you mean a specific product. Name the product directly. Good: "Fleece Jacket" or "Rain Jacket" (not "Warm Jacket"), "Base Layer" (not "Thin Base Layer Top"), "Beanie" (not "Warm Hat"). If you genuinely mean the generic item, drop the adjective: "Hat", "Jacket".',
+  '- Never prefix trip-specific adjectives onto a canonical item name. Bad: "Camping Tent", "Hiking Water Bottle", "Beach Sunscreen". Good: "Tent", "Water Bottle", "Sunscreen".',
+  '- Do not list contents or a bag in the name. Bad: "Personal Toiletries Bag", "First Aid Bag" (as a container of unspecified stuff). Good: split into concrete products ("Toothbrush", "Toothpaste", "Soap") or use the genuine kit name ("First Aid Kit").',
 ].join('\n')
 
 export function getCategoriesInstruction(categories: {
@@ -168,6 +182,8 @@ export function getClosingInstruction(categoryCount: number = 3): string {
     `Return between ${min} and ${max} items depending on trip complexity.`,
     'Every item must have a short, specific "reason" explaining why it is needed for THIS particular trip.',
     'Reminder: personal_equipment quantity is ALWAYS 1 (the system handles per-person duplication).',
+    'Naming reminder: Title Case, short canonical name, no parenthetical descriptors, no "and"/"or" alternatives in the name. Trip context goes in "reason", not in the name.',
+    'Subcategory reminder: reuse an example label verbatim whenever it fits; only invent a new label for genuinely new groupings.',
     'CRITICAL: Every item MUST include ALL fields: name, category, subcategory, quantity, unit, reason. Never omit any field.',
   ].join('\n')
 }

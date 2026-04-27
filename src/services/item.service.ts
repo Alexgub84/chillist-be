@@ -1,4 +1,4 @@
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray, sql } from 'drizzle-orm'
 import type { Database } from '../db/index.js'
 import { items, participants, aiSuggestions } from '../db/schema.js'
 import type { Item, Assignment, Unit } from '../db/schema.js'
@@ -147,7 +147,7 @@ export async function persistAssignments(
     .set({
       assignmentStatusList,
       isAllParticipants,
-      updatedAt: new Date(),
+      updatedAt: sql`now()`,
     })
     .where(eq(items.itemId, itemId))
     .returning()
@@ -176,7 +176,7 @@ export async function removeParticipantFromAssignments(
     const filtered = list.filter((a) => a.participantId !== participantId)
     await db
       .update(items)
-      .set({ assignmentStatusList: filtered, updatedAt: new Date() })
+      .set({ assignmentStatusList: filtered, updatedAt: sql`now()` })
       .where(eq(items.itemId, item.itemId))
     updatedCount++
   }
@@ -204,7 +204,7 @@ export async function addParticipantToAllFlaggedItems(
     const updated = [...list, { participantId, status: 'pending' as const }]
     await db
       .update(items)
-      .set({ assignmentStatusList: updated, updatedAt: new Date() })
+      .set({ assignmentStatusList: updated, updatedAt: sql`now()` })
       .where(eq(items.itemId, item.itemId))
     updatedCount++
   }
@@ -433,7 +433,7 @@ export async function processItemUpdate(
   if (Object.keys(fieldUpdates).length > 0) {
     const [updated] = await db
       .update(items)
-      .set({ ...fieldUpdates, updatedAt: new Date() })
+      .set({ ...fieldUpdates, updatedAt: sql`now()` })
       .where(eq(items.itemId, itemId))
       .returning()
     finalItem = updated
