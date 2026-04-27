@@ -19,6 +19,7 @@ describe('buildIdentityFields', () => {
     expect(fields).toEqual({
       name: 'Bob',
       lastName: 'Smith',
+      displayName: 'Bob Smith',
       contactEmail: 'bob@example.com',
       contactPhone: '+15550000001',
       avatarUrl: 'https://example.com/avatar.jpg',
@@ -61,7 +62,24 @@ describe('buildIdentityFields', () => {
 
     expect(fields).toEqual({
       name: 'Alice',
+      displayName: 'Alice',
       contactEmail: 'test@example.com',
+    })
+  })
+
+  it('sets displayName from first and last only', () => {
+    const user: JwtUser = {
+      id: 'abc',
+      email: '',
+      role: 'authenticated',
+      firstName: 'Jane',
+      lastName: 'Doe',
+    }
+
+    expect(buildIdentityFields(user)).toEqual({
+      name: 'Jane',
+      lastName: 'Doe',
+      displayName: 'Jane Doe',
     })
   })
 })

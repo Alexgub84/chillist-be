@@ -46,6 +46,7 @@ async function createPlanWithParticipant(
     lastName: string
     contactPhone: string
     contactEmail?: string | null
+    displayName?: string | null
   }
 ) {
   const [plan] = await db
@@ -66,6 +67,7 @@ async function createPlanWithParticipant(
       lastName: identity.lastName,
       contactPhone: identity.contactPhone,
       contactEmail: identity.contactEmail ?? null,
+      displayName: identity.displayName ?? null,
       role: 'participant',
       userId,
       inviteToken: generateToken(),
@@ -149,11 +151,13 @@ describe('POST /auth/sync-profile', () => {
 
     expect(row1.name).toBe('NewFirst')
     expect(row1.lastName).toBe('NewLast')
+    expect(row1.displayName).toBe('NewFirst NewLast')
     expect(row1.contactEmail).toBe('new@example.com')
     expect(row1.contactPhone).toBe('+15559990000')
 
     expect(row2.name).toBe('NewFirst')
     expect(row2.lastName).toBe('NewLast')
+    expect(row2.displayName).toBe('NewFirst NewLast')
   })
 
   it('returns synced: 0 when no participant data differs', async () => {
@@ -162,6 +166,7 @@ describe('POST /auth/sync-profile', () => {
       lastName: 'Smith',
       contactPhone: '+15550000001',
       contactEmail: 'bob@example.com',
+      displayName: 'Bob Smith',
     })
 
     const jwt = await signTestJwt({
@@ -273,6 +278,7 @@ describe('POST /auth/sync-profile', () => {
       .where(eq(participants.participantId, participant.participantId))
 
     expect(row.contactPhone).toBe('+972501234567')
+    expect(row.displayName).toBe('Alex G')
   })
 
   it('upserts users.phone when Supabase metadata contains phone', async () => {
@@ -367,7 +373,44 @@ describe('POST /auth/sync-profile', () => {
     for (const row of rows) {
       expect(row.name).toBe('Alice')
       expect(row.lastName).toBe('Johnson')
+      expect(row.displayName).toBe('Alice Johnson')
       expect(row.contactEmail).toBe('alice@example.com')
     }
+  })
+
+  it('overwrites stale participant displayName when name metadata changes', async () => {
+    const { participant } = await createPlanWithParticipant(db, USER_A_ID, {
+      name: 'OldFirst',
+      lastName: 'OldLast',
+      contactPhone: '+15550000001',
+      displayName: 'Old Display',
+    })
+
+    const jwt = await signTestJwt({
+      sub: USER_A_ID,
+      email: 'new@example.com',
+      user_metadata: {
+        first_name: 'NewFirst',
+        last_name: 'NewLast',
+      },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/sync-profile',
+      headers: { authorization: `Bearer ${jwt}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().synced).toBe(1)
+
+    const [row] = await db
+      .select()
+      .from(participants)
+      .where(eq(participants.participantId, participant.participantId))
+
+    expect(row.name).toBe('NewFirst')
+    expect(row.lastName).toBe('NewLast')
+    expect(row.displayName).toBe('NewFirst NewLast')
   })
 })
