@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { buildItemSuggestionsPrompt } from '../../../../src/services/ai/item-suggestions/build-prompt.js'
 import {
-  EQUIPMENT_SUBCATEGORIES,
+  GROUP_EQUIPMENT_SUBCATEGORIES,
+  PERSONAL_EQUIPMENT_SUBCATEGORIES,
   FOOD_SUBCATEGORIES,
 } from '../../../../src/services/ai/subcategories.js'
 import { ITEM_CATEGORY_VALUES, UNIT_VALUES } from '../../../../src/db/schema.js'
@@ -52,18 +53,35 @@ describe('buildItemSuggestionsPrompt', () => {
     expect(prompt).toContain('3 people total')
   })
 
-  it('includes every equipment subcategory label', () => {
+  it('includes every group_equipment subcategory label when no categories filter', () => {
     const prompt = buildItemSuggestionsPrompt(basePlan)
-    for (const sub of EQUIPMENT_SUBCATEGORIES) {
+    for (const sub of GROUP_EQUIPMENT_SUBCATEGORIES) {
       expect(prompt).toContain(sub)
     }
   })
 
-  it('includes every food subcategory label', () => {
+  it('includes every personal_equipment subcategory label when no categories filter', () => {
+    const prompt = buildItemSuggestionsPrompt(basePlan)
+    for (const sub of PERSONAL_EQUIPMENT_SUBCATEGORIES) {
+      expect(prompt).toContain(sub)
+    }
+  })
+
+  it('includes every food subcategory label when no categories filter', () => {
     const prompt = buildItemSuggestionsPrompt(basePlan)
     for (const sub of FOOD_SUBCATEGORIES) {
       expect(prompt).toContain(sub)
     }
+  })
+
+  it('omits SUBCATEGORY_GUIDANCE when categories filter is provided', () => {
+    const prompt = buildItemSuggestionsPrompt({
+      ...basePlan,
+      categories: { food: ['Grains and Pasta', 'Fresh Vegetables'] },
+    })
+    expect(prompt).not.toContain('Canonical group_equipment subcategories')
+    expect(prompt).not.toContain('Canonical personal_equipment subcategories')
+    expect(prompt).not.toContain('Canonical food subcategories')
   })
 
   it('mentions valid categories from DB schema', () => {
@@ -207,11 +225,6 @@ describe('buildItemSuggestionsPrompt', () => {
     expect(prompt).toContain('Do not invent fake Hebrew words')
   })
 
-  it('includes subcategory count guidance (4-8)', () => {
-    const prompt = buildItemSuggestionsPrompt(basePlan)
-    expect(prompt).toContain('4-8 distinct subcategory')
-  })
-
   it('includes dietary section when dietarySummary is set', () => {
     const prompt = buildItemSuggestionsPrompt(
       {
@@ -350,6 +363,103 @@ describe('buildItemSuggestionsPrompt', () => {
       const prompt = buildItemSuggestionsPrompt(basePlan)
       expect(prompt).toContain('Hat and Gloves')
       expect(prompt).toContain('Coffee and Tea')
+    })
+
+    it('bans "A or B" phrasing inside item names', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain('NEVER use "A or B" phrasing inside the name')
+      expect(prompt).toContain('Sleeping Pad or Foam Mat')
+      expect(prompt).toContain('Headlamp or Flashlight')
+    })
+
+    it('does not advertise "A or B" as acceptable', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).not.toContain(
+        '"A or B" phrasing for alternatives is acceptable'
+      )
+    })
+  })
+
+  describe('item naming rule', () => {
+    it('every prompt contains the item naming style section', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain('Item naming style')
+      expect(prompt).toContain('product label on a store shelf')
+    })
+
+    it('naming rule is present in single-category prompts', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: { food: [] },
+      })
+      expect(prompt).toContain('Item naming style')
+    })
+
+    it('requires Title Case for every significant word', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain('Title Case for every significant word')
+    })
+
+    it('forbids parenthetical descriptors with concrete bad examples', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain(
+        'NEVER put parenthetical descriptors in the name'
+      )
+      expect(prompt).toContain('Sleeping Bag (Summer/3-Season)')
+      expect(prompt).toContain('Sunscreen (High SPF)')
+    })
+
+    it('steers away from trip-specific prefixes on canonical names', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain('Camping Tent')
+      expect(prompt).toContain('trip-specific adjectives')
+    })
+
+    it('closing instruction includes a naming reminder', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain('Naming reminder')
+      expect(prompt).toContain('Subcategory reminder')
+    })
+  })
+
+  describe('subcategory guidance', () => {
+    it('is present when no categories filter is provided', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain(
+        'Reuse one of the canonical labels below verbatim'
+      )
+      expect(prompt).toContain('Canonical group_equipment subcategories')
+      expect(prompt).toContain('Canonical personal_equipment subcategories')
+      expect(prompt).toContain('Canonical food subcategories')
+    })
+
+    it('lists anti-patterns for non-canonical labels when injected', () => {
+      const prompt = buildItemSuggestionsPrompt(basePlan)
+      expect(prompt).toContain('Fresh Produce')
+      expect(prompt).toContain('Meat and Proteins')
+      expect(prompt).toContain('Carrying and Storage')
+    })
+
+    it('is absent when categories filter is provided (FE path)', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: { food: [] },
+      })
+      expect(prompt).not.toContain('Canonical group_equipment subcategories')
+      expect(prompt).not.toContain('Canonical personal_equipment subcategories')
+      expect(prompt).not.toContain('Canonical food subcategories')
+    })
+
+    it('is absent even in multi-category prompts when categories filter is provided', () => {
+      const prompt = buildItemSuggestionsPrompt({
+        ...basePlan,
+        categories: {
+          group_equipment: [],
+          personal_equipment: [],
+          food: [],
+        },
+      })
+      expect(prompt).not.toContain('Canonical group_equipment subcategories')
     })
   })
 })
