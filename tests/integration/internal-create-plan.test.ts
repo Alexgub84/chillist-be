@@ -187,6 +187,11 @@ describe('Internal Create Plan — POST /api/internal/plans', () => {
       expect(participantRow!.role).toBe('owner')
       expect(participantRow!.userId).toBe(USER_ID)
       expect(participantRow!.contactPhone).toBe('+15551230002')
+      expect(participantRow!.rsvpStatus).toBe('pending')
+      expect(participantRow!.adultsCount).toBeNull()
+      expect(participantRow!.kidsCount).toBeNull()
+      expect(participantRow!.foodPreferences).toBeNull()
+      expect(participantRow!.allergies).toBeNull()
     })
 
     it('persists optional fields including YYYY-MM-DD dates and locationName', async () => {
@@ -228,6 +233,183 @@ describe('Internal Create Plan — POST /api/internal/plans', () => {
       expect(planRow!.location?.locationId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       )
+    })
+  })
+
+  describe('ownerPreferences', () => {
+    beforeEach(async () => {
+      await db.insert(users).values({
+        userId: USER_ID,
+        phone: '+15551230003',
+      })
+    })
+
+    it('applies all ownerPreferences fields to the owner participant', async () => {
+      const response = await createPlan(
+        {
+          title: 'Bot Trip',
+          ownerPreferences: {
+            rsvpStatus: 'confirmed',
+            adultsCount: 2,
+            kidsCount: 1,
+            foodPreferences: 'vegetarian',
+            allergies: 'nuts',
+          },
+        },
+        { 'x-user-id': USER_ID }
+      )
+
+      expect(response.statusCode).toBe(201)
+      const json = response.json() as { plan: { id: string } }
+      const [participantRow] = await db
+        .select()
+        .from(participants)
+        .where(eq(participants.planId, json.plan.id))
+
+      expect(participantRow!.rsvpStatus).toBe('confirmed')
+      expect(participantRow!.adultsCount).toBe(2)
+      expect(participantRow!.kidsCount).toBe(1)
+      expect(participantRow!.foodPreferences).toBe('vegetarian')
+      expect(participantRow!.allergies).toBe('nuts')
+    })
+
+    it('applies only rsvpStatus when other keys are omitted', async () => {
+      const response = await createPlan(
+        {
+          title: 'Partial Prefs',
+          ownerPreferences: { rsvpStatus: 'not_sure' },
+        },
+        { 'x-user-id': USER_ID }
+      )
+
+      expect(response.statusCode).toBe(201)
+      const json = response.json() as { plan: { id: string } }
+      const [participantRow] = await db
+        .select()
+        .from(participants)
+        .where(eq(participants.planId, json.plan.id))
+
+      expect(participantRow!.rsvpStatus).toBe('not_sure')
+      expect(participantRow!.adultsCount).toBeNull()
+      expect(participantRow!.kidsCount).toBeNull()
+    })
+
+    it('applies dietary strings without RSVP or counts', async () => {
+      const response = await createPlan(
+        {
+          title: 'Diet only',
+          ownerPreferences: {
+            foodPreferences: 'vegan',
+            allergies: 'shellfish',
+          },
+        },
+        { 'x-user-id': USER_ID }
+      )
+
+      expect(response.statusCode).toBe(201)
+      const json = response.json() as { plan: { id: string } }
+      const [participantRow] = await db
+        .select()
+        .from(participants)
+        .where(eq(participants.planId, json.plan.id))
+
+      expect(participantRow!.rsvpStatus).toBe('pending')
+      expect(participantRow!.foodPreferences).toBe('vegan')
+      expect(participantRow!.allergies).toBe('shellfish')
+    })
+
+    it('treats ownerPreferences null like omitted', async () => {
+      const response = await createPlan(
+        { title: 'Null prefs', ownerPreferences: null },
+        { 'x-user-id': USER_ID }
+      )
+
+      expect(response.statusCode).toBe(201)
+      const json = response.json() as { plan: { id: string } }
+      const [participantRow] = await db
+        .select()
+        .from(participants)
+        .where(eq(participants.planId, json.plan.id))
+
+      expect(participantRow!.rsvpStatus).toBe('pending')
+      expect(participantRow!.adultsCount).toBeNull()
+    })
+
+    it('accepts empty ownerPreferences object', async () => {
+      const response = await createPlan(
+        { title: 'Empty prefs', ownerPreferences: {} },
+        { 'x-user-id': USER_ID }
+      )
+
+      expect(response.statusCode).toBe(201)
+      const json = response.json() as { plan: { id: string } }
+      const [participantRow] = await db
+        .select()
+        .from(participants)
+        .where(eq(participants.planId, json.plan.id))
+
+      expect(participantRow!.rsvpStatus).toBe('pending')
+    })
+
+    it('returns 400 when rsvpStatus is invalid', async () => {
+      const response = await createPlan(
+        {
+          title: 'Bad rsvp',
+          ownerPreferences: { rsvpStatus: 'maybe' },
+        },
+        { 'x-user-id': USER_ID }
+      )
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 400 when adultsCount is negative', async () => {
+      const response = await createPlan(
+        {
+          title: 'Bad adults',
+          ownerPreferences: { adultsCount: -1 },
+        },
+        { 'x-user-id': USER_ID }
+      )
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 400 when kidsCount is not an integer', async () => {
+      const response = await createPlan(
+        {
+          title: 'Bad kids',
+          ownerPreferences: { kidsCount: 1.5 },
+        },
+        { 'x-user-id': USER_ID }
+      )
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('allows zero counts with confirmed RSVP', async () => {
+      const response = await createPlan(
+        {
+          title: 'Zeros',
+          ownerPreferences: {
+            rsvpStatus: 'confirmed',
+            adultsCount: 0,
+            kidsCount: 0,
+          },
+        },
+        { 'x-user-id': USER_ID }
+      )
+
+      expect(response.statusCode).toBe(201)
+      const json = response.json() as { plan: { id: string } }
+      const [participantRow] = await db
+        .select()
+        .from(participants)
+        .where(eq(participants.planId, json.plan.id))
+
+      expect(participantRow!.rsvpStatus).toBe('confirmed')
+      expect(participantRow!.adultsCount).toBe(0)
+      expect(participantRow!.kidsCount).toBe(0)
     })
   })
 })
