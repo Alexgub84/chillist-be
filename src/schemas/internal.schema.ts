@@ -402,6 +402,61 @@ export const internalUpdateExpenseBodySchema = {
   additionalProperties: false,
 } as const
 
+export const groupIdParamSchema = {
+  $id: 'GroupIdParam',
+  type: 'object',
+  required: ['groupId'],
+  properties: {
+    groupId: { type: 'string', minLength: 1 },
+  },
+} as const
+
+export const internalLinkWhatsappGroupBodySchema = {
+  $id: 'InternalLinkWhatsappGroupBody',
+  type: 'object',
+  required: ['groupId'],
+  additionalProperties: false,
+  properties: {
+    groupId: {
+      anyOf: [
+        { type: 'string', minLength: 1, maxLength: 128 },
+        { type: 'null' },
+      ],
+      description: 'WhatsApp group chat ID to link. Pass null to unlink.',
+    },
+  },
+} as const
+
+export const internalLinkWhatsappGroupResponseSchema = {
+  $id: 'InternalLinkWhatsappGroupResponse',
+  type: 'object',
+  required: ['planId', 'groupId'],
+  additionalProperties: false,
+  properties: {
+    planId: { type: 'string', format: 'uuid' },
+    groupId: { type: 'string', nullable: true },
+  },
+} as const
+
+export const internalGroupPlanResponseSchema = {
+  $id: 'InternalGroupPlanResponse',
+  type: 'object',
+  required: ['plan'],
+  additionalProperties: false,
+  properties: {
+    plan: {
+      type: 'object',
+      required: ['id', 'name'],
+      additionalProperties: false,
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        name: { type: 'string' },
+        date: { type: 'string', format: 'date-time', nullable: true },
+      },
+    },
+  },
+} as const
+
 export const internalCreateExpenseBodySchema = {
   $id: 'InternalCreateExpenseBody',
   type: 'object',
