@@ -8,7 +8,7 @@ const API_URL = 'http://localhost:3334'
 const COMPOSE_FILE = 'docker-compose.test.yml'
 const PROJECT_NAME = 'chillist-test'
 const E2E_DATABASE_URL =
-  'postgresql://postgres:postgres@localhost:5433/chillist_test'
+  'postgresql://postgres:postgres@localhost:5434/chillist_test'
 
 async function waitForHealthy(
   url: string,

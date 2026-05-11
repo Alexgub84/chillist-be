@@ -214,6 +214,7 @@ export const plans = pgTable('plans', {
   estimatedAdults: integer('estimated_adults'),
   estimatedKids: integer('estimated_kids'),
   aiGenerationCount: integer('ai_generation_count').default(0).notNull(),
+  whatsappGroupId: varchar('whatsapp_group_id', { length: 128 }).unique(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

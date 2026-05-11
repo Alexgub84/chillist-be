@@ -2,6 +2,10 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { FastifyInstance } from 'fastify'
 import { eq, inArray, count, and, asc, or, isNull, gte, sql } from 'drizzle-orm'
 import {
+  setPlanWhatsappGroupId,
+  getPlanByWhatsappGroupId,
+} from '../services/plan-whatsapp-group.service.js'
+import {
   resolveUserByPhone,
   resolveOwnerForInternalPlan,
   isAmbiguousPhoneLookup,
@@ -1089,6 +1093,139 @@ export async function internalRoutes(fastify: FastifyInstance) {
       } catch (err) {
         request.log.error({ err }, 'Internal plan tags failed')
         return reply.code(500).send({ message: 'Failed to retrieve plan tags' })
+      }
+    }
+  )
+
+  fastify.patch(
+    '/plans/:planId/whatsapp-group',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Link or unlink a WhatsApp group to a plan',
+        description:
+          'Sets or clears the WhatsApp group ID on a plan. Caller must be the plan owner. Pass groupId: null to unlink. Returns 409 if the group is already linked to a different plan.',
+        params: { $ref: 'PlanIdParam#' },
+        body: { $ref: 'InternalLinkWhatsappGroupBody#' },
+        response: {
+          200: {
+            description: 'Group linked or unlinked successfully',
+            $ref: 'InternalLinkWhatsappGroupResponse#',
+          },
+          401: {
+            description: 'Missing x-user-id or invalid x-service-key',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description: 'Caller is not the owner of this plan',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'Plan not found',
+            $ref: 'ErrorResponse#',
+          },
+          409: {
+            description:
+              'This WhatsApp group is already linked to another plan',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+
+      const { planId } = request.params as { planId: string }
+      const { groupId } = request.body as { groupId: string | null }
+
+      const result = await setPlanWhatsappGroupId(
+        fastify.db,
+        planId,
+        userId,
+        groupId
+      )
+
+      if (result === 'not_found') {
+        request.log.warn({ planId }, 'Link WhatsApp group — plan not found')
+        return reply.code(404).send({ message: 'Plan not found' })
+      }
+      if (result === 'forbidden') {
+        request.log.warn(
+          { planId, userId },
+          'Link WhatsApp group — caller is not owner'
+        )
+        return reply
+          .code(403)
+          .send({ message: 'Only the plan owner can link a WhatsApp group' })
+      }
+      if (result === 'conflict') {
+        request.log.warn(
+          { planId, groupId },
+          'Link WhatsApp group — group already linked to another plan'
+        )
+        return reply.code(409).send({
+          message: 'This WhatsApp group is already linked to another plan',
+        })
+      }
+
+      request.log.info(
+        { planId, groupId: result.groupId },
+        'WhatsApp group linked'
+      )
+      return result
+    }
+  )
+
+  fastify.get(
+    '/whatsapp-group/:groupId/plan',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Look up the plan linked to a WhatsApp group',
+        description:
+          'Returns a minimal plan summary for the given WhatsApp group ID. Used by the bot when a message arrives in a group to identify which plan it belongs to. Requires x-service-key only — no x-user-id needed.',
+        params: { $ref: 'GroupIdParam#' },
+        response: {
+          200: {
+            description: 'Plan linked to this WhatsApp group',
+            $ref: 'InternalGroupPlanResponse#',
+          },
+          401: {
+            description: 'Missing or invalid x-service-key',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description: 'No plan linked to this WhatsApp group ID',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { groupId } = request.params as { groupId: string }
+
+      const plan = await getPlanByWhatsappGroupId(fastify.db, groupId)
+
+      if (!plan) {
+        request.log.info({ groupId }, 'WhatsApp group lookup — no plan found')
+        return reply
+          .code(404)
+          .send({ message: 'No plan linked to this WhatsApp group' })
+      }
+
+      request.log.info(
+        { groupId, planId: plan.planId },
+        'WhatsApp group lookup — plan found'
+      )
+      return {
+        plan: {
+          id: plan.planId,
+          name: plan.title,
+          date: plan.startDate ? plan.startDate.toISOString() : null,
+        },
       }
     }
   )
