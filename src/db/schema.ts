@@ -478,6 +478,14 @@ export const aiSuggestions = pgTable(
 
 // Read-only mirror: rows are owned by the chatbot service; no FK constraints or relations.
 
+export interface ToolCallDetail {
+  toolName: string
+  args: Record<string, unknown>
+  result: Record<string, unknown> | null
+  error?: string
+  durationMs: number
+}
+
 // Mirror of chillist-whatsapp-bot/migrations/004_chatbot_ai_usage.sql — read-only from BE
 export const chatbotAiUsage = pgTable('chatbot_ai_usage', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -492,6 +500,7 @@ export const chatbotAiUsage = pgTable('chatbot_ai_usage', {
   stepCount: integer('step_count').notNull().default(1),
   toolCalls: jsonb('tool_calls').$type<string[]>().notNull().default([]),
   toolCallCount: integer('tool_call_count').notNull().default(0),
+  toolCallDetails: jsonb('tool_call_details').$type<ToolCallDetail[]>(),
   inputTokens: integer('input_tokens'),
   outputTokens: integer('output_tokens'),
   totalTokens: integer('total_tokens'),

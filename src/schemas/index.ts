@@ -129,6 +129,7 @@ import {
   aiUsageResponseSchema,
 } from './ai-usage.schema.js'
 import {
+  toolCallDetailSchema,
   chatbotAiUsageLogSchema,
   chatbotAiUsageLogListSchema,
   chatbotAiUsageModelSummarySchema,
@@ -244,6 +245,7 @@ const schemas = [
   aiUsageSummarySchema,
   aiUsageQuerySchema,
   aiUsageResponseSchema,
+  toolCallDetailSchema,
   chatbotAiUsageLogSchema,
   chatbotAiUsageLogListSchema,
   chatbotAiUsageModelSummarySchema,
