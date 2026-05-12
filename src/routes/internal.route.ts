@@ -1129,6 +1129,10 @@ export async function internalRoutes(fastify: FastifyInstance) {
               'This WhatsApp group is already linked to another plan',
             $ref: 'ErrorResponse#',
           },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
@@ -1141,41 +1145,51 @@ export async function internalRoutes(fastify: FastifyInstance) {
       const { planId } = request.params as { planId: string }
       const { groupId } = request.body as { groupId: string | null }
 
-      const result = await setPlanWhatsappGroupId(
-        fastify.db,
-        planId,
-        userId,
-        groupId
-      )
+      try {
+        const result = await setPlanWhatsappGroupId(
+          fastify.db,
+          planId,
+          userId,
+          groupId
+        )
 
-      if (result === 'not_found') {
-        request.log.warn({ planId }, 'Link WhatsApp group — plan not found')
-        return reply.code(404).send({ message: 'Plan not found' })
-      }
-      if (result === 'forbidden') {
-        request.log.warn(
-          { planId, userId },
-          'Link WhatsApp group — caller is not owner'
+        if (result === 'not_found') {
+          request.log.warn({ planId }, 'Link WhatsApp group — plan not found')
+          return reply.code(404).send({ message: 'Plan not found' })
+        }
+        if (result === 'forbidden') {
+          request.log.warn(
+            { planId, userId },
+            'Link WhatsApp group — caller is not owner'
+          )
+          return reply
+            .code(403)
+            .send({ message: 'Only the plan owner can link a WhatsApp group' })
+        }
+        if (result === 'conflict') {
+          request.log.warn(
+            { planId, groupId },
+            'Link WhatsApp group — group already linked to another plan'
+          )
+          return reply.code(409).send({
+            message: 'This WhatsApp group is already linked to another plan',
+          })
+        }
+
+        request.log.info(
+          { planId, groupId: result.groupId },
+          'WhatsApp group linked'
+        )
+        return result
+      } catch (error) {
+        request.log.error(
+          { err: error, planId, userId },
+          'Link WhatsApp group — unexpected error'
         )
         return reply
-          .code(403)
-          .send({ message: 'Only the plan owner can link a WhatsApp group' })
+          .code(500)
+          .send({ message: 'Failed to link WhatsApp group' })
       }
-      if (result === 'conflict') {
-        request.log.warn(
-          { planId, groupId },
-          'Link WhatsApp group — group already linked to another plan'
-        )
-        return reply.code(409).send({
-          message: 'This WhatsApp group is already linked to another plan',
-        })
-      }
-
-      request.log.info(
-        { planId, groupId: result.groupId },
-        'WhatsApp group linked'
-      )
-      return result
     }
   )
 
@@ -1201,31 +1215,45 @@ export async function internalRoutes(fastify: FastifyInstance) {
             description: 'No plan linked to this WhatsApp group ID',
             $ref: 'ErrorResponse#',
           },
+          500: {
+            description: 'Internal server error',
+            $ref: 'ErrorResponse#',
+          },
         },
       },
     },
     async (request, reply) => {
       const { groupId } = request.params as { groupId: string }
 
-      const plan = await getPlanByWhatsappGroupId(fastify.db, groupId)
+      try {
+        const plan = await getPlanByWhatsappGroupId(fastify.db, groupId)
 
-      if (!plan) {
-        request.log.info({ groupId }, 'WhatsApp group lookup — no plan found')
+        if (!plan) {
+          request.log.info({ groupId }, 'WhatsApp group lookup — no plan found')
+          return reply
+            .code(404)
+            .send({ message: 'No plan linked to this WhatsApp group' })
+        }
+
+        request.log.info(
+          { groupId, planId: plan.planId },
+          'WhatsApp group lookup — plan found'
+        )
+        return {
+          plan: {
+            id: plan.planId,
+            name: plan.title,
+            date: plan.startDate ? plan.startDate.toISOString() : null,
+          },
+        }
+      } catch (error) {
+        request.log.error(
+          { err: error, groupId },
+          'WhatsApp group lookup — unexpected error'
+        )
         return reply
-          .code(404)
-          .send({ message: 'No plan linked to this WhatsApp group' })
-      }
-
-      request.log.info(
-        { groupId, planId: plan.planId },
-        'WhatsApp group lookup — plan found'
-      )
-      return {
-        plan: {
-          id: plan.planId,
-          name: plan.title,
-          date: plan.startDate ? plan.startDate.toISOString() : null,
-        },
+          .code(500)
+          .send({ message: 'Failed to look up WhatsApp group plan' })
       }
     }
   )

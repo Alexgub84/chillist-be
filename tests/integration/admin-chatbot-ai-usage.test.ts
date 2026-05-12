@@ -16,7 +16,10 @@ import {
 } from '../helpers/auth.js'
 import { chatbotAiUsage } from '../../src/db/schema.js'
 import { sql } from 'drizzle-orm'
-import type { NewChatbotAiUsageLog } from '../../src/db/schema.js'
+import type {
+  NewChatbotAiUsageLog,
+  ToolCallDetail,
+} from '../../src/db/schema.js'
 
 const ADMIN_USER_ID = 'dddddddd-1111-2222-3333-444444444444'
 const REGULAR_USER_ID = 'eeeeeeee-1111-2222-3333-444444444444'
@@ -246,6 +249,52 @@ describe('GET /admin/chatbot-ai-usage integration', () => {
     )
     expect(lookup?.count).toBe(1)
     expect(details?.count).toBe(1)
+  })
+
+  it('returns tool_call_details in log rows when populated', async () => {
+    const db = await getTestDb()
+    const toolCallDetails: ToolCallDetail[] = [
+      {
+        toolName: 'getPlanDetails',
+        args: { planName: 'Beach Trip' },
+        result: { ok: true, planId: 'abc-123' },
+        durationMs: 42,
+      },
+    ]
+    await db.insert(chatbotAiUsage).values([
+      makeLog({
+        toolCalls: ['getPlanDetails'],
+        toolCallCount: 1,
+        toolCallDetails,
+      }),
+    ])
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/admin/chatbot-ai-usage',
+      headers: { authorization: `Bearer ${adminToken}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    expect(body.logs).toHaveLength(1)
+    expect(body.logs[0].toolCallDetails).toEqual(toolCallDetails)
+  })
+
+  it('returns null for tool_call_details on rows that predate the column', async () => {
+    const db = await getTestDb()
+    await db.insert(chatbotAiUsage).values([makeLog()])
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/admin/chatbot-ai-usage',
+      headers: { authorization: `Bearer ${adminToken}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    expect(body.logs).toHaveLength(1)
+    expect(body.logs[0].toolCallDetails).toBeNull()
   })
 
   it('respects limit and offset pagination', async () => {

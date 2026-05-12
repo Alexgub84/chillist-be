@@ -1,3 +1,31 @@
+export const toolCallDetailSchema = {
+  $id: 'ToolCallDetail',
+  type: 'object',
+  properties: {
+    toolName: { type: 'string', description: 'Name of the tool invoked' },
+    args: {
+      type: 'object',
+      additionalProperties: true,
+      description: 'Arguments passed to the tool',
+    },
+    result: {
+      type: 'object',
+      nullable: true,
+      additionalProperties: true,
+      description: 'Result returned by the tool; null on error',
+    },
+    error: {
+      type: 'string',
+      description: 'Error message when the tool call failed',
+    },
+    durationMs: {
+      type: 'integer',
+      description: 'Wall-clock duration of the tool call in milliseconds',
+    },
+  },
+  required: ['toolName', 'args', 'durationMs'],
+} as const
+
 export const chatbotAiUsageLogSchema = {
   $id: 'ChatbotAiUsageLog',
   type: 'object',
@@ -60,6 +88,12 @@ export const chatbotAiUsageLogSchema = {
     toolCallCount: {
       type: 'integer',
       description: 'Total tool calls in this turn',
+    },
+    toolCallDetails: {
+      type: 'array',
+      nullable: true,
+      items: { $ref: 'ToolCallDetail#' },
+      description: 'Per-tool details: args, result/error, and duration',
     },
     inputTokens: {
       type: 'integer',
