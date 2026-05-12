@@ -485,3 +485,47 @@ export const internalCreateExpenseBodySchema = {
   },
   additionalProperties: false,
 } as const
+
+export const internalAssignItemBodySchema = {
+  $id: 'InternalAssignItemBody',
+  type: 'object',
+  description:
+    'Request body for PATCH /api/internal/items/:itemId/assign. Owner can assign any item to any participant. Participant can only self-assign an unassigned item.',
+  required: ['participantId'],
+  additionalProperties: false,
+  properties: {
+    participantId: {
+      type: 'string',
+      format: 'uuid',
+      description: 'UUID of the participant to assign the item to.',
+    },
+  },
+} as const
+
+export const internalAssignItemItemSchema = {
+  $id: 'InternalAssignItemItem',
+  type: 'object',
+  description: 'Item snippet after assignment.',
+  required: ['id', 'name', 'assignedParticipantId'],
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string', format: 'uuid', description: 'Item UUID.' },
+    name: { type: 'string', description: 'Item name.' },
+    assignedParticipantId: {
+      type: 'string',
+      format: 'uuid',
+      description: 'UUID of the participant the item was assigned to.',
+    },
+  },
+} as const
+
+export const internalAssignItemResponseSchema = {
+  $id: 'InternalAssignItemResponse',
+  type: 'object',
+  description: 'Response for PATCH /api/internal/items/:itemId/assign.',
+  required: ['item'],
+  additionalProperties: false,
+  properties: {
+    item: { $ref: 'InternalAssignItemItem#' },
+  },
+} as const

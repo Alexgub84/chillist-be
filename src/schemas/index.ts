@@ -108,6 +108,9 @@ import {
   internalLinkWhatsappGroupBodySchema,
   internalLinkWhatsappGroupResponseSchema,
   internalGroupPlanResponseSchema,
+  internalAssignItemBodySchema,
+  internalAssignItemItemSchema,
+  internalAssignItemResponseSchema,
 } from './internal.schema.js'
 import {
   dietaryMemberSchema,
@@ -232,6 +235,9 @@ const schemas = [
   internalLinkWhatsappGroupBodySchema,
   internalLinkWhatsappGroupResponseSchema,
   internalGroupPlanResponseSchema,
+  internalAssignItemBodySchema,
+  internalAssignItemItemSchema,
+  internalAssignItemResponseSchema,
   dietaryMemberSchema,
   dietaryMembersBodySchema,
   aiSuggestionsRequestSchema,
