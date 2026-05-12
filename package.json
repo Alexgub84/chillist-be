@@ -37,6 +37,7 @@
     "openapi:generate": "tsx scripts/generate-openapi.ts",
     "openapi:validate": "tsx scripts/generate-openapi.ts --validate",
     "db:check-migration-order": "tsx scripts/check-migration-order.ts",
+    "db:new-migration": "tsx scripts/new-migration.ts",
     "railway:logs": "bash scripts/fetch-railway-logs.sh"
   },
   "_testScripts": {
