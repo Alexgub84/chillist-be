@@ -1057,6 +1057,172 @@ export async function internalRoutes(fastify: FastifyInstance) {
     }
   )
 
+  fastify.patch(
+    '/items/:itemId/assign',
+    {
+      schema: {
+        tags: ['internal'],
+        summary: 'Assign item to a participant',
+        description:
+          "Owner can assign (or reassign) any item to any participant on the plan. Participant can only self-assign an item that has no existing assignments. Headers: x-service-key (service auth) and x-user-id (caller's Supabase UUID). The assigned entry is upserted into assignmentStatusList with status pending.",
+        params: { $ref: 'ItemIdParam#' },
+        body: { $ref: 'InternalAssignItemBody#' },
+        response: {
+          200: {
+            description:
+              'Item assigned. Returns item id, name, and assignedParticipantId.',
+            $ref: 'InternalAssignItemResponse#',
+          },
+          400: {
+            description: 'Validation error.',
+            $ref: 'ErrorResponse#',
+          },
+          401: {
+            description:
+              'Missing `x-user-id` or `x-service-key` missing/invalid.',
+            $ref: 'ErrorResponse#',
+          },
+          403: {
+            description:
+              'Caller not a participant; viewer role; participant tried to assign to another; participant tried to assign an already-assigned item.',
+            $ref: 'ErrorResponse#',
+          },
+          404: {
+            description:
+              'Item not found or target participant not on this plan.',
+            $ref: 'ErrorResponse#',
+          },
+          500: {
+            description: 'Unexpected error while assigning item.',
+            $ref: 'ErrorResponse#',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.internalUserId
+      if (!userId) {
+        return reply.code(401).send({ message: 'x-user-id header required' })
+      }
+
+      const { itemId } = request.params as { itemId: string }
+      const { participantId: targetParticipantId } = request.body as {
+        participantId: string
+      }
+
+      const [itemRow] = await fastify.db
+        .select({
+          itemId: items.itemId,
+          planId: items.planId,
+          name: items.name,
+          assignmentStatusList: items.assignmentStatusList,
+          isAllParticipants: items.isAllParticipants,
+        })
+        .from(items)
+        .where(eq(items.itemId, itemId))
+        .limit(1)
+
+      if (!itemRow) {
+        request.log.warn({ itemId }, 'Internal item assign — item not found')
+        return reply.code(404).send({ message: 'Item not found' })
+      }
+
+      const [callerParticipant] = await fastify.db
+        .select({
+          participantId: participants.participantId,
+          role: participants.role,
+        })
+        .from(participants)
+        .where(
+          and(
+            eq(participants.planId, itemRow.planId),
+            eq(participants.userId, userId)
+          )
+        )
+        .limit(1)
+
+      if (!callerParticipant) {
+        request.log.warn(
+          { itemId, planId: itemRow.planId, userId },
+          'Internal item assign — user not a participant'
+        )
+        return reply
+          .code(403)
+          .send({ message: 'User is not a participant on this plan' })
+      }
+
+      if (callerParticipant.role === 'viewer') {
+        request.log.warn(
+          { itemId, userId },
+          'Internal item assign — viewer cannot assign'
+        )
+        return reply.code(403).send({ message: 'Viewers cannot assign items' })
+      }
+
+      const [targetParticipant] = await fastify.db
+        .select({ participantId: participants.participantId })
+        .from(participants)
+        .where(
+          and(
+            eq(participants.planId, itemRow.planId),
+            eq(participants.participantId, targetParticipantId)
+          )
+        )
+        .limit(1)
+
+      if (!targetParticipant) {
+        request.log.warn(
+          { itemId, planId: itemRow.planId, targetParticipantId },
+          'Internal item assign — target participant not on plan'
+        )
+        return reply
+          .code(404)
+          .send({ message: 'Target participant not found on this plan' })
+      }
+
+      if (callerParticipant.role !== 'owner') {
+        if (targetParticipantId !== callerParticipant.participantId) {
+          request.log.warn(
+            { itemId, userId, targetParticipantId },
+            'Internal item assign — participant tried to assign to another'
+          )
+          return reply.code(403).send({
+            message: 'Participants can only assign items to themselves',
+          })
+        }
+
+        const isAssigned =
+          itemRow.assignmentStatusList.length > 0 || itemRow.isAllParticipants
+        if (isAssigned) {
+          request.log.warn(
+            { itemId, userId },
+            'Internal item assign — item already assigned'
+          )
+          return reply.code(403).send({ message: 'Item is already assigned' })
+        }
+      }
+
+      const nextList = [
+        { participantId: targetParticipantId, status: 'pending' as const },
+      ]
+
+      await persistAssignments(fastify.db, itemId, nextList, false)
+
+      request.log.info(
+        { itemId, userId, targetParticipantId },
+        'Internal item assigned'
+      )
+
+      return {
+        item: {
+          id: itemRow.itemId,
+          name: itemRow.name,
+          assignedParticipantId: targetParticipantId,
+        },
+      }
+    }
+  )
+
   fastify.get(
     '/plan-tags',
     {

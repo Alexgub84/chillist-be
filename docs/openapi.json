@@ -939,7 +939,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-91"
+                "$ref": "#/components/schemas/def-94"
               },
               {
                 "type": "null"
@@ -1036,7 +1036,7 @@
             "type": "string"
           },
           "dietaryMembers": {
-            "$ref": "#/components/schemas/def-91",
+            "$ref": "#/components/schemas/def-94",
             "description": "Per-person dietary preferences. Optional on create — send to populate structured dietary data for the participant group."
           },
           "notes": {
@@ -1115,7 +1115,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-91"
+                "$ref": "#/components/schemas/def-94"
               },
               {
                 "type": "null"
@@ -1382,7 +1382,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-91"
+                "$ref": "#/components/schemas/def-94"
               },
               {
                 "type": "null"
@@ -1540,7 +1540,7 @@
             "type": "string"
           },
           "dietaryMembers": {
-            "$ref": "#/components/schemas/def-91",
+            "$ref": "#/components/schemas/def-94",
             "description": "Per-person dietary preferences for this join request. Optional — carried through to the participant record on approval."
           },
           "notes": {
@@ -1640,7 +1640,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-91"
+                "$ref": "#/components/schemas/def-94"
               },
               {
                 "type": "null"
@@ -1807,7 +1807,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-91"
+                "$ref": "#/components/schemas/def-94"
               },
               {
                 "type": "null"
@@ -1875,7 +1875,7 @@
           "dietaryMembers": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/def-91"
+                "$ref": "#/components/schemas/def-94"
               },
               {
                 "type": "null"
@@ -3339,6 +3339,63 @@
       },
       "def-90": {
         "type": "object",
+        "description": "Request body for PATCH /api/internal/items/:itemId/assign. Owner can assign any item to any participant. Participant can only self-assign an unassigned item.",
+        "required": [
+          "participantId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of the participant to assign the item to."
+          }
+        },
+        "title": "InternalAssignItemBody"
+      },
+      "def-91": {
+        "type": "object",
+        "description": "Item snippet after assignment.",
+        "required": [
+          "id",
+          "name",
+          "assignedParticipantId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Item UUID."
+          },
+          "name": {
+            "type": "string",
+            "description": "Item name."
+          },
+          "assignedParticipantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of the participant the item was assigned to."
+          }
+        },
+        "title": "InternalAssignItemItem"
+      },
+      "def-92": {
+        "type": "object",
+        "description": "Response for PATCH /api/internal/items/:itemId/assign.",
+        "required": [
+          "item"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/def-91"
+          }
+        },
+        "title": "InternalAssignItemResponse"
+      },
+      "def-93": {
+        "type": "object",
         "properties": {
           "type": {
             "type": "string",
@@ -3404,13 +3461,13 @@
         ],
         "title": "DietaryMember"
       },
-      "def-91": {
+      "def-94": {
         "type": "object",
         "properties": {
           "members": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-90"
+              "$ref": "#/components/schemas/def-93"
             },
             "description": "Per-person dietary data for each adult/kid in this participant group. Each entry has a type (adult|kid), a 0-based index within that type, a single diet preference, and an allergies list."
           }
@@ -3420,7 +3477,7 @@
         ],
         "title": "DietaryMembersBody"
       },
-      "def-92": {
+      "def-95": {
         "type": [
           "object",
           "null"
@@ -3440,7 +3497,7 @@
         },
         "title": "AiSuggestionsRequest"
       },
-      "def-93": {
+      "def-96": {
         "type": "object",
         "required": [
           "id",
@@ -3497,7 +3554,7 @@
         },
         "title": "AiSuggestionItem"
       },
-      "def-94": {
+      "def-97": {
         "type": "object",
         "required": [
           "suggestions",
@@ -3508,7 +3565,7 @@
           "suggestions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-93"
+              "$ref": "#/components/schemas/def-96"
             },
             "description": "Generated items for the requested category (post-filtered to match the path category)."
           },
@@ -3524,7 +3581,7 @@
         },
         "title": "AiSuggestionsResponse"
       },
-      "def-95": {
+      "def-98": {
         "type": "object",
         "required": [
           "planId",
@@ -3547,7 +3604,7 @@
         },
         "title": "CategoryParam"
       },
-      "def-96": {
+      "def-99": {
         "type": "object",
         "properties": {
           "id": {
@@ -3684,14 +3741,14 @@
         ],
         "title": "AiUsageLog"
       },
-      "def-97": {
+      "def-100": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-96"
+          "$ref": "#/components/schemas/def-99"
         },
         "title": "AiUsageLogList"
       },
-      "def-98": {
+      "def-101": {
         "type": "object",
         "properties": {
           "featureType": {
@@ -3714,7 +3771,7 @@
         ],
         "title": "AiUsageFeatureSummary"
       },
-      "def-99": {
+      "def-102": {
         "type": "object",
         "properties": {
           "modelId": {
@@ -3737,7 +3794,7 @@
         ],
         "title": "AiUsageModelSummary"
       },
-      "def-100": {
+      "def-103": {
         "type": "object",
         "properties": {
           "totalRequests": {
@@ -3760,13 +3817,13 @@
           "byFeature": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-98"
+              "$ref": "#/components/schemas/def-101"
             }
           },
           "byModel": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-99"
+              "$ref": "#/components/schemas/def-102"
             }
           }
         },
@@ -3779,7 +3836,7 @@
         ],
         "title": "AiUsageSummary"
       },
-      "def-101": {
+      "def-104": {
         "type": "object",
         "properties": {
           "planId": {
@@ -3834,19 +3891,19 @@
         },
         "title": "AiUsageQuery"
       },
-      "def-102": {
+      "def-105": {
         "type": "object",
         "description": "Paginated AI usage logs with aggregated summary. Admin only.",
         "properties": {
           "logs": {
-            "$ref": "#/components/schemas/def-97"
+            "$ref": "#/components/schemas/def-100"
           },
           "total": {
             "type": "integer",
             "description": "Total count of records matching filters (for pagination)"
           },
           "summary": {
-            "$ref": "#/components/schemas/def-100"
+            "$ref": "#/components/schemas/def-103"
           }
         },
         "required": [
@@ -3856,7 +3913,7 @@
         ],
         "title": "AiUsageResponse"
       },
-      "def-103": {
+      "def-106": {
         "type": "object",
         "properties": {
           "toolName": {
@@ -3890,7 +3947,7 @@
         ],
         "title": "ToolCallDetail"
       },
-      "def-104": {
+      "def-107": {
         "type": "object",
         "properties": {
           "id": {
@@ -3961,7 +4018,7 @@
             "type": "array",
             "nullable": true,
             "items": {
-              "$ref": "#/components/schemas/def-103"
+              "$ref": "#/components/schemas/def-106"
             },
             "description": "Per-tool details: args, result/error, and duration"
           },
@@ -4022,14 +4079,14 @@
         ],
         "title": "ChatbotAiUsageLog"
       },
-      "def-105": {
+      "def-108": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/def-104"
+          "$ref": "#/components/schemas/def-107"
         },
         "title": "ChatbotAiUsageLogList"
       },
-      "def-106": {
+      "def-109": {
         "type": "object",
         "properties": {
           "modelId": {
@@ -4052,7 +4109,7 @@
         ],
         "title": "ChatbotAiUsageModelSummary"
       },
-      "def-107": {
+      "def-110": {
         "type": "object",
         "properties": {
           "chatType": {
@@ -4075,7 +4132,7 @@
         ],
         "title": "ChatbotAiUsageChatTypeSummary"
       },
-      "def-108": {
+      "def-111": {
         "type": "object",
         "properties": {
           "toolName": {
@@ -4093,7 +4150,7 @@
         ],
         "title": "ChatbotAiUsageToolCallSummary"
       },
-      "def-109": {
+      "def-112": {
         "type": "object",
         "properties": {
           "totalRequests": {
@@ -4116,19 +4173,19 @@
           "byModel": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-106"
+              "$ref": "#/components/schemas/def-109"
             }
           },
           "byChatType": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-107"
+              "$ref": "#/components/schemas/def-110"
             }
           },
           "byToolCalls": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/def-108"
+              "$ref": "#/components/schemas/def-111"
             }
           }
         },
@@ -4142,7 +4199,7 @@
         ],
         "title": "ChatbotAiUsageSummary"
       },
-      "def-110": {
+      "def-113": {
         "type": "object",
         "properties": {
           "userId": {
@@ -4197,19 +4254,19 @@
         },
         "title": "ChatbotAiUsageQuery"
       },
-      "def-111": {
+      "def-114": {
         "type": "object",
         "description": "Paginated chatbot AI usage with aggregates. Admin only. Table is written by the chatbot service.",
         "properties": {
           "logs": {
-            "$ref": "#/components/schemas/def-105"
+            "$ref": "#/components/schemas/def-108"
           },
           "total": {
             "type": "integer",
             "description": "Total rows matching filters (for pagination)"
           },
           "summary": {
-            "$ref": "#/components/schemas/def-109"
+            "$ref": "#/components/schemas/def-112"
           }
         },
         "required": [
@@ -4219,7 +4276,7 @@
         ],
         "title": "ChatbotAiUsageResponse"
       },
-      "def-112": {
+      "def-115": {
         "type": "object",
         "description": "Plan tag taxonomy served as a static versioned JSON file.\nLabels are bilingual objects `{ en, he }` — pick the active locale at render time.\nAll `id` values are stable slugs safe to persist as tag values.\n\n**Rendering order:** tier1 → universal_flags → tier2_axes (filtered by chosen tier1) → tier3 (drill-down per chosen tier2 value).\n\n**Selection summary:** Read `selection_by_tier` for explicit single vs multi per tier and per flag/axis. Nested objects remain authoritative (`tier1.select`, each flag/axis `select`, `tier3.default_select` + `multi_select_parents`).",
         "required": [
@@ -8229,7 +8286,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/def-92"
+                "$ref": "#/components/schemas/def-95"
               }
             }
           }
@@ -8274,7 +8331,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/def-94"
+                  "$ref": "#/components/schemas/def-97"
                 }
               }
             }
@@ -8442,7 +8499,7 @@
               "application/json": {
                 "schema": {
                   "description": "Paginated logs, total count for the current filters, and summary aggregates",
-                  "$ref": "#/components/schemas/def-102"
+                  "$ref": "#/components/schemas/def-105"
                 }
               }
             }
@@ -8588,7 +8645,7 @@
               "application/json": {
                 "schema": {
                   "description": "Paginated logs, total count for filters, and summary aggregates",
-                  "$ref": "#/components/schemas/def-111"
+                  "$ref": "#/components/schemas/def-114"
                 }
               }
             }
@@ -8643,7 +8700,7 @@
               "application/json": {
                 "schema": {
                   "description": "Full plan tag taxonomy",
-                  "$ref": "#/components/schemas/def-112"
+                  "$ref": "#/components/schemas/def-115"
                 }
               }
             }
@@ -9211,6 +9268,103 @@
         }
       }
     },
+    "/api/internal/items/{itemId}/assign": {
+      "patch": {
+        "summary": "Assign item to a participant",
+        "tags": [
+          "internal"
+        ],
+        "description": "Owner can assign (or reassign) any item to any participant on the plan. Participant can only self-assign an item that has no existing assignments. Headers: x-service-key (service auth) and x-user-id (caller's Supabase UUID). The assigned entry is upserted into assignmentStatusList with status pending.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-90"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "itemId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item assigned. Returns item id, name, and assignedParticipantId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Item assigned. Returns item id, name, and assignedParticipantId.",
+                  "$ref": "#/components/schemas/def-92"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation error.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing `x-user-id` or `x-service-key` missing/invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Missing `x-user-id` or `x-service-key` missing/invalid.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller not a participant; viewer role; participant tried to assign to another; participant tried to assign an already-assigned item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Caller not a participant; viewer role; participant tried to assign to another; participant tried to assign an already-assigned item.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found or target participant not on this plan.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Item not found or target participant not on this plan.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error while assigning item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Unexpected error while assigning item.",
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/internal/plan-tags": {
       "get": {
         "summary": "Get plan tag taxonomy for chatbot",
@@ -9225,7 +9379,7 @@
               "application/json": {
                 "schema": {
                   "description": "Full plan tag taxonomy",
-                  "$ref": "#/components/schemas/def-112"
+                  "$ref": "#/components/schemas/def-115"
                 }
               }
             }
